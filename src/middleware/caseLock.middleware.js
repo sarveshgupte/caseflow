@@ -77,7 +77,7 @@ const lockCase = async (caseId, userEmail) => {
     caseData.lockStatus = {
       isLocked: true,
       activeUserEmail: userEmail.toLowerCase(),
-      lockedAt: Date.now(),
+      lockedAt: new Date(),
     };
     
     await caseData.save();

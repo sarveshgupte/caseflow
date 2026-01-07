@@ -320,7 +320,7 @@ const cloneCase = async (req, res) => {
         const originalPath = attachment.filePath;
         const fileExt = path.extname(attachment.fileName);
         const newFileName = `${Date.now()}-${Math.random().toString(36).substring(7)}${fileExt}`;
-        const newFilePath = path.join('uploads', newFileName);
+        const newFilePath = path.join(__dirname, '../../uploads', newFileName);
         
         // Copy the actual file
         await fs.copyFile(originalPath, newFilePath);
@@ -659,7 +659,7 @@ const lockCaseEndpoint = async (req, res) => {
     caseData.lockStatus = {
       isLocked: true,
       activeUserEmail: userEmail.toLowerCase(),
-      lockedAt: Date.now(),
+      lockedAt: new Date(),
     };
     
     await caseData.save();

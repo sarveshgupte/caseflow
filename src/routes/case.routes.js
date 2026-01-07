@@ -15,7 +15,6 @@ const {
   lockCaseEndpoint,
   unlockCaseEndpoint,
 } = require('../controllers/case.controller');
-const { checkCaseLock } = require('../middleware/caseLock.middleware');
 
 /**
  * Configure multer for file uploads
