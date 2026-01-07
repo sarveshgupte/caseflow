@@ -1,4 +1,4 @@
-const Case = require('../models/Case');
+const Case = require('../models/Case.model');
 const Task = require('../models/Task');
 
 /**
