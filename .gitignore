@@ -5,6 +5,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.production
 
 # Logs
 logs
@@ -31,6 +32,8 @@ coverage
 # Build files
 dist/
 build/
+ui/dist/
+ui/build/
 
 # IDE
 .vscode/

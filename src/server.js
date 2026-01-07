@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const path = require('path');
 const connectDB = require('./config/database');
 const config = require('./config/config');
 
@@ -25,14 +27,51 @@ const reportsRoutes = require('./routes/reports.routes');  // Reports routes
  * Backend API Server
  */
 
+// Environment variable validation
+const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
+const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
+if (missingEnvVars.length > 0) {
+  console.error(`❌ Error: Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  console.error('Please ensure these variables are set in your .env file or environment.');
+  process.exit(1);
+}
+
 // Initialize Express app
 const app = express();
+
+// Detect production mode
+const isProduction = process.env.NODE_ENV === 'production';
 
 // Connect to MongoDB
 connectDB();
 
+// Security Headers - Helmet
+if (isProduction) {
+  // In production, use helmet with content security policy for serving static files
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disable CSP since we're serving a React SPA
+    crossOriginEmbedderPolicy: false
+  }));
+} else {
+  // In development, use basic helmet
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
+  }));
+}
+
+// CORS Configuration
+const corsOptions = {
+  origin: isProduction 
+    ? process.env.FRONTEND_URL || false  // In production, require explicit FRONTEND_URL or block all
+    : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5000'],  // Development origins
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
@@ -78,6 +117,19 @@ app.use('/api/search', authenticate, searchRoutes);
 app.use('/api/worklists', authenticate, searchRoutes);
 app.use('/api/client-approval', authenticate, clientApprovalRoutes);
 app.use('/api/reports', reportsRoutes);  // Reports routes (authentication handled in routes file)
+
+// Serve static files in production
+if (isProduction) {
+  const uiBuildPath = path.join(__dirname, '..', 'ui', 'dist');
+  
+  // Serve static files from UI build directory
+  app.use(express.static(uiBuildPath));
+  
+  // SPA fallback - serve index.html for all non-API routes
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(uiBuildPath, 'index.html'));
+  });
+}
 
 // Error handling
 app.use(notFound);
