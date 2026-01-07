@@ -1,0 +1,38 @@
+/**
+ * Profile Page Styles
+ */
+
+.profile {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.profile__header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.profile__header h1 {
+  color: var(--text-primary);
+  font-size: var(--font-size-2xl);
+  margin-bottom: var(--spacing-sm);
+}
+
+.profile__section {
+  padding: var(--spacing-lg);
+}
+
+.profile__info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-sm);
+}
+
+.profile__actions {
+  border-top: var(--border-subtle);
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+}

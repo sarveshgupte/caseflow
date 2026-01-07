@@ -1,0 +1,81 @@
+/**
+ * Router Configuration
+ */
+
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { LoginPage } from './pages/LoginPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { WorklistPage } from './pages/WorklistPage';
+import { CaseDetailPage } from './pages/CaseDetailPage';
+import { CreateCasePage } from './pages/CreateCasePage';
+import { ProfilePage } from './pages/ProfilePage';
+import { AdminPage } from './pages/AdminPage';
+
+export const Router = () => {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/worklist"
+          element={
+            <ProtectedRoute>
+              <WorklistPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/cases/:caseId"
+          element={
+            <ProtectedRoute>
+              <CaseDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/cases/create"
+          element={
+            <ProtectedRoute>
+              <CreateCasePage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute requireAdmin>
+              <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};

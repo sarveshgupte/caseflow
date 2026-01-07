@@ -1,0 +1,30 @@
+/**
+ * Worklist Page Styles
+ */
+
+.worklist {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.worklist__header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.worklist__header h1 {
+  color: var(--text-primary);
+  font-size: var(--font-size-2xl);
+  margin-bottom: var(--spacing-sm);
+}
+
+.worklist__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.worklist__empty {
+  padding: var(--spacing-2xl);
+  text-align: center;
+}

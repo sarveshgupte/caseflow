@@ -1,0 +1,28 @@
+/**
+ * Login Page Styles
+ */
+
+.login-page {
+  align-items: center;
+  background: var(--surface-base);
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--spacing-lg);
+}
+
+.login-card {
+  max-width: 450px;
+  width: 100%;
+}
+
+.login-header {
+  margin-bottom: var(--spacing-xl);
+  text-align: center;
+}
+
+.login-header h1 {
+  color: var(--text-primary);
+  font-size: var(--font-size-2xl);
+  margin-bottom: var(--spacing-sm);
+}

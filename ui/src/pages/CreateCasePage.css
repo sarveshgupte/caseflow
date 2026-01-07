@@ -1,0 +1,49 @@
+/**
+ * Create Case Page Styles
+ */
+
+.create-case {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.create-case__header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.create-case__header h1 {
+  color: var(--text-primary);
+  font-size: var(--font-size-2xl);
+  margin-bottom: var(--spacing-sm);
+}
+
+.create-case__actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+  margin-top: var(--spacing-lg);
+}
+
+.create-case__duplicate-warning {
+  padding: var(--spacing-lg);
+}
+
+.create-case__matched-fields {
+  background: var(--surface-inset);
+  border-radius: var(--border-radius);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+}
+
+.create-case__matched-fields ul {
+  list-style: disc;
+  margin-left: var(--spacing-lg);
+  margin-top: var(--spacing-sm);
+}
+
+.create-case__duplicate-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+  margin-top: var(--spacing-lg);
+}

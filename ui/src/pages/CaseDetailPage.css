@@ -1,0 +1,77 @@
+/**
+ * Case Detail Page Styles
+ */
+
+.case-detail {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.case-detail__header {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-xl);
+}
+
+.case-detail__header h1 {
+  color: var(--text-primary);
+  font-size: var(--font-size-2xl);
+  margin-bottom: var(--spacing-xs);
+}
+
+.case-detail__grid {
+  display: grid;
+  gap: var(--spacing-lg);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  margin-bottom: var(--spacing-lg);
+}
+
+.case-detail__section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.case-detail__field {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-sm);
+  padding: var(--spacing-sm) 0;
+}
+
+.case-detail__label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.case-detail__comments {
+  margin-bottom: var(--spacing-lg);
+}
+
+.case-detail__comment-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-xs);
+}
+
+.case-detail__comment-author {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.case-detail__comment-text {
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin-top: var(--spacing-xs);
+}
+
+.case-detail__add-comment {
+  border-top: var(--border-subtle);
+  padding-top: var(--spacing-lg);
+}
+
+.case-detail__attachment,
+.case-detail__audit-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
