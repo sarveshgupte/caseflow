@@ -100,8 +100,7 @@ const userSchema = new mongoose.Schema({
 });
 
 // Indexes for performance
-userSchema.index({ xID: 1 });
-userSchema.index({ email: 1 });
+// Note: xID and email already have unique indexes from schema definition (unique: true)
 userSchema.index({ isActive: 1 });
 userSchema.index({ role: 1 });
 

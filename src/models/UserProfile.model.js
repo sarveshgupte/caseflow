@@ -62,6 +62,6 @@ userProfileSchema.pre('save', function(next) {
 });
 
 // Index for performance
-userProfileSchema.index({ xID: 1 });
+// Note: xID already has unique index from schema definition (unique: true)
 
 module.exports = mongoose.model('UserProfile', userProfileSchema);
