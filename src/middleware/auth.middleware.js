@@ -14,6 +14,7 @@ const User = require('../models/User.model');
  * Checks for xID in body, query, or headers
  * Verifies user exists and is active
  * Attaches user document to req.user
+ * Special case: allows password changes for users with mustChangePassword flag
  */
 const authenticate = async (req, res, next) => {
   try {
@@ -41,6 +42,19 @@ const authenticate = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message: 'Account is deactivated. Please contact administrator.',
+      });
+    }
+    
+    // Special case: allow change-password endpoint even if mustChangePassword is true
+    // Check if this is the change-password endpoint
+    const isChangePasswordEndpoint = req.path.endsWith('/change-password');
+    
+    // Block access to other routes if password change is required
+    if (user.mustChangePassword && !isChangePasswordEndpoint) {
+      return res.status(403).json({
+        success: false,
+        message: 'You must change your password before accessing other resources.',
+        mustChangePassword: true,
       });
     }
     

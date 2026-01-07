@@ -28,6 +28,14 @@ const ADMIN_XID = 'X000001';
 
 const seedAdmin = async () => {
   try {
+    // Check if seeding is enabled
+    if (process.env.SEED_ADMIN !== 'true') {
+      console.log('ℹ Admin seeding is disabled.');
+      console.log('  To enable admin seeding, set SEED_ADMIN=true in your environment.');
+      console.log('  This prevents accidental password resets on deploy.');
+      return;
+    }
+
     // Connect to MongoDB
     console.log('Connecting to MongoDB...');
     await mongoose.connect(process.env.MONGODB_URI);
@@ -89,9 +97,11 @@ const seedAdmin = async () => {
     console.error(error);
     process.exit(1);
   } finally {
-    // Close the database connection
-    await mongoose.connection.close();
-    console.log('\n✓ Database connection closed');
+    // Close the database connection if connected
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+      console.log('\n✓ Database connection closed');
+    }
     process.exit(0);
   }
 };

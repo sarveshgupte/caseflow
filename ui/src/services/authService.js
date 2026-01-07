@@ -18,6 +18,7 @@ export const authService = {
       localStorage.setItem(STORAGE_KEYS.X_ID, userData.xID);
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
     }
+    // Don't store anything if login fails or requires password change
     
     return response.data;
   },
@@ -39,6 +40,18 @@ export const authService = {
    */
   changePassword: async (currentPassword, newPassword) => {
     const response = await api.post('/auth/change-password', {
+      currentPassword,
+      newPassword,
+    });
+    return response.data;
+  },
+
+  /**
+   * Change password with xID (for users with mustChangePassword flag)
+   */
+  changePasswordWithXID: async (xID, currentPassword, newPassword) => {
+    const response = await api.post('/auth/change-password', {
+      xID,
       currentPassword,
       newPassword,
     });

@@ -95,7 +95,7 @@ const login = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: 'Password has expired. Please change your password.',
-        requirePasswordChange: true,
+        mustChangePassword: true,
       });
     }
     
@@ -104,7 +104,7 @@ const login = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: 'You must change your password before continuing.',
-        requirePasswordChange: true,
+        mustChangePassword: true,
       });
     }
     
