@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const { requireAdmin } = require('../middleware/permission.middleware');
+const { updateUserStatus } = require('../controllers/auth.controller');
 const {
   getUsers,
   getUserById,
@@ -24,6 +26,9 @@ router.post('/', createUser);
 
 // PUT /api/users/:id - Update user
 router.put('/:id', updateUser);
+
+// PATCH /api/users/:xID/status - Update user status (Admin only)
+router.patch('/:xID/status', requireAdmin, updateUserStatus);
 
 // DELETE /api/users/:id - Deactivate user
 router.delete('/:id', deleteUser);

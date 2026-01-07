@@ -12,6 +12,10 @@ const {
   createUser,
   activateUser,
   deactivateUser,
+  setPassword,
+  resendSetupEmail,
+  updateUserStatus,
+  unlockAccount,
 } = require('../controllers/auth.controller');
 
 /**
@@ -21,8 +25,9 @@ const {
  * Login endpoint is PUBLIC, all other endpoints require authentication
  */
 
-// Public authentication endpoint - NO authentication required
+// Public authentication endpoints - NO authentication required
 router.post('/login', login);
+router.post('/set-password', setPassword);
 
 // Protected authentication endpoints - require authentication
 router.post('/logout', authenticate, logout);
@@ -34,6 +39,8 @@ router.put('/profile', authenticate, updateProfile);
 
 // Admin-only endpoints - require authentication and admin role
 router.post('/reset-password', authenticate, requireAdmin, resetPassword);
+router.post('/resend-setup-email', authenticate, requireAdmin, resendSetupEmail);
+router.post('/unlock-account', authenticate, requireAdmin, unlockAccount);
 router.post('/admin/users', authenticate, requireAdmin, createUser);
 router.put('/admin/users/:xID/activate', authenticate, requireAdmin, activateUser);
 router.put('/admin/users/:xID/deactivate', authenticate, requireAdmin, deactivateUser);

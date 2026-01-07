@@ -14,6 +14,23 @@ export const adminService = {
   },
 
   /**
+   * Get all users (Admin only)
+   */
+  getUsers: async (params = {}) => {
+    const queryParams = new URLSearchParams(params).toString();
+    const response = await api.get(`/users${queryParams ? '?' + queryParams : ''}`);
+    return response.data;
+  },
+
+  /**
+   * Update user status (Admin only)
+   */
+  updateUserStatus: async (xID, active) => {
+    const response = await api.patch(`/users/${xID}/status`, { active });
+    return response.data;
+  },
+
+  /**
    * Activate user (Admin only)
    */
   activateUser: async (xID) => {
@@ -34,6 +51,22 @@ export const adminService = {
    */
   resetPassword: async (xID) => {
     const response = await api.post('/auth/reset-password', { xID });
+    return response.data;
+  },
+
+  /**
+   * Resend password setup email (Admin only)
+   */
+  resendSetupEmail: async (xID) => {
+    const response = await api.post('/auth/resend-setup-email', { xID });
+    return response.data;
+  },
+
+  /**
+   * Unlock user account (Admin only)
+   */
+  unlockAccount: async (xID) => {
+    const response = await api.post('/auth/unlock-account', { xID });
     return response.data;
   },
 

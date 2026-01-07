@@ -17,6 +17,7 @@ const getUsers = async (req, res) => {
     if (isActive !== undefined) query.isActive = isActive === 'true';
     
     const users = await User.find(query)
+      .select('-passwordHash -passwordSetupTokenHash -passwordHistory')
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit))
       .sort({ createdAt: -1 });
@@ -25,7 +26,7 @@ const getUsers = async (req, res) => {
     
     res.json({
       success: true,
-      data: users.map(u => u.toSafeObject()),
+      data: users,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),

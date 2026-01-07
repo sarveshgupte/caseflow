@@ -59,6 +59,17 @@ export const authService = {
   },
 
   /**
+   * Set password using token from email
+   */
+  setPassword: async (token, password) => {
+    const response = await api.post('/auth/set-password', {
+      token,
+      password,
+    });
+    return response.data;
+  },
+
+  /**
    * Get user profile
    */
   getProfile: async () => {
