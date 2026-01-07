@@ -12,6 +12,8 @@ const {
   updateCaseStatus,
   getCaseByCaseId,
   getCases,
+  lockCaseEndpoint,
+  unlockCaseEndpoint,
 } = require('../controllers/case.controller');
 const { checkCaseLock } = require('../middleware/caseLock.middleware');
 
@@ -66,5 +68,11 @@ router.post('/:caseId/unpend', unpendCase);
 
 // PUT /api/cases/:caseId/status - Update case status
 router.put('/:caseId/status', updateCaseStatus);
+
+// POST /api/cases/:caseId/lock - Lock a case
+router.post('/:caseId/lock', lockCaseEndpoint);
+
+// POST /api/cases/:caseId/unlock - Unlock a case
+router.post('/:caseId/unlock', unlockCaseEndpoint);
 
 module.exports = router;

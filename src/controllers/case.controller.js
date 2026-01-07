@@ -619,6 +619,122 @@ const getCases = async (req, res) => {
   }
 };
 
+/**
+ * Lock a case
+ * POST /api/cases/:caseId/lock
+ */
+const lockCaseEndpoint = async (req, res) => {
+  try {
+    const { caseId } = req.params;
+    const { userEmail } = req.body;
+    
+    if (!userEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'User email is required',
+      });
+    }
+    
+    const caseData = await Case.findOne({ caseId });
+    
+    if (!caseData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
+    
+    // Check if already locked by another user
+    if (caseData.lockStatus.isLocked && 
+        caseData.lockStatus.activeUserEmail !== userEmail.toLowerCase()) {
+      return res.status(409).json({
+        success: false,
+        message: `Case is currently locked by ${caseData.lockStatus.activeUserEmail}`,
+        lockedBy: caseData.lockStatus.activeUserEmail,
+        lockedAt: caseData.lockStatus.lockedAt,
+      });
+    }
+    
+    // Lock the case
+    caseData.lockStatus = {
+      isLocked: true,
+      activeUserEmail: userEmail.toLowerCase(),
+      lockedAt: Date.now(),
+    };
+    
+    await caseData.save();
+    
+    res.json({
+      success: true,
+      data: caseData,
+      message: 'Case locked successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error locking case',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Unlock a case
+ * POST /api/cases/:caseId/unlock
+ */
+const unlockCaseEndpoint = async (req, res) => {
+  try {
+    const { caseId } = req.params;
+    const { userEmail } = req.body;
+    
+    if (!userEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'User email is required',
+      });
+    }
+    
+    const caseData = await Case.findOne({ caseId });
+    
+    if (!caseData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
+    
+    // Check if locked by this user
+    if (caseData.lockStatus.isLocked && 
+        caseData.lockStatus.activeUserEmail !== userEmail.toLowerCase()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only unlock cases that you have locked',
+      });
+    }
+    
+    // Unlock the case
+    caseData.lockStatus = {
+      isLocked: false,
+      activeUserEmail: null,
+      lockedAt: null,
+    };
+    
+    await caseData.save();
+    
+    res.json({
+      success: true,
+      data: caseData,
+      message: 'Case unlocked successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error unlocking case',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createCase,
   addComment,
@@ -628,4 +744,6 @@ module.exports = {
   updateCaseStatus,
   getCaseByCaseId,
   getCases,
+  lockCaseEndpoint,
+  unlockCaseEndpoint,
 };
