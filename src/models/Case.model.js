@@ -153,6 +153,33 @@ const caseSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  
+  /**
+   * Reference to Client ObjectId
+   * Links case to a client for tracking and reporting
+   * Optional - some cases may not have clients
+   */
+  clientId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Client',
+    required: false,
+  },
+  
+  /**
+   * Snapshot of client data at case creation
+   * Stores immutable client information for audit trail
+   * Even if client data changes later, this preserves the original state
+   * Automatically populated via pre-save hook when clientId is provided
+   */
+  clientSnapshot: {
+    clientId: String,      // CL-XXXX format
+    name: String,          // Client name at time of case creation
+    contactInfo: {
+      email: String,
+      phone: String,
+      address: String,
+    },
+  },
 }, {
   // Automatic timestamp management for audit trail
   timestamps: true,
@@ -221,6 +248,25 @@ caseSchema.pre('save', async function(next) {
       return next(error);
     }
   }
+  
+  // If this is a new case and clientId is provided, fetch and snapshot the client
+  // This preserves client data at the time of case creation for audit trail
+  if (this.isNew && this.clientId && !this.clientSnapshot) {
+    try {
+      const Client = mongoose.model('Client');
+      const client = await Client.findById(this.clientId).lean();
+      if (client) {
+        this.clientSnapshot = {
+          clientId: client.clientId,
+          name: client.name,
+          contactInfo: client.contactInfo,
+        };
+      }
+    } catch (error) {
+      return next(error);
+    }
+  }
+  
   next();
 });
 
@@ -232,10 +278,12 @@ caseSchema.pre('save', async function(next) {
  * - category: Access control and filtering by case type
  * - createdBy: Find cases created by specific user
  * - assignedTo: Find cases assigned to specific user
+ * - clientId: Find cases associated with a specific client
  */
 caseSchema.index({ status: 1, priority: 1 });
 caseSchema.index({ category: 1 });
 caseSchema.index({ createdBy: 1 });
 caseSchema.index({ assignedTo: 1 });
+caseSchema.index({ clientId: 1 });
 
 module.exports = mongoose.model('Case', caseSchema);
