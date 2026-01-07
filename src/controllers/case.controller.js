@@ -564,6 +564,7 @@ const getCaseByCaseId = async (req, res) => {
     const history = await CaseHistory.find({ caseId }).sort({ timestamp: -1 });
     
     // Fetch current client details
+    // TODO: Consider using aggregation pipeline with $lookup for better performance
     const client = await Client.findOne({ clientId: caseData.clientId, isActive: true });
     
     res.json({
@@ -621,6 +622,7 @@ const getCases = async (req, res) => {
       .sort({ createdAt: -1 });
     
     // Fetch client details for each case
+    // TODO: Optimize N+1 query - consider pre-fetching unique clientIds or using aggregation
     const casesWithClients = await Promise.all(
       cases.map(async (caseItem) => {
         const client = await Client.findOne({ clientId: caseItem.clientId, isActive: true });

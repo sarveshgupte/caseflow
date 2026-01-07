@@ -168,6 +168,11 @@ const clientSchema = new mongoose.Schema({
  * 
  * Note: This runs before validation, so clientId is available for unique constraint check
  * 
+ * LIMITATION: String-based sorting works correctly up to C999999. Beyond that,
+ * C1000000 would sort before C999999 in string order. For production systems
+ * expecting more than ~877,000 clients, consider using a dedicated counter collection
+ * or numeric-based sorting with zero-padding.
+ * 
  * LIMITATION: This implementation has a potential race condition with concurrent saves.
  * For production use with high concurrency, consider using MongoDB's findOneAndUpdate 
  * with atomic increment or a dedicated counter collection.
