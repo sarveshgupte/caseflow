@@ -42,3 +42,6 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Uploads
+uploads/

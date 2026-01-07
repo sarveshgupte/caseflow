@@ -125,6 +125,34 @@ const caseSchema = new mongoose.Schema({
     lowercase: true,
     trim: true,
   },
+  
+  /**
+   * Case locking mechanism for concurrency control
+   * Prevents multiple users from modifying the same case simultaneously
+   */
+  lockStatus: {
+    isLocked: {
+      type: Boolean,
+      default: false,
+    },
+    activeUserEmail: {
+      type: String,
+      lowercase: true,
+      trim: true,
+    },
+    lockedAt: {
+      type: Date,
+    },
+  },
+  
+  /**
+   * Client name - simple string field
+   * Not a model/reference, just a text field
+   */
+  clientName: {
+    type: String,
+    trim: true,
+  },
 }, {
   // Automatic timestamp management for audit trail
   timestamps: true,

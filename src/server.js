@@ -13,6 +13,7 @@ const notFound = require('./middleware/notFound');
 const userRoutes = require('./routes/users');
 const taskRoutes = require('./routes/tasks');
 const caseRoutes = require('./routes/cases');
+const newCaseRoutes = require('./routes/case.routes');  // New case routes
 
 /**
  * Caseflow - Task & Case Management System
@@ -58,7 +59,7 @@ app.get('/api', (req, res) => {
 
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
-app.use('/api/cases', caseRoutes);
+app.use('/api/cases', newCaseRoutes);  // Use new case routes
 
 // Error handling
 app.use(notFound);
