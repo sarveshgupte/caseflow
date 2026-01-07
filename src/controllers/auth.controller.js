@@ -139,21 +139,15 @@ const login = async (req, res) => {
  */
 const logout = async (req, res) => {
   try {
-    const { xID } = req.body;
-    
-    if (!xID) {
-      return res.status(400).json({
-        success: false,
-        message: 'xID is required',
-      });
-    }
+    // Get xID from authenticated user
+    const xID = req.user.xID;
     
     // Log logout
     await AuthAudit.create({
-      xID: xID.toUpperCase(),
+      xID: xID,
       actionType: 'Logout',
       description: `User logged out`,
-      performedBy: xID.toUpperCase(),
+      performedBy: xID,
       ipAddress: req.ip,
     });
     
@@ -176,24 +170,17 @@ const logout = async (req, res) => {
  */
 const changePassword = async (req, res) => {
   try {
-    const { xID, currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword } = req.body;
     
-    if (!xID || !currentPassword || !newPassword) {
+    if (!currentPassword || !newPassword) {
       return res.status(400).json({
         success: false,
-        message: 'xID, currentPassword, and newPassword are required',
+        message: 'currentPassword and newPassword are required',
       });
     }
     
-    // Find user
-    const user = await User.findOne({ xID: xID.toUpperCase() });
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
-    }
+    // Get user from authenticated request
+    const user = req.user;
     
     // Verify current password
     const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
@@ -277,23 +264,17 @@ const changePassword = async (req, res) => {
  */
 const resetPassword = async (req, res) => {
   try {
-    const { xID, adminXID } = req.body;
+    const { xID } = req.body;
     
-    if (!xID || !adminXID) {
+    if (!xID) {
       return res.status(400).json({
         success: false,
-        message: 'xID and adminXID are required',
+        message: 'xID is required',
       });
     }
     
-    // Verify admin
-    const admin = await User.findOne({ xID: adminXID.toUpperCase() });
-    if (!admin || admin.role !== 'Admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required',
-      });
-    }
+    // Get admin from authenticated request
+    const admin = req.user;
     
     // Find user to reset
     const user = await User.findOne({ xID: xID.toUpperCase() });
@@ -347,28 +328,11 @@ const resetPassword = async (req, res) => {
  */
 const getProfile = async (req, res) => {
   try {
-    const xID = req.body.xID || req.query.xID || req.headers['x-user-id'];
-    
-    if (!xID) {
-      return res.status(400).json({
-        success: false,
-        message: 'xID is required',
-      });
-    }
-    
-    // Get user info
-    const user = await User.findOne({ xID: xID.toUpperCase() })
-      .select('xID name email role allowedCategories isActive createdAt');
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
-    }
+    // Get user from authenticated request
+    const user = req.user;
     
     // Get profile info
-    let profile = await UserProfile.findOne({ xID: xID.toUpperCase() });
+    let profile = await UserProfile.findOne({ xID: user.xID });
     
     // If profile doesn't exist, create empty one
     if (!profile) {
@@ -416,31 +380,18 @@ const getProfile = async (req, res) => {
  */
 const updateProfile = async (req, res) => {
   try {
-    const xID = req.body.xID || req.query.xID || req.headers['x-user-id'];
     const { dob, phone, address, pan, aadhaar, email } = req.body;
     
-    if (!xID) {
-      return res.status(400).json({
-        success: false,
-        message: 'xID is required',
-      });
-    }
-    
-    // Verify user exists
-    const user = await User.findOne({ xID: xID.toUpperCase() });
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
-    }
+    // Get user from authenticated request
+    const user = req.user;
     
     // Find or create profile
-    let profile = await UserProfile.findOne({ xID: xID.toUpperCase() });
+    let profile = await UserProfile.findOne({ xID: user.xID });
+    
+    const oldProfile = profile ? { ...profile.toObject() } : {};
     
     if (!profile) {
-      profile = new UserProfile({ xID: xID.toUpperCase() });
+      profile = new UserProfile({ xID: user.xID });
     }
     
     // Update only provided fields
@@ -453,13 +404,24 @@ const updateProfile = async (req, res) => {
     
     await profile.save();
     
-    // Log profile update
+    // Log profile update with old and new values
+    const changes = {};
+    if (dob !== undefined) changes.dob = { old: oldProfile.dob, new: dob };
+    if (phone !== undefined) changes.phone = { old: oldProfile.phone, new: phone };
+    if (address !== undefined) changes.address = { old: oldProfile.address, new: address };
+    if (pan !== undefined) changes.pan = { old: oldProfile.pan, new: pan };
+    if (aadhaar !== undefined) changes.aadhaar = { old: oldProfile.aadhaar, new: aadhaar };
+    if (email !== undefined) changes.email = { old: oldProfile.email, new: email };
+    
     await AuthAudit.create({
       xID: user.xID,
       actionType: 'ProfileUpdated',
       description: `User profile updated`,
       performedBy: user.xID,
       ipAddress: req.ip,
+      metadata: {
+        changes,
+      },
     });
     
     res.json({
@@ -482,23 +444,17 @@ const updateProfile = async (req, res) => {
  */
 const createUser = async (req, res) => {
   try {
-    const { xID, name, role, allowedCategories, email, adminXID } = req.body;
+    const { xID, name, role, allowedCategories, email } = req.body;
     
-    if (!xID || !name || !adminXID) {
+    if (!xID || !name) {
       return res.status(400).json({
         success: false,
-        message: 'xID, name, and adminXID are required',
+        message: 'xID and name are required',
       });
     }
     
-    // Verify admin
-    const admin = await User.findOne({ xID: adminXID.toUpperCase() });
-    if (!admin || admin.role !== 'Admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required',
-      });
-    }
+    // Get admin from authenticated request
+    const admin = req.user;
     
     // Check if user already exists
     const existingUser = await User.findOne({ xID: xID.toUpperCase() });
@@ -570,23 +526,9 @@ const createUser = async (req, res) => {
 const activateUser = async (req, res) => {
   try {
     const { xID } = req.params;
-    const { adminXID } = req.body;
     
-    if (!adminXID) {
-      return res.status(400).json({
-        success: false,
-        message: 'adminXID is required',
-      });
-    }
-    
-    // Verify admin
-    const admin = await User.findOne({ xID: adminXID.toUpperCase() });
-    if (!admin || admin.role !== 'Admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required',
-      });
-    }
+    // Get admin from authenticated request
+    const admin = req.user;
     
     // Find user
     const user = await User.findOne({ xID: xID.toUpperCase() });
@@ -631,23 +573,9 @@ const activateUser = async (req, res) => {
 const deactivateUser = async (req, res) => {
   try {
     const { xID } = req.params;
-    const { adminXID } = req.body;
     
-    if (!adminXID) {
-      return res.status(400).json({
-        success: false,
-        message: 'adminXID is required',
-      });
-    }
-    
-    // Verify admin
-    const admin = await User.findOne({ xID: adminXID.toUpperCase() });
-    if (!admin || admin.role !== 'Admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required',
-      });
-    }
+    // Get admin from authenticated request
+    const admin = req.user;
     
     // Find user
     const user = await User.findOne({ xID: xID.toUpperCase() });

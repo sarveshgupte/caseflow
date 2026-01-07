@@ -28,6 +28,21 @@ const caseSchema = new mongoose.Schema({
   },
   
   /**
+   * Deterministic case name - PRIMARY external identifier
+   * Format: caseYYYYMMDDxxxxx (e.g., case2026010700001)
+   * Generated automatically at case creation
+   * Unique, immutable, resets daily
+   * PART E - Deterministic Case Naming
+   */
+  caseName: {
+    type: String,
+    unique: true,
+    required: true,
+    trim: true,
+    immutable: true,
+  },
+  
+  /**
    * Brief description of the case/matter
    * Required field to ensure cases are properly identified
    */
@@ -203,22 +218,30 @@ caseSchema.virtual('isReadOnly').get(function() {
 });
 
 /**
- * Pre-save Hook: Auto-generate caseId
+ * Pre-save Hook: Auto-generate caseId and caseName
  * 
  * Generates sequential human-readable IDs in format DCK-XXXX
- * Algorithm:
+ * Generates deterministic case names in format caseYYYYMMDDxxxxx
+ * 
+ * Algorithm for caseId:
  * 1. Find the highest existing caseId number
  * 2. Increment by 1
  * 3. Format as DCK- prefix + 4-digit zero-padded number
  * 
- * Note: This runs before validation, so caseId is available for unique constraint check
+ * Algorithm for caseName:
+ * 1. Get current date (YYYYMMDD)
+ * 2. Find highest sequence for today
+ * 3. Increment by 1
+ * 4. Format as case + YYYYMMDD + 5-digit zero-padded sequence
+ * 
+ * Note: This runs before validation, so IDs are available for unique constraint check
  * 
  * LIMITATION: This implementation has a potential race condition with concurrent saves.
  * For production use with high concurrency, consider using MongoDB's findOneAndUpdate 
  * with atomic increment or a dedicated counter collection.
  */
 caseSchema.pre('save', async function(next) {
-  // Only generate caseId if it's not already set (for new documents)
+  // Only generate IDs if they're not already set (for new documents)
   if (!this.caseId) {
     try {
       // Find the case with the highest caseId number
@@ -241,6 +264,16 @@ caseSchema.pre('save', async function(next) {
       
       // Format as DCK-XXXX with zero-padding to 4 digits
       this.caseId = `DCK-${nextNumber.toString().padStart(4, '0')}`;
+    } catch (error) {
+      return next(error);
+    }
+  }
+  
+  // Generate caseName if not set
+  if (!this.caseName) {
+    try {
+      const { generateCaseName } = require('../services/caseNameGenerator');
+      this.caseName = await generateCaseName();
     } catch (error) {
       return next(error);
     }
@@ -276,6 +309,7 @@ caseSchema.pre('save', async function(next) {
  * Performance Indexes
  * 
  * - caseId: Unique index (automatic from schema definition with unique: true)
+ * - caseName: Unique index (automatic from schema definition with unique: true)
  * - status + priority: Common filter combination for listing cases
  * - category: Access control and filtering by case type
  * - createdBy: Find cases created by specific user

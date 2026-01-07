@@ -3,17 +3,20 @@ const Comment = require('../models/Comment.model');
 const Attachment = require('../models/Attachment.model');
 const CaseHistory = require('../models/CaseHistory.model');
 const Client = require('../models/Client.model');
+const { detectDuplicates, generateDuplicateOverrideComment } = require('../services/clientDuplicateDetector');
 const fs = require('fs').promises;
 const path = require('path');
 
 /**
  * Case Controller for Core Case APIs
  * Handles case creation, comments, attachments, cloning, unpending, and status updates
+ * PART F - Duplicate client detection for "Client – New" cases
  */
 
 /**
  * Create a new case
  * POST /api/cases
+ * PART F - Duplicate detection for "Client – New" category
  */
 const createCase = async (req, res) => {
   try {
@@ -25,6 +28,8 @@ const createCase = async (req, res) => {
       createdBy,
       priority,
       assignedTo,
+      forceCreate, // Flag to override duplicate warning
+      clientData, // Client data for duplicate detection (for "Client – New" cases)
     } = req.body;
     
     // Validate required fields
@@ -66,6 +71,51 @@ const createCase = async (req, res) => {
       });
     }
     
+    // PART F: Duplicate detection for "Client – New" category
+    let duplicateMatches = null;
+    let systemComment = null;
+    
+    if (category === 'Client – New' || category === 'Client - New') {
+      // Detect duplicates using client data
+      // If clientData is not provided, use existing client data
+      const dataToCheck = clientData || {
+        businessName: client.businessName,
+        businessAddress: client.businessAddress,
+        businessPhone: client.businessPhone,
+        businessEmail: client.businessEmail,
+        PAN: client.PAN,
+        GST: client.GST,
+        CIN: client.CIN,
+      };
+      
+      const duplicateResult = await detectDuplicates(dataToCheck);
+      
+      if (duplicateResult.hasDuplicates) {
+        // Filter out the current client from matches (if checking against existing client)
+        duplicateMatches = duplicateResult.matches.filter(
+          match => match.clientId !== clientId
+        );
+        
+        if (duplicateMatches.length > 0) {
+          // If forceCreate is not set, return 409 with match details
+          if (!forceCreate) {
+            return res.status(409).json({
+              success: false,
+              message: 'Possible duplicate client detected',
+              duplicates: {
+                matchCount: duplicateMatches.length,
+                matches: duplicateMatches,
+              },
+              hint: 'Set forceCreate=true to proceed anyway',
+            });
+          }
+          
+          // If forceCreate is set, generate system comment
+          systemComment = generateDuplicateOverrideComment(duplicateMatches);
+        }
+      }
+    }
+    
     // Create new case with defaults
     const newCase = new Case({
       title,
@@ -88,10 +138,24 @@ const createCase = async (req, res) => {
       performedBy: createdBy.toLowerCase(),
     });
     
+    // Add system comment if duplicate was overridden
+    if (systemComment) {
+      await Comment.create({
+        caseId: newCase.caseId,
+        text: systemComment,
+        createdBy: 'system',
+        note: 'Automated duplicate detection notice',
+      });
+    }
+    
     res.status(201).json({
       success: true,
       data: newCase,
       message: 'Case created successfully',
+      duplicateWarning: systemComment ? {
+        message: 'Case created with duplicate warning',
+        matchCount: duplicateMatches.length,
+      } : null,
     });
   } catch (error) {
     res.status(400).json({

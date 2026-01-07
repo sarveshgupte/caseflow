@@ -8,6 +8,7 @@ const config = require('./config/config');
 const requestLogger = require('./middleware/requestLogger');
 const errorHandler = require('./middleware/errorHandler');
 const notFound = require('./middleware/notFound');
+const { authenticate } = require('./middleware/auth.middleware');
 
 // Routes
 const userRoutes = require('./routes/users');
@@ -64,13 +65,16 @@ app.get('/api', (req, res) => {
   });
 });
 
-app.use('/api/users', userRoutes);
-app.use('/api/tasks', taskRoutes);
-app.use('/api/cases', newCaseRoutes);  // Use new case routes
-app.use('/api/search', searchRoutes);  // Search endpoint
-app.use('/api/worklists', searchRoutes);  // Worklist endpoints
-app.use('/api/auth', authRoutes);  // Authentication endpoints
-app.use('/api/client-approval', clientApprovalRoutes);  // Client approval routes
+// Authentication routes (public - no authentication required for login)
+app.use('/api/auth', authRoutes);
+
+// Protected routes - require authentication
+app.use('/api/users', authenticate, userRoutes);
+app.use('/api/tasks', authenticate, taskRoutes);
+app.use('/api/cases', authenticate, newCaseRoutes);
+app.use('/api/search', authenticate, searchRoutes);
+app.use('/api/worklists', authenticate, searchRoutes);
+app.use('/api/client-approval', authenticate, clientApprovalRoutes);
 
 // Error handling
 app.use(notFound);

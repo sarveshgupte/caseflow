@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const { authenticate } = require('../middleware/auth.middleware');
+const { requireAdmin } = require('../middleware/permission.middleware');
 const {
   login,
   logout,
@@ -14,22 +16,26 @@ const {
 
 /**
  * Authentication and User Management Routes
- * PART B - xID-based Authentication & Identity Management
+ * PART A & B - xID-based Authentication & Identity Management
+ * 
+ * Login endpoint is PUBLIC, all other endpoints require authentication
  */
 
-// Authentication endpoints
+// Public authentication endpoint - NO authentication required
 router.post('/login', login);
-router.post('/logout', logout);
-router.post('/change-password', changePassword);
-router.post('/reset-password', resetPassword);
 
-// Profile endpoints
-router.get('/profile', getProfile);
-router.put('/profile', updateProfile);
+// Protected authentication endpoints - require authentication
+router.post('/logout', authenticate, logout);
+router.post('/change-password', authenticate, changePassword);
 
-// Admin user management endpoints
-router.post('/admin/users', createUser);
-router.put('/admin/users/:xID/activate', activateUser);
-router.put('/admin/users/:xID/deactivate', deactivateUser);
+// Profile endpoints - require authentication
+router.get('/profile', authenticate, getProfile);
+router.put('/profile', authenticate, updateProfile);
+
+// Admin-only endpoints - require authentication and admin role
+router.post('/reset-password', authenticate, requireAdmin, resetPassword);
+router.post('/admin/users', authenticate, requireAdmin, createUser);
+router.put('/admin/users/:xID/activate', authenticate, requireAdmin, activateUser);
+router.put('/admin/users/:xID/deactivate', authenticate, requireAdmin, deactivateUser);
 
 module.exports = router;
