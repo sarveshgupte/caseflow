@@ -146,23 +146,18 @@ const caseSchema = new mongoose.Schema({
   },
   
   /**
-   * Client name - simple string field
-   * Not a model/reference, just a text field
-   */
-  clientName: {
-    type: String,
-    trim: true,
-  },
-  
-  /**
-   * Reference to Client ObjectId
-   * Links case to a client for tracking and reporting
-   * Optional - some cases may not have clients
+   * Client ID - MANDATORY
+   * References a client by their immutable clientId (C123456 format)
+   * EVERY case MUST have a client - either a real client or the organization client
+   * 
+   * Format: String clientId (e.g., "C123456", "C654321")
+   * NOT an ObjectId reference - uses immutable client identifier
    */
   clientId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Client',
-    required: false,
+    type: String,
+    required: [true, 'Client ID is required - every case must have a client'],
+    trim: true,
+    index: true,
   },
   
   /**
@@ -172,13 +167,14 @@ const caseSchema = new mongoose.Schema({
    * Automatically populated via pre-save hook when clientId is provided
    */
   clientSnapshot: {
-    clientId: String,      // CL-XXXX format
-    name: String,          // Client name at time of case creation
-    contactInfo: {
-      email: String,
-      phone: String,
-      address: String,
-    },
+    clientId: String,           // C123456 format
+    businessName: String,        // Client name at time of case creation
+    businessPhone: String,
+    businessEmail: String,
+    businessAddress: String,
+    PAN: String,
+    GST: String,
+    CIN: String,
   },
 }, {
   // Automatic timestamp management for audit trail
@@ -254,12 +250,17 @@ caseSchema.pre('save', async function(next) {
   if (this.isNew && this.clientId && !this.clientSnapshot) {
     try {
       const Client = mongoose.model('Client');
-      const client = await Client.findById(this.clientId).lean();
+      const client = await Client.findOne({ clientId: this.clientId }).lean();
       if (client) {
         this.clientSnapshot = {
           clientId: client.clientId,
-          name: client.name,
-          contactInfo: client.contactInfo,
+          businessName: client.businessName,
+          businessPhone: client.businessPhone,
+          businessEmail: client.businessEmail,
+          businessAddress: client.businessAddress,
+          PAN: client.PAN,
+          GST: client.GST,
+          CIN: client.CIN,
         };
       }
     } catch (error) {

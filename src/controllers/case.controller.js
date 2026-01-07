@@ -20,7 +20,7 @@ const createCase = async (req, res) => {
       title,
       description,
       category,
-      clientName,
+      clientId,
       createdBy,
       priority,
       assignedTo,
@@ -41,10 +41,10 @@ const createCase = async (req, res) => {
       });
     }
     
-    if (!clientName) {
+    if (!clientId) {
       return res.status(400).json({
         success: false,
-        message: 'Client name is required',
+        message: 'Client ID is required - every case must have a client',
       });
     }
     
@@ -55,12 +55,23 @@ const createCase = async (req, res) => {
       });
     }
     
+    // Verify client exists
+    const Client = require('../models/Client.model');
+    const client = await Client.findOne({ clientId, isActive: true });
+    
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: `Client ${clientId} not found or inactive`,
+      });
+    }
+    
     // Create new case with defaults
     const newCase = new Case({
       title,
       description,
       category,
-      clientName,
+      clientId,
       createdBy: createdBy.toLowerCase(),
       priority: priority || 'Medium',
       status: 'Open',
@@ -73,7 +84,7 @@ const createCase = async (req, res) => {
     await CaseHistory.create({
       caseId: newCase.caseId,
       actionType: 'Created',
-      description: `Case created with status: Open`,
+      description: `Case created with status: Open, Client: ${clientId}`,
       performedBy: createdBy.toLowerCase(),
     });
     
@@ -286,7 +297,7 @@ const cloneCase = async (req, res) => {
       title: originalCase.title,
       description: originalCase.description,
       category: newCategory,
-      clientName: originalCase.clientName,
+      clientId: originalCase.clientId,
       priority: originalCase.priority,
       status: 'Open',
       pendingUntil: null,
@@ -552,10 +563,20 @@ const getCaseByCaseId = async (req, res) => {
     const attachments = await Attachment.find({ caseId }).sort({ createdAt: 1 });
     const history = await CaseHistory.find({ caseId }).sort({ timestamp: -1 });
     
+    // Fetch current client details
+    const Client = require('../models/Client.model');
+    const client = await Client.findOne({ clientId: caseData.clientId, isActive: true });
+    
     res.json({
       success: true,
       data: {
         case: caseData,
+        client: client ? {
+          clientId: client.clientId,
+          businessName: client.businessName,
+          businessPhone: client.businessPhone,
+          businessEmail: client.businessEmail,
+        } : null,
         comments,
         attachments,
         history,
@@ -582,6 +603,7 @@ const getCases = async (req, res) => {
       priority,
       assignedTo,
       createdBy,
+      clientId,
       page = 1,
       limit = 20,
     } = req.query;
@@ -592,17 +614,35 @@ const getCases = async (req, res) => {
     if (priority) query.priority = priority;
     if (assignedTo) query.assignedTo = assignedTo.toLowerCase();
     if (createdBy) query.createdBy = createdBy.toLowerCase();
+    if (clientId) query.clientId = clientId;
     
     const cases = await Case.find(query)
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit))
       .sort({ createdAt: -1 });
     
+    // Fetch client details for each case
+    const Client = require('../models/Client.model');
+    const casesWithClients = await Promise.all(
+      cases.map(async (caseItem) => {
+        const client = await Client.findOne({ clientId: caseItem.clientId, isActive: true });
+        return {
+          ...caseItem.toObject(),
+          client: client ? {
+            clientId: client.clientId,
+            businessName: client.businessName,
+            businessPhone: client.businessPhone,
+            businessEmail: client.businessEmail,
+          } : null,
+        };
+      })
+    );
+    
     const total = await Case.countDocuments(query);
     
     res.json({
       success: true,
-      data: cases,
+      data: casesWithClients,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
