@@ -22,6 +22,12 @@ const login = async (req, res) => {
     const { xID, password } = req.body;
     
     if (!xID || !password) {
+      console.warn('[AUTH] Missing credentials in login attempt', {
+        hasXID: !!xID,
+        hasPassword: !!password,
+        ip: req.ip,
+      });
+      
       return res.status(400).json({
         success: false,
         message: 'xID and password are required',
