@@ -1,6 +1,6 @@
-# Caseflow UI
+# Docketra UI
 
-Professional Neomorphic Web UI for Caseflow Backend
+Professional Neomorphic Web UI for Docketra Backend
 
 ## 🎨 Design System
 
@@ -16,7 +16,7 @@ This UI implements a professional, enterprise-grade neomorphic design system:
 ### Prerequisites
 
 - Node.js 14+ and npm/yarn
-- Caseflow backend running on http://localhost:3000
+- Docketra backend running on http://localhost:3000
 
 ### Installation
 

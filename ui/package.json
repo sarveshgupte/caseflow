@@ -1,7 +1,7 @@
 {
-  "name": "caseflow-ui",
+  "name": "docketra-ui",
   "version": "1.0.0",
-  "description": "Professional Neomorphic UI for Caseflow Backend",
+  "description": "Professional Neomorphic UI for Docketra Backend",
   "private": true,
   "dependencies": {
     "react": "^18.2.0",

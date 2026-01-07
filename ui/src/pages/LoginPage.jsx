@@ -132,7 +132,7 @@ export const LoginPage = () => {
     <div className="login-page">
       <Card className="login-card">
         <div className="login-header">
-          <h1>Caseflow</h1>
+          <h1>Docketra</h1>
           <p className="text-secondary">Case Management System</p>
         </div>
 

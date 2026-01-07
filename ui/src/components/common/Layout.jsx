@@ -29,7 +29,7 @@ export const Layout = ({ children }) => {
       <nav className="layout__nav">
         <div className="layout__nav-container">
           <div className="layout__brand">
-            <h1>Caseflow</h1>
+            <h1>Docketra</h1>
           </div>
           <div className="layout__nav-links">
             <Link
