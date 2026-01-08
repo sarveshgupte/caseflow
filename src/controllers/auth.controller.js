@@ -41,8 +41,14 @@ const login = async (req, res) => {
       });
     }
     
+    // Normalize xID by trimming whitespace before querying
+    const normalizedXID = xID.trim().toUpperCase();
+    
+    // TODO: TEMPORARY DEBUG LOG - Remove after debugging
+    console.log('Normalized xID:', normalizedXID);
+    
     // Find user by xID
-    const user = await User.findOne({ xID: xID.toUpperCase() });
+    const user = await User.findOne({ xID: normalizedXID });
     
     // TEMPORARY DIAGNOSTIC LOGS - Remove after debugging
     console.log('DB name:', mongoose.connection.name);
@@ -51,10 +57,10 @@ const login = async (req, res) => {
     if (!user) {
       // Log failed login attempt
       await AuthAudit.create({
-        xID: xID.toUpperCase(),
+        xID: normalizedXID,
         actionType: 'LoginFailed',
         description: `Login failed: User not found`,
-        performedBy: xID.toUpperCase(),
+        performedBy: normalizedXID,
         ipAddress: req.ip,
       });
       
