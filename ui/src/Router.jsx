@@ -12,6 +12,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { WorklistPage } from './pages/WorklistPage';
+import { GlobalWorklistPage } from './pages/GlobalWorklistPage';
 import { CaseDetailPage } from './pages/CaseDetailPage';
 import { CreateCasePage } from './pages/CreateCasePage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -43,6 +44,15 @@ export const Router = () => {
           element={
             <ProtectedRoute>
               <WorklistPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/global-worklist"
+          element={
+            <ProtectedRoute>
+              <GlobalWorklistPage />
             </ProtectedRoute>
           }
         />

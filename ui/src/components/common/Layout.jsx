@@ -39,6 +39,12 @@ export const Layout = ({ children }) => {
               Dashboard
             </Link>
             <Link
+              to="/global-worklist"
+              className={`layout__nav-link ${isActive('/global-worklist') ? 'active' : ''}`}
+            >
+              Global Worklist
+            </Link>
+            <Link
               to="/worklist"
               className={`layout__nav-link ${isActive('/worklist') ? 'active' : ''}`}
             >

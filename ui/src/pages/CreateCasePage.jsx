@@ -23,6 +23,7 @@ export const CreateCasePage = () => {
     caseSubCategory: '',
     title: '', // Optional field
     description: '',
+    slaDueDate: '', // SLA due date
   });
   const [clients, setClients] = useState([]);
   const [loadingClients, setLoadingClients] = useState(true);
@@ -200,6 +201,15 @@ export const CreateCasePage = () => {
                 onChange={handleChange}
                 placeholder="Enter detailed case description (optional)"
                 rows={6}
+              />
+
+              <Input
+                label="SLA Due Date (Optional)"
+                name="slaDueDate"
+                type="date"
+                value={formData.slaDueDate}
+                onChange={handleChange}
+                placeholder="Select SLA due date"
               />
 
               {error && (
