@@ -32,6 +32,8 @@ export const GlobalWorklistPage = () => {
   });
   const [pagination, setPagination] = useState(null);
   const [pullingCase, setPullingCase] = useState(null);
+  const [selectedCases, setSelectedCases] = useState([]);
+  const [bulkPulling, setBulkPulling] = useState(false);
 
   useEffect(() => {
     loadGlobalWorklist();
@@ -45,11 +47,62 @@ export const GlobalWorklistPage = () => {
       if (response.success) {
         setCases(response.data || []);
         setPagination(response.pagination);
+        setSelectedCases([]); // Clear selection when reloading
       }
     } catch (error) {
       console.error('Failed to load global worklist:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSelectCase = (caseId) => {
+    setSelectedCases(prev => 
+      prev.includes(caseId) 
+        ? prev.filter(id => id !== caseId)
+        : [...prev, caseId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedCases.length === cases.length) {
+      setSelectedCases([]);
+    } else {
+      setSelectedCases(cases.map(c => c.caseId));
+    }
+  };
+
+  const handleBulkPull = async () => {
+    if (!user?.email) {
+      alert('User email not found. Please log in again.');
+      return;
+    }
+
+    if (selectedCases.length === 0) {
+      alert('Please select at least one case to pull.');
+      return;
+    }
+
+    if (!confirm(`Pull ${selectedCases.length} selected case(s)? This will assign them to you.`)) {
+      return;
+    }
+
+    setBulkPulling(true);
+    try {
+      const response = await worklistService.bulkPullCases(selectedCases, user.email);
+      
+      if (response.success) {
+        const message = response.pulled < response.requested
+          ? `${response.pulled} of ${response.requested} cases pulled. Some were already assigned.`
+          : `All ${response.pulled} cases pulled successfully!`;
+        alert(message);
+        // Refresh the worklist
+        loadGlobalWorklist();
+      }
+    } catch (error) {
+      alert(`Failed to pull cases: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setBulkPulling(false);
     }
   };
 
@@ -212,12 +265,40 @@ export const GlobalWorklistPage = () => {
             </div>
           </div>
 
+          {/* Bulk Actions Toolbar */}
+          <div className="global-worklist__bulk-actions" style={{ 
+            display: 'flex', 
+            gap: '1rem', 
+            alignItems: 'center',
+            padding: '1rem',
+            borderBottom: '1px solid var(--border-color)'
+          }}>
+            <Button
+              variant="primary"
+              onClick={handleBulkPull}
+              disabled={selectedCases.length === 0 || bulkPulling}
+            >
+              {bulkPulling ? 'Pulling...' : `Pull Cases (${selectedCases.length})`}
+            </Button>
+            <span className="text-secondary">
+              {selectedCases.length} of {cases.length} selected
+            </span>
+          </div>
+
           {loading && <Loading message="Loading..." />}
 
           <div className="global-worklist__table-container">
             <table className="global-worklist__table">
               <thead>
                 <tr>
+                  <th style={{ width: '50px' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedCases.length === cases.length && cases.length > 0}
+                      onChange={handleSelectAll}
+                      disabled={cases.length === 0}
+                    />
+                  </th>
                   <th onClick={() => handleSort('caseId')} style={{ cursor: 'pointer' }}>
                     Case ID {getSortIcon('caseId')}
                   </th>
@@ -240,13 +321,20 @@ export const GlobalWorklistPage = () => {
               <tbody>
                 {cases.length === 0 ? (
                   <tr>
-                    <td colSpan="7" style={{ textAlign: 'center', padding: '2rem' }}>
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>
                       No unassigned cases found
                     </td>
                   </tr>
                 ) : (
                   cases.map((caseItem) => (
                     <tr key={caseItem.caseId}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedCases.includes(caseItem.caseId)}
+                          onChange={() => handleSelectCase(caseItem.caseId)}
+                        />
+                      </td>
                       <td>{caseItem.caseId}</td>
                       <td>{caseItem.clientId}</td>
                       <td>{caseItem.category}</td>

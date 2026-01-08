@@ -16,6 +16,7 @@ const {
   unlockCaseEndpoint,
   updateCaseActivity,
   pullCase,
+  bulkPullCases,
 } = require('../controllers/case.controller');
 
 /**
@@ -49,11 +50,15 @@ const upload = multer({ storage: storage });
 // GET /api/cases - Get all cases with filtering
 router.get('/', getCases);
 
-// GET /api/cases/:caseId - Get case by caseId with comments, attachments, and history
-router.get('/:caseId', getCaseByCaseId);
-
 // POST /api/cases - Create new case
 router.post('/', createCase);
+
+// POST /api/cases/bulk-pull - Pull multiple cases from global worklist (PR #39)
+// IMPORTANT: Must come BEFORE /:caseId routes to avoid matching "bulk-pull" as a caseId
+router.post('/bulk-pull', bulkPullCases);
+
+// GET /api/cases/:caseId - Get case by caseId with comments, attachments, and history
+router.get('/:caseId', getCaseByCaseId);
 
 // POST /api/cases/:caseId/comments - Add comment to case
 router.post('/:caseId/comments', addComment);
