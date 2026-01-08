@@ -25,34 +25,43 @@ const hashToken = (token) => {
 };
 
 /**
- * Send password setup email
+ * Send password setup email (Invite email for new users)
  * @param {string} email - Recipient email
  * @param {string} name - User's name
  * @param {string} token - Password setup token (plain text)
+ * @param {string} xID - User's xID (for reference)
  * @param {string} frontendUrl - Base URL of frontend application
  */
-const sendPasswordSetupEmail = async (email, name, token, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
+const sendPasswordSetupEmail = async (email, name, token, xID, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
   const setupLink = `${frontendUrl}/set-password?token=${token}`;
   
   // In production, replace this with actual email service (SendGrid, AWS SES, etc.)
   console.log('\n========================================');
-  console.log('📧 PASSWORD SETUP EMAIL');
+  console.log('📧 INVITE EMAIL - PASSWORD SETUP');
   console.log('========================================');
   console.log(`To: ${email}`);
   console.log(`Name: ${name}`);
-  console.log('Subject: Set your password for your Docketra account');
+  console.log(`xID: ${xID}`);
+  console.log('Subject: Welcome to Docketra - Set up your account');
   console.log('');
   console.log('Message:');
   console.log(`Hello ${name},`);
   console.log('');
   console.log('Welcome to Docketra! An administrator has created an account for you.');
   console.log('');
-  console.log('Please set your password by clicking the link below:');
+  console.log(`Your Employee ID (xID): ${xID}`);
+  console.log('');
+  console.log('Please set up your account by clicking the secure link below:');
   console.log(setupLink);
   console.log('');
-  console.log('This link will expire in 24 hours.');
+  console.log('⚠️ This link will expire in 48 hours for security reasons.');
   console.log('');
-  console.log('If you did not request this account, please ignore this email.');
+  console.log('For your security:');
+  console.log('- Keep your xID and password confidential');
+  console.log('- Do not share this link with anyone');
+  console.log('- Use a strong, unique password');
+  console.log('');
+  console.log('If you did not expect this invitation, please contact your administrator.');
   console.log('');
   console.log('Best regards,');
   console.log('Docketra Team');
@@ -65,7 +74,7 @@ const sendPasswordSetupEmail = async (email, name, token, frontendUrl = process.
   // await sgMail.send({
   //   to: email,
   //   from: process.env.EMAIL_FROM,
-  //   subject: 'Set your password for your Docketra account',
+  //   subject: 'Welcome to Docketra - Set up your account',
   //   html: `...`
   // });
   
@@ -77,27 +86,31 @@ const sendPasswordSetupEmail = async (email, name, token, frontendUrl = process.
  * @param {string} email - Recipient email
  * @param {string} name - User's name
  * @param {string} token - Password setup token (plain text)
+ * @param {string} xID - User's xID (for reference)
  * @param {string} frontendUrl - Base URL of frontend application
  */
-const sendPasswordSetupReminderEmail = async (email, name, token, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
+const sendPasswordSetupReminderEmail = async (email, name, token, xID, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
   const setupLink = `${frontendUrl}/set-password?token=${token}`;
   
   console.log('\n========================================');
-  console.log('📧 PASSWORD SETUP REMINDER EMAIL');
+  console.log('📧 INVITE REMINDER EMAIL');
   console.log('========================================');
   console.log(`To: ${email}`);
   console.log(`Name: ${name}`);
-  console.log('Subject: Reminder: Set your password for your Docketra account');
+  console.log(`xID: ${xID}`);
+  console.log('Subject: Reminder: Set up your Docketra account');
   console.log('');
   console.log('Message:');
   console.log(`Hello ${name},`);
   console.log('');
-  console.log('This is a reminder to set your password for your Docketra account.');
+  console.log('This is a reminder to set up your Docketra account.');
   console.log('');
-  console.log('Please set your password by clicking the link below:');
+  console.log(`Your Employee ID (xID): ${xID}`);
+  console.log('');
+  console.log('Please complete your account setup by clicking the link below:');
   console.log(setupLink);
   console.log('');
-  console.log('This link will expire in 24 hours.');
+  console.log('⚠️ This link will expire in 48 hours.');
   console.log('');
   console.log('Best regards,');
   console.log('Docketra Team');

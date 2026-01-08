@@ -21,6 +21,14 @@
   padding: var(--spacing-lg);
 }
 
+.profile__section + .profile__section {
+  margin-top: 2rem;
+}
+
+.profile__section-description {
+  margin-bottom: 1rem;
+}
+
 .profile__info {
   display: flex;
   justify-content: space-between;
@@ -35,4 +43,9 @@
   justify-content: flex-end;
   margin-top: var(--spacing-lg);
   padding-top: var(--spacing-lg);
+}
+
+.profile__field-hint {
+  font-size: 0.85rem;
+  margin-top: -0.5rem;
 }

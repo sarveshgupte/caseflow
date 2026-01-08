@@ -54,6 +54,39 @@
   margin-top: var(--spacing-lg);
 }
 
+.neo-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.neo-label {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.neo-info-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: var(--spacing-sm);
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.neo-select {
+  padding: var(--spacing-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.neo-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .neo-table {
   width: 100%;
   border-collapse: collapse;

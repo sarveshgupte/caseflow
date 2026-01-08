@@ -21,12 +21,12 @@ export const ProfilePage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [formData, setFormData] = useState({
-    dob: '',
+    dateOfBirth: '',
+    gender: '',
     phone: '',
     address: '',
-    pan: '',
-    aadhaar: '',
-    email: '',
+    panMasked: '',
+    aadhaarMasked: '',
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -43,12 +43,12 @@ export const ProfilePage = () => {
       if (response.success) {
         setProfileData(response.data);
         setFormData({
-          dob: response.data.dob || '',
+          dateOfBirth: response.data.dateOfBirth || '',
+          gender: response.data.gender || '',
           phone: response.data.phone || '',
           address: response.data.address || '',
-          pan: response.data.pan || '',
-          aadhaar: response.data.aadhaar || '',
-          email: response.data.email || '',
+          panMasked: response.data.panMasked || '',
+          aadhaarMasked: response.data.aadhaarMasked || '',
         });
       }
     } catch (err) {
@@ -92,12 +92,12 @@ export const ProfilePage = () => {
     // Reset form data
     if (profileData) {
       setFormData({
-        dob: profileData.dob || '',
+        dateOfBirth: profileData.dateOfBirth || '',
+        gender: profileData.gender || '',
         phone: profileData.phone || '',
         address: profileData.address || '',
-        pan: profileData.pan || '',
-        aadhaar: profileData.aadhaar || '',
-        email: profileData.email || '',
+        panMasked: profileData.panMasked || '',
+        aadhaarMasked: profileData.aadhaarMasked || '',
       });
     }
   };
@@ -120,8 +120,18 @@ export const ProfilePage = () => {
 
         <Card>
           <div className="profile__section">
-            <h2 className="neo-section__header">Personal Information</h2>
+            <h2 className="neo-section__header">Identity (Read-Only)</h2>
+            <p className="text-secondary profile__section-description">
+              These fields are immutable and cannot be changed
+            </p>
             
+            <Input
+              label="Employee ID (xID)"
+              value={profileData?.xID || ''}
+              readOnly
+              disabled
+            />
+
             <Input
               label="Name"
               value={profileData?.name || ''}
@@ -130,20 +140,47 @@ export const ProfilePage = () => {
             />
 
             <Input
-              label="xID"
-              value={profileData?.xID || ''}
+              label="Email"
+              value={profileData?.email || ''}
               readOnly
               disabled
             />
 
             <Input
+              label="Role"
+              value={profileData?.role || ''}
+              readOnly
+              disabled
+            />
+          </div>
+
+          <div className="profile__section">
+            <h2 className="neo-section__header">Personal Information (Editable)</h2>
+            
+            <Input
               label="Date of Birth"
-              name="dob"
+              name="dateOfBirth"
               type="date"
-              value={formData.dob}
+              value={formData.dateOfBirth}
               onChange={handleChange}
               disabled={!editing}
             />
+
+            <div className="neo-form-group">
+              <label className="neo-label">Gender</label>
+              <select
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                disabled={!editing}
+                className="neo-select"
+              >
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
 
             <Input
               label="Phone"
@@ -152,15 +189,7 @@ export const ProfilePage = () => {
               value={formData.phone}
               onChange={handleChange}
               disabled={!editing}
-            />
-
-            <Input
-              label="Email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-              disabled={!editing}
+              placeholder="10-digit mobile number"
             />
 
             <Input
@@ -169,31 +198,36 @@ export const ProfilePage = () => {
               value={formData.address}
               onChange={handleChange}
               disabled={!editing}
+              placeholder="Full address"
             />
 
             <Input
-              label="PAN"
-              name="pan"
-              value={formData.pan}
+              label="PAN (Masked)"
+              name="panMasked"
+              value={formData.panMasked}
               onChange={handleChange}
               disabled={!editing}
               maxLength={10}
+              placeholder="ABCDE1234F"
             />
+            {editing && (
+              <p className="text-secondary profile__field-hint">
+                Format: ABCDE1234F (masked)
+              </p>
+            )}
 
             <Input
-              label="Aadhaar"
-              name="aadhaar"
-              value={formData.aadhaar}
+              label="Aadhaar (Masked)"
+              name="aadhaarMasked"
+              value={formData.aadhaarMasked}
               onChange={handleChange}
               disabled={!editing}
-              maxLength={12}
+              placeholder="XXXX-XXXX-1234"
             />
-
-            {profileData?.passwordExpiryDate && (
-              <div className="profile__info">
-                <span className="text-secondary">Password Expiry:</span>
-                <span>{formatDate(profileData.passwordExpiryDate)}</span>
-              </div>
+            {editing && (
+              <p className="text-secondary profile__field-hint">
+                Format: XXXX-XXXX-1234 (only last 4 digits visible)
+              </p>
             )}
 
             {error && (

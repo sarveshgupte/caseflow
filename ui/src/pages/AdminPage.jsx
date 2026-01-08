@@ -27,9 +27,8 @@ export const AdminPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creatingUser, setCreatingUser] = useState(false);
 
-  // Create user form state
+  // Create user form state (PR 32: xID is auto-generated, not user-provided)
   const [newUser, setNewUser] = useState({
-    xID: '',
     name: '',
     email: '',
     role: 'Employee',
@@ -68,7 +67,8 @@ export const AdminPage = () => {
   const handleCreateUser = async (e) => {
     e.preventDefault();
     
-    if (!newUser.xID || !newUser.name || !newUser.email) {
+    // PR 32: Only name and email are required (xID is auto-generated)
+    if (!newUser.name || !newUser.email) {
       showToast('Please fill in all required fields', 'error');
       return;
     }
@@ -79,9 +79,9 @@ export const AdminPage = () => {
       const response = await adminService.createUser(newUser);
       
       if (response.success) {
-        showToast('User created successfully. Password setup email sent.', 'success');
+        showToast(`User created successfully! xID: ${response.data?.xID}. Invite email sent.`, 'success');
         setShowCreateModal(false);
-        setNewUser({ xID: '', name: '', email: '', role: 'Employee' });
+        setNewUser({ name: '', email: '', role: 'Employee' });
         loadAdminData();
       } else {
         showToast(response.message || 'Failed to create user', 'error');
@@ -307,14 +307,12 @@ export const AdminPage = () => {
         title="Create New User"
       >
         <form onSubmit={handleCreateUser} className="admin__create-form">
-          <Input
-            label="xID"
-            type="text"
-            value={newUser.xID}
-            onChange={(e) => setNewUser({ ...newUser, xID: e.target.value.toUpperCase() })}
-            placeholder="X123456"
-            required
-          />
+          <div className="neo-form-group">
+            <label className="neo-label">xID (Auto-Generated)</label>
+            <div className="neo-info-text">
+              Employee ID will be automatically generated (e.g., X000001)
+            </div>
+          </div>
 
           <Input
             label="Name"

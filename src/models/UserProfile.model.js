@@ -20,6 +20,20 @@ const userProfileSchema = new mongoose.Schema({
   // Date of birth
   dob: Date,
   
+  // Alias for dateOfBirth (follows PR requirements)
+  dateOfBirth: {
+    type: Date,
+    get: function() { return this.dob; },
+    set: function(value) { this.dob = value; },
+  },
+  
+  // Gender
+  gender: {
+    type: String,
+    enum: ['Male', 'Female', 'Other', ''],
+    default: '',
+  },
+  
   // Phone number
   phone: String,
   
@@ -31,15 +45,29 @@ const userProfileSchema = new mongoose.Schema({
     pincode: String,
   },
   
-  // PAN card number (uppercase)
+  // PAN card number (uppercase) - MUST be masked (e.g., ABCDE1234F)
   pan: {
     type: String,
     uppercase: true,
   },
   
-  // Aadhaar number
+  // Alias for panMasked (follows PR requirements)
+  panMasked: {
+    type: String,
+    get: function() { return this.pan; },
+    set: function(value) { this.pan = value; },
+  },
+  
+  // Aadhaar number - MUST be masked (e.g., XXXX-XXXX-1234)
   aadhaar: {
     type: String,
+  },
+  
+  // Alias for aadhaarMasked (follows PR requirements)
+  aadhaarMasked: {
+    type: String,
+    get: function() { return this.aadhaar; },
+    set: function(value) { this.aadhaar = value; },
   },
   
   // Email address (can be different from User.email)
@@ -53,6 +81,10 @@ const userProfileSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+}, {
+  // Enable virtuals in JSON output
+  toJSON: { virtuals: true, getters: true },
+  toObject: { virtuals: true, getters: true },
 });
 
 // Update timestamp on save

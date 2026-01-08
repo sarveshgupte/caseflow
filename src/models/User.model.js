@@ -89,16 +89,33 @@ const userSchema = new mongoose.Schema({
     default: false,
   },
   
-  // Secure token hash for password setup (stored as hash, never plain text)
+  // Secure token hash for password setup / invite (stored as hash, never plain text)
+  // Also serves as invite token for new user onboarding
   passwordSetupTokenHash: {
     type: String,
     default: null,
   },
   
-  // Expiry timestamp for password setup token (e.g., 24 hours from creation)
+  // Alias for invite token (points to same field as passwordSetupTokenHash)
+  inviteTokenHash: {
+    type: String,
+    default: null,
+    get: function() { return this.passwordSetupTokenHash; },
+    set: function(value) { this.passwordSetupTokenHash = value; },
+  },
+  
+  // Expiry timestamp for password setup / invite token (e.g., 48 hours from creation)
   passwordSetupExpires: {
     type: Date,
     default: null,
+  },
+  
+  // Alias for invite token expiry (points to same field as passwordSetupExpires)
+  inviteTokenExpiry: {
+    type: Date,
+    default: null,
+    get: function() { return this.passwordSetupExpires; },
+    set: function(value) { this.passwordSetupExpires = value; },
   },
   
   // Timestamp of last password change
@@ -167,6 +184,10 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+}, {
+  // Enable virtuals in JSON output
+  toJSON: { virtuals: true, getters: true },
+  toObject: { virtuals: true, getters: true },
 });
 
 // Indexes for performance
