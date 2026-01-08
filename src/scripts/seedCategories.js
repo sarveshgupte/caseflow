@@ -33,6 +33,7 @@ const defaultCategories = [
   'Management Review',
   'Client - New',
   'Client - Edit',
+  'Client - Delete',
   'Internal',
 ];
 

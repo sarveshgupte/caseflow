@@ -158,19 +158,19 @@ const clientSchema = new mongoose.Schema({
 /**
  * Pre-save Hook: Auto-generate clientId
  * 
- * Generates sequential IDs in format C123456 (no dash, 6 digits minimum)
+ * Generates sequential IDs in format C000001 (no dash, 6 digits minimum)
  * Algorithm:
  * 1. Find the highest existing clientId number
  * 2. Increment by 1
  * 3. Format as C prefix + number (minimum 6 digits)
  * 
- * First client is always C123456 (reserved for organization)
+ * First client is always C000001 (reserved for organization)
  * 
  * Note: This runs before validation, so clientId is available for unique constraint check
  * 
  * LIMITATION: String-based sorting works correctly up to C999999. Beyond that,
  * C1000000 would sort before C999999 in string order. For production systems
- * expecting more than ~877,000 clients, consider using a dedicated counter collection
+ * expecting more than ~1,000,000 clients, consider using a dedicated counter collection
  * or numeric-based sorting with zero-padding.
  * 
  * LIMITATION: This implementation has a potential race condition with concurrent saves.
@@ -188,18 +188,18 @@ clientSchema.pre('save', async function(next) {
         { clientId: 1 }
       ).sort({ clientId: -1 }).lean();
       
-      let nextNumber = 123456; // Start with organization client
+      let nextNumber = 1; // Start with C000001 for organization client
       
       if (lastClient && lastClient.clientId) {
-        // Extract the number from C123456 format
+        // Extract the number from C000001 format
         const match = lastClient.clientId.match(/^C(\d+)$/);
         if (match) {
           nextNumber = parseInt(match[1], 10) + 1;
         }
       }
       
-      // Format as C + number
-      this.clientId = `C${nextNumber}`;
+      // Format as C + 6-digit zero-padded number
+      this.clientId = `C${nextNumber.toString().padStart(6, '0')}`;
     } catch (error) {
       return next(error);
     }

@@ -17,40 +17,40 @@ const path = require('path');
  * Create a new case
  * POST /api/cases
  * PART F - Duplicate detection for "Client – New" category
+ * 
+ * Requirements:
+ * - title is now OPTIONAL
+ * - caseCategory is MANDATORY
+ * - caseSubCategory is optional
+ * - clientId defaults to C000001 if not provided
+ * - Case ID auto-generated as CASE-YYYYMMDD-XXXXX
+ * - Client case data stored in payload field
  */
 const createCase = async (req, res) => {
   try {
     const {
       title,
       description,
-      category,
+      category, // Legacy field for backward compatibility
+      caseCategory,
+      caseSubCategory,
       clientId,
       createdBy,
       priority,
       assignedTo,
       forceCreate, // Flag to override duplicate warning
       clientData, // Client data for duplicate detection (for "Client – New" cases)
+      payload, // Payload for client governance cases
     } = req.body;
     
+    // Determine the actual category to use
+    const actualCategory = caseCategory || category;
+    
     // Validate required fields
-    if (!title) {
+    if (!actualCategory) {
       return res.status(400).json({
         success: false,
-        message: 'Title is required',
-      });
-    }
-    
-    if (!category) {
-      return res.status(400).json({
-        success: false,
-        message: 'Category is required',
-      });
-    }
-    
-    if (!clientId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Client ID is required - every case must have a client',
+        message: 'Case category is required',
       });
     }
     
@@ -61,13 +61,16 @@ const createCase = async (req, res) => {
       });
     }
     
+    // Default clientId to C000001 if not provided
+    const finalClientId = clientId || 'C000001';
+    
     // Verify client exists
-    const client = await Client.findOne({ clientId, isActive: true });
+    const client = await Client.findOne({ clientId: finalClientId, isActive: true });
     
     if (!client) {
       return res.status(404).json({
         success: false,
-        message: `Client ${clientId} not found or inactive`,
+        message: `Client ${finalClientId} not found or inactive`,
       });
     }
     
@@ -75,10 +78,9 @@ const createCase = async (req, res) => {
     let duplicateMatches = null;
     let systemComment = null;
     
-    if (category === 'Client – New' || category === 'Client - New') {
+    if (actualCategory === 'Client – New' || actualCategory === 'Client - New') {
       // Detect duplicates using client data
-      // If clientData is not provided, use existing client data
-      const dataToCheck = clientData || {
+      const dataToCheck = clientData || (payload && payload.clientData) || {
         businessName: client.businessName,
         businessAddress: client.businessAddress,
         businessPhone: client.businessPhone,
@@ -93,7 +95,7 @@ const createCase = async (req, res) => {
       if (duplicateResult.hasDuplicates) {
         // Filter out the current client from matches (if checking against existing client)
         duplicateMatches = duplicateResult.matches.filter(
-          match => match.clientId !== clientId
+          match => match.clientId !== finalClientId
         );
         
         if (duplicateMatches.length > 0) {
@@ -120,12 +122,15 @@ const createCase = async (req, res) => {
     const newCase = new Case({
       title,
       description,
-      category,
-      clientId,
+      category: actualCategory, // Legacy field
+      caseCategory: actualCategory,
+      caseSubCategory,
+      clientId: finalClientId,
       createdBy: createdBy.toLowerCase(),
       priority: priority || 'Medium',
-      status: 'Open',
+      status: 'DRAFT', // New workflow state
       assignedTo: assignedTo ? assignedTo.toLowerCase() : null,
+      payload, // Store client case payload if provided
     });
     
     await newCase.save();
@@ -134,7 +139,7 @@ const createCase = async (req, res) => {
     await CaseHistory.create({
       caseId: newCase.caseId,
       actionType: 'Created',
-      description: `Case created with status: Open, Client: ${clientId}`,
+      description: `Case created with status: DRAFT, Client: ${finalClientId}`,
       performedBy: createdBy.toLowerCase(),
     });
     
@@ -726,6 +731,8 @@ const getCases = async (req, res) => {
 /**
  * Lock a case
  * POST /api/cases/:caseId/lock
+ * 
+ * Implements soft locking with 2-hour inactivity auto-unlock
  */
 const lockCaseEndpoint = async (req, res) => {
   try {
@@ -751,19 +758,44 @@ const lockCaseEndpoint = async (req, res) => {
     // Check if already locked by another user
     if (caseData.lockStatus.isLocked && 
         caseData.lockStatus.activeUserEmail !== userEmail.toLowerCase()) {
-      return res.status(409).json({
-        success: false,
-        message: `Case is currently locked by ${caseData.lockStatus.activeUserEmail}`,
-        lockedBy: caseData.lockStatus.activeUserEmail,
-        lockedAt: caseData.lockStatus.lockedAt,
-      });
+      
+      // Check for inactivity auto-unlock (2 hours = 7200000 ms)
+      const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+      const lastActivity = caseData.lockStatus.lastActivityAt || caseData.lockStatus.lockedAt;
+      const now = new Date();
+      
+      if (lastActivity && (now - lastActivity) > TWO_HOURS_MS) {
+        // Auto-unlock due to inactivity
+        console.log(`Auto-unlocking case ${caseId} due to 2-hour inactivity`);
+        
+        // Log the auto-unlock in history
+        await CaseHistory.create({
+          caseId,
+          actionType: 'AutoUnlocked',
+          description: `Case auto-unlocked due to 2 hours of inactivity. Previous lock holder: ${caseData.lockStatus.activeUserEmail}`,
+          performedBy: 'system',
+        });
+        
+        // Fall through to acquire new lock below
+      } else {
+        // Still within 2-hour window, deny lock
+        return res.status(409).json({
+          success: false,
+          message: `Case is currently locked by ${caseData.lockStatus.activeUserEmail}`,
+          lockedBy: caseData.lockStatus.activeUserEmail,
+          lockedAt: caseData.lockStatus.lockedAt,
+          lastActivityAt: lastActivity,
+        });
+      }
     }
     
     // Lock the case
+    const now = new Date();
     caseData.lockStatus = {
       isLocked: true,
       activeUserEmail: userEmail.toLowerCase(),
-      lockedAt: new Date(),
+      lockedAt: now,
+      lastActivityAt: now,
     };
     
     await caseData.save();
@@ -821,6 +853,7 @@ const unlockCaseEndpoint = async (req, res) => {
       isLocked: false,
       activeUserEmail: null,
       lockedAt: null,
+      lastActivityAt: null,
     };
     
     await caseData.save();
@@ -839,6 +872,59 @@ const unlockCaseEndpoint = async (req, res) => {
   }
 };
 
+/**
+ * Update case activity (heartbeat)
+ * POST /api/cases/:caseId/activity
+ * 
+ * Updates lastActivityAt to prevent auto-unlock
+ */
+const updateCaseActivity = async (req, res) => {
+  try {
+    const { caseId } = req.params;
+    const { userEmail } = req.body;
+    
+    if (!userEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'User email is required',
+      });
+    }
+    
+    const caseData = await Case.findOne({ caseId });
+    
+    if (!caseData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
+    
+    // Only update activity if locked by this user
+    if (caseData.lockStatus.isLocked && 
+        caseData.lockStatus.activeUserEmail === userEmail.toLowerCase()) {
+      caseData.lockStatus.lastActivityAt = new Date();
+      await caseData.save();
+      
+      res.json({
+        success: true,
+        message: 'Case activity updated',
+        lastActivityAt: caseData.lockStatus.lastActivityAt,
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'Case is not locked by you',
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating case activity',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createCase,
   addComment,
@@ -850,4 +936,5 @@ module.exports = {
   getCases,
   lockCaseEndpoint,
   unlockCaseEndpoint,
+  updateCaseActivity,
 };

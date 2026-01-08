@@ -14,6 +14,7 @@ const {
   getCases,
   lockCaseEndpoint,
   unlockCaseEndpoint,
+  updateCaseActivity,
 } = require('../controllers/case.controller');
 
 /**
@@ -73,5 +74,8 @@ router.post('/:caseId/lock', lockCaseEndpoint);
 
 // POST /api/cases/:caseId/unlock - Unlock a case
 router.post('/:caseId/unlock', unlockCaseEndpoint);
+
+// POST /api/cases/:caseId/activity - Update case activity (heartbeat)
+router.post('/:caseId/activity', updateCaseActivity);
 
 module.exports = router;

@@ -16,15 +16,17 @@ const mongoose = require('mongoose');
 
 const caseSchema = new mongoose.Schema({
   /**
-   * Auto-generated human-readable case identifier
-   * Format: DCK-XXXX (e.g., DCK-0001, DCK-0042)
-   * Generated via pre-save hook by finding highest existing number and incrementing
+   * Auto-generated deterministic case identifier
+   * Format: CASE-YYYYMMDD-XXXXX (e.g., CASE-20260108-00012)
+   * Generated via pre-save hook with daily sequence reset
+   * MANDATORY - Never editable
    */
   caseId: {
     type: String,
     unique: true,
     required: true,
     trim: true,
+    immutable: true,
   },
   
   /**
@@ -44,11 +46,10 @@ const caseSchema = new mongoose.Schema({
   
   /**
    * Brief description of the case/matter
-   * Required field to ensure cases are properly identified
+   * Optional field - cases are now primarily identified by caseCategory
    */
   title: {
     type: String,
-    required: [true, 'Case title is required'],
     trim: true,
   },
   
@@ -72,21 +73,49 @@ const caseSchema = new mongoose.Schema({
   },
   
   /**
+   * Primary case category - drives all workflows
+   * MANDATORY field that determines case processing
+   * Examples: 'Client - New', 'Client - Edit', 'Client - Delete', 'Sales', etc.
+   */
+  caseCategory: {
+    type: String,
+    required: [true, 'Case category is required'],
+    trim: true,
+  },
+  
+  /**
+   * Optional sub-category for additional classification
+   * Provides finer-grained categorization without UI complexity
+   */
+  caseSubCategory: {
+    type: String,
+    trim: true,
+  },
+  
+  /**
    * Current lifecycle status of the case
+   * Workflow states:
+   * - DRAFT: Being edited by creator
+   * - SUBMITTED: Locked, awaiting review
+   * - UNDER_REVIEW: Being reviewed by admin/approver
+   * - APPROVED: Changes written to DB (for client cases)
+   * - REJECTED: Declined, no DB mutation
+   * - CLOSED: Completed and resolved
+   * 
+   * Legacy states (for backward compatibility):
    * - Open: Active and being worked on
    * - Reviewed: Ready for Admin approval (used for client cases)
    * - Pending: Waiting for external input/decision
-   * - Closed: Completed and resolved
    * - Filed: Archived and finalized (read-only)
    * - Archived: Historical record (read-only)
    */
   status: {
     type: String,
     enum: {
-      values: ['Open', 'Reviewed', 'Pending', 'Closed', 'Filed', 'Archived'],
+      values: ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'CLOSED', 'Open', 'Reviewed', 'Pending', 'Filed', 'Archived'],
       message: '{VALUE} is not a valid status',
     },
-    default: 'Open',
+    default: 'DRAFT',
     required: true,
   },
   
@@ -145,6 +174,7 @@ const caseSchema = new mongoose.Schema({
   /**
    * Case locking mechanism for concurrency control
    * Prevents multiple users from modifying the same case simultaneously
+   * Includes inactivity tracking for auto-unlock after 2 hours
    */
   lockStatus: {
     isLocked: {
@@ -157,6 +187,9 @@ const caseSchema = new mongoose.Schema({
       trim: true,
     },
     lockedAt: {
+      type: Date,
+    },
+    lastActivityAt: {
       type: Date,
     },
   },
@@ -191,6 +224,69 @@ const caseSchema = new mongoose.Schema({
     GST: String,
     CIN: String,
   },
+  
+  /**
+   * Payload for client governance cases
+   * Stores proposed client changes that will be applied upon approval
+   * Used for Client - New, Client - Edit, Client - Delete cases
+   * 
+   * Structure for "Client - New":
+   * {
+   *   action: "NEW",
+   *   clientData: { businessName: "...", businessAddress: "...", ... }
+   * }
+   * 
+   * Structure for "Client - Edit":
+   * {
+   *   action: "EDIT",
+   *   clientId: "C123457",
+   *   updates: { businessPhone: "...", ... }
+   * }
+   * 
+   * Structure for "Client - Delete":
+   * {
+   *   action: "DELETE",
+   *   clientId: "C123457"
+   * }
+   */
+  payload: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+  
+  /**
+   * Workflow metadata - submission tracking
+   */
+  submittedAt: {
+    type: Date,
+  },
+  
+  submittedBy: {
+    type: String,
+    lowercase: true,
+    trim: true,
+  },
+  
+  /**
+   * Workflow metadata - approval tracking
+   */
+  approvedAt: {
+    type: Date,
+  },
+  
+  approvedBy: {
+    type: String,
+    lowercase: true,
+    trim: true,
+  },
+  
+  /**
+   * Admin decision comments for approval/rejection
+   */
+  decisionComments: {
+    type: String,
+    trim: true,
+  },
 }, {
   // Automatic timestamp management for audit trail
   timestamps: true,
@@ -219,13 +315,14 @@ caseSchema.virtual('isReadOnly').get(function() {
 /**
  * Pre-save Hook: Auto-generate caseId and caseName
  * 
- * Generates sequential human-readable IDs in format DCK-XXXX
+ * Generates deterministic case IDs in format CASE-YYYYMMDD-XXXXX
  * Generates deterministic case names in format caseYYYYMMDDxxxxx
  * 
  * Algorithm for caseId:
- * 1. Find the highest existing caseId number
- * 2. Increment by 1
- * 3. Format as DCK- prefix + 4-digit zero-padded number
+ * 1. Get current date (YYYYMMDD)
+ * 2. Find highest sequence for today
+ * 3. Increment by 1
+ * 4. Format as CASE- + YYYYMMDD + - + 5-digit zero-padded sequence
  * 
  * Algorithm for caseName:
  * 1. Get current date (YYYYMMDD)
@@ -243,26 +340,8 @@ caseSchema.pre('save', async function(next) {
   // Only generate IDs if they're not already set (for new documents)
   if (!this.caseId) {
     try {
-      // Find the case with the highest caseId number
-      // The regex ensures we only match our format: DCK-XXXX
-      // The zero-padding ensures proper string-based sorting (DCK-0001 < DCK-0010 < DCK-0100)
-      const lastCase = await this.constructor.findOne(
-        { caseId: /^DCK-\d{4}$/ },
-        { caseId: 1 }
-      ).sort({ caseId: -1 }).lean();
-      
-      let nextNumber = 1;
-      
-      if (lastCase && lastCase.caseId) {
-        // Extract the number from DCK-XXXX format
-        const match = lastCase.caseId.match(/^DCK-(\d+)$/);
-        if (match) {
-          nextNumber = parseInt(match[1], 10) + 1;
-        }
-      }
-      
-      // Format as DCK-XXXX with zero-padding to 4 digits
-      this.caseId = `DCK-${nextNumber.toString().padStart(4, '0')}`;
+      const { generateCaseId } = require('../services/caseIdGenerator');
+      this.caseId = await generateCaseId();
     } catch (error) {
       return next(error);
     }
