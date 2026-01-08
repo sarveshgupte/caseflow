@@ -11,7 +11,12 @@ export const authService = {
    * Backend expects payload key as 'xID' (uppercase 'D')
    */
   login: async (xID, password) => {
-    const response = await api.post('/auth/login', { xID, password });
+    // Ensure password is always included in the request, even if empty
+    const payload = {
+      xID,
+      password: password || ''
+    };
+    const response = await api.post('/auth/login', payload);
     
     if (response.data.success) {
       const userData = response.data.data;
