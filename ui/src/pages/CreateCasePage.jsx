@@ -2,7 +2,7 @@
  * Create Case Page
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/common/Layout';
 import { Card } from '../components/common/Card';
@@ -11,25 +11,66 @@ import { Select } from '../components/common/Select';
 import { Textarea } from '../components/common/Textarea';
 import { Button } from '../components/common/Button';
 import { caseService } from '../services/caseService';
-import { CASE_CATEGORIES } from '../utils/constants';
+import { CASE_CATEGORIES, DEFAULT_CLIENT_ID } from '../utils/constants';
 import './CreateCasePage.css';
 
 export const CreateCasePage = () => {
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
-    clientId: '',
-    category: '',
+    clientId: DEFAULT_CLIENT_ID, // Default to system client
+    caseCategory: '',
+    caseSubCategory: '',
+    title: '', // Optional field
     description: '',
   });
+  const [clients, setClients] = useState([]);
+  const [loadingClients, setLoadingClients] = useState(true);
   const [duplicateWarning, setDuplicateWarning] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Fetch clients for dropdown
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const response = await fetch('/api/client-approval/clients');
+        const data = await response.json();
+        if (data.success) {
+          setClients(data.data || []);
+        }
+      } catch (err) {
+        console.error('Error fetching clients:', err);
+      } finally {
+        setLoadingClients(false);
+      }
+    };
+    fetchClients();
+  }, []);
+
   const categoryOptions = [
-    { value: CASE_CATEGORIES.CLIENT_NEW, label: 'Client – New' },
-    { value: CASE_CATEGORIES.CLIENT_EDIT, label: 'Client – Edit' },
+    { value: '', label: 'Select Category' },
+    { value: CASE_CATEGORIES.CLIENT_NEW, label: 'Client - New' },
+    { value: CASE_CATEGORIES.CLIENT_EDIT, label: 'Client - Edit' },
+    { value: CASE_CATEGORIES.CLIENT_DELETE, label: 'Client - Delete' },
+    { value: CASE_CATEGORIES.SALES, label: 'Sales' },
+    { value: CASE_CATEGORIES.ACCOUNTING, label: 'Accounting' },
+    { value: CASE_CATEGORIES.EXPENSES, label: 'Expenses' },
+    { value: CASE_CATEGORIES.PAYROLL, label: 'Payroll' },
+    { value: CASE_CATEGORIES.HR, label: 'HR' },
+    { value: CASE_CATEGORIES.COMPLIANCE, label: 'Compliance' },
+    { value: CASE_CATEGORIES.CORE_BUSINESS, label: 'Core Business' },
+    { value: CASE_CATEGORIES.MANAGEMENT_REVIEW, label: 'Management Review' },
+    { value: CASE_CATEGORIES.INTERNAL, label: 'Internal' },
     { value: CASE_CATEGORIES.OTHER, label: 'Other' },
+  ];
+
+  const clientOptions = [
+    { value: DEFAULT_CLIENT_ID, label: 'Organization (Default)' },
+    ...clients.map(client => ({
+      value: client.clientId,
+      label: `${client.businessName} (${client.clientId})`,
+    })),
   ];
 
   const handleChange = (e) => {
@@ -42,8 +83,8 @@ export const CreateCasePage = () => {
     setError('');
     setDuplicateWarning(null);
 
-    if (!formData.category || !formData.description) {
-      setError('Category and description are required');
+    if (!formData.caseCategory) {
+      setError('Case category is required');
       return;
     }
 
@@ -117,21 +158,39 @@ export const CreateCasePage = () => {
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
-              <Input
-                label="Client ID"
+              <Select
+                label="Client"
                 name="clientId"
                 value={formData.clientId}
                 onChange={handleChange}
-                placeholder="Enter client ID (optional)"
+                options={clientOptions}
+                required
+                disabled={loadingClients}
               />
 
               <Select
-                label="Category"
-                name="category"
-                value={formData.category}
+                label="Case Category"
+                name="caseCategory"
+                value={formData.caseCategory}
                 onChange={handleChange}
                 options={categoryOptions}
                 required
+              />
+
+              <Input
+                label="Case Sub-Category (Optional)"
+                name="caseSubCategory"
+                value={formData.caseSubCategory}
+                onChange={handleChange}
+                placeholder="Enter sub-category if needed"
+              />
+
+              <Input
+                label="Title (Optional)"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                placeholder="Brief title for the case"
               />
 
               <Textarea
@@ -139,8 +198,7 @@ export const CreateCasePage = () => {
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                placeholder="Enter case description"
-                required
+                placeholder="Enter detailed case description"
                 rows={6}
               />
 
