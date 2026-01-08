@@ -167,20 +167,26 @@ const login = async (req, res) => {
       await user.save();
       
       // Send password setup email
+      let emailSent = false;
       try {
         await emailService.sendPasswordSetupEmail(user.email, user.name, token);
-        
-        // Log password setup email sent
+        emailSent = true;
+      } catch (emailError) {
+        console.error('Failed to send password setup email');
+        // Continue even if email fails - user can request resend
+      }
+      
+      // Log password setup email attempt
+      try {
         await AuthAudit.create({
           xID: user.xID,
-          actionType: 'PasswordSetupEmailSent',
-          description: `Password setup required - email sent to ${user.email}`,
+          actionType: emailSent ? 'PasswordSetupEmailSent' : 'PasswordSetupEmailFailed',
+          description: emailSent ? 'Password setup required - email sent' : 'Password setup required - email failed to send',
           performedBy: user.xID,
           ipAddress: req.ip,
         });
-      } catch (emailError) {
-        console.error('Failed to send password setup email:', emailError);
-        // Continue even if email fails - user can request resend
+      } catch (auditError) {
+        console.error('Failed to create audit log for password setup email');
       }
       
       return res.status(403).json({
