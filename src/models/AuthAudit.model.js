@@ -33,6 +33,10 @@ const authAuditSchema = new mongoose.Schema({
       'AccountActivated',
       'AccountDeactivated',
       'LoginFailed',
+      'PasswordSetupEmailSent',
+      'PasswordSetup',
+      'AccountLocked',
+      'AccountUnlocked',
     ],
   },
   

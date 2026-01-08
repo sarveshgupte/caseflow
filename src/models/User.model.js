@@ -33,10 +33,12 @@ const userSchema = new mongoose.Schema({
     immutable: true,
   },
   
-  // Email address - NOT used for authentication
-  // Used for notifications and contact only
+  // Email address - REQUIRED for password setup emails
+  // Used for notifications, contact, and password setup
   email: {
     type: String,
+    required: [true, 'Email is required'],
+    unique: true,
     lowercase: true,
     trim: true,
     match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address'],
@@ -57,15 +59,46 @@ const userSchema = new mongoose.Schema({
   },
   
   // Soft delete mechanism; allows disabling users without removing data
+  // Also called 'active' in some contexts
   isActive: {
     type: Boolean,
     default: true,
   },
   
-  // Bcrypt hashed password
+  // Login protection: track failed login attempts
+  failedLoginAttempts: {
+    type: Number,
+    default: 0,
+  },
+  
+  // Login protection: timestamp until which account is locked
+  lockUntil: {
+    type: Date,
+    default: null,
+  },
+  
+  // Bcrypt hashed password - null until user sets password via email link
   passwordHash: {
     type: String,
-    required: true,
+    default: null,
+  },
+  
+  // Indicates if user has set their password (via email link)
+  passwordSet: {
+    type: Boolean,
+    default: false,
+  },
+  
+  // Secure token hash for password setup (stored as hash, never plain text)
+  passwordSetupTokenHash: {
+    type: String,
+    default: null,
+  },
+  
+  // Expiry timestamp for password setup token (e.g., 24 hours from creation)
+  passwordSetupExpires: {
+    type: Date,
+    default: null,
   },
   
   // Timestamp of last password change
@@ -103,5 +136,11 @@ const userSchema = new mongoose.Schema({
 // Note: xID and email already have unique indexes from schema definition (unique: true)
 userSchema.index({ isActive: 1 });
 userSchema.index({ role: 1 });
+
+// Virtual property to check if account is locked
+userSchema.virtual('isLocked').get(function() {
+  // Check if lockUntil exists and is in the future
+  return !!(this.lockUntil && this.lockUntil > Date.now());
+});
 
 module.exports = mongoose.model('User', userSchema);

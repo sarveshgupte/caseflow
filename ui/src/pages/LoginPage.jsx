@@ -3,7 +3,7 @@
  */
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
@@ -56,6 +56,12 @@ export const LoginPage = () => {
       if (errorData?.mustChangePassword) {
         // Redirect to change password page with xID
         navigate('/change-password', { state: { xID } });
+      } else if (errorData?.passwordSetupRequired) {
+        // User needs to set password via email link
+        setError('Please set your password using the link sent to your email. If you haven\'t received it, contact your administrator.');
+      } else if (errorData?.lockedUntil) {
+        // Account is locked
+        setError(errorData?.message || 'Account is locked. Please try again later or contact an administrator.');
       } else {
         setError(errorData?.message || 'Login failed. Please try again.');
       }

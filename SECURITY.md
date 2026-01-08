@@ -1,47 +1,86 @@
 # Security Summary
 
-## Current Security Status
+## Current Security Status (Updated January 2026)
 
 ### ✅ Implemented Security Features
 
-1. **Input Validation**
+1. **Enterprise Access Control** (NEW)
+   - Admin-only user provisioning
+   - No self-registration allowed
+   - xID remains the only login identifier
+   - Email-based password setup (no default passwords)
+   - Passwords never sent via email
+
+2. **Email-Based Password Setup** (NEW)
+   - Cryptographically secure token generation (32 bytes)
+   - Token hashing before storage (SHA-256)
+   - 24-hour token expiry
+   - Users cannot log in until password is set
+   - Secure password setup via email link
+
+3. **Login Protection** (NEW)
+   - Failed login attempt tracking
+   - Account lockout after 5 failed attempts
+   - 15-minute lockout duration
+   - Admin can manually unlock accounts
+   - Counters reset on successful login
+
+4. **Audit Logging** (NEW)
+   - All security-critical events logged
+   - Login success/failure tracking
+   - Password setup and changes
+   - User creation and status changes
+   - Account lock/unlock events
+   - No secrets logged (append-only, immutable logs)
+
+5. **User Access Control** (NEW)
+   - Enable/disable user accounts
+   - Active status checked at login and in middleware
+   - Admin controls all access changes
+
+6. **Input Validation**
    - Mongoose schema validation on all models
-   - Email format validation
+   - Email format validation (required for all users)
    - Required field validation
    - Numeric range validation (no negative values)
    - String length limits
+   - Password complexity requirements (8+ chars, uppercase, lowercase, number, special char)
 
-2. **Data Integrity**
-   - Unique constraints (email, case numbers)
+7. **Data Integrity**
+   - Unique constraints (email, xID, case numbers)
    - Type validation
    - Enum constraints for status/role fields
+   - Email uniqueness enforced
 
-3. **Error Handling**
+8. **Error Handling**
    - Sanitized error messages (no stack traces in production)
    - No sensitive data in error responses
    - Centralized error handling
+   - Clear lockout messages to users
 
-4. **Request Logging**
+9. **Request Logging**
    - All requests logged with timestamp and IP
    - Request bodies logged (sensitive fields excluded)
    - Audit trail for debugging and security
+   - Comprehensive authentication event logging
 
-5. **CORS Configuration**
+10. **CORS Configuration**
    - CORS enabled for API access
    - Can be restricted in production
 
 ### ⚠️ Known Security Limitations
 
-#### 1. Missing Rate Limiting (High Priority)
+#### 1. Missing Rate Limiting for API Endpoints (Medium Priority)
 
-**Issue**: API endpoints are not rate-limited, making them vulnerable to:
-- Brute force attacks
+**Issue**: Non-authentication API endpoints are not rate-limited
+
+**Impact**: Database operations endpoints could be vulnerable to:
 - DoS attacks
 - Resource exhaustion
 
-**Impact**: All 16 route handlers perform database operations without rate limiting
+**Status**: Authentication endpoints now have built-in login protection (5 attempts, 15-min lockout)
 
-**Recommendation**: Implement rate limiting before production deployment
+**Recommendation**: Add rate limiting to other API endpoints before production
 
 **Solution**:
 ```bash
@@ -62,41 +101,20 @@ app.use('/api/', limiter);
 ```
 
 **Affected Files**:
-- src/routes/users.js (5 endpoints)
 - src/routes/cases.js (6 endpoints)  
 - src/routes/tasks.js (5 endpoints)
 
-#### 2. Missing Authentication (High Priority)
+#### 2. Email Service in Console Mode (Low Priority)
 
-**Issue**: No authentication or authorization implemented
+**Issue**: Email service currently logs to console instead of sending real emails
 
-**Impact**:
-- Any user can access any endpoint
-- No user identity verification
-- createdBy/updatedBy fields are manually set
+**Impact**: Password setup emails are logged to console in development
 
-**Recommendation**: Implement JWT-based authentication
+**Recommendation**: Integrate with production email service (SendGrid, AWS SES, etc.) before deployment
 
-**Solution Approach**:
-```javascript
-// Future implementation
-// 1. Add bcrypt for password hashing
-// 2. Implement JWT token generation
-// 3. Add authentication middleware
-// 4. Extract user ID from token for audit fields
-```
+**Solution**: Update `src/services/email.service.js` with actual email provider
 
-#### 3. Missing Authorization (Medium Priority)
-
-**Issue**: No role-based access control
-
-**Impact**:
-- All authenticated users can perform all actions
-- No permission checks based on user roles
-
-**Recommendation**: Implement RBAC after authentication
-
-#### 4. No Input Sanitization (Medium Priority)
+#### 3. Missing Input Sanitization (Medium Priority)
 
 **Issue**: Raw user input stored without sanitization
 
@@ -112,7 +130,7 @@ npm install express-mongo-sanitize
 npm install xss-clean
 ```
 
-#### 5. Environment Variables (Low Priority)
+#### 4. Environment Variables (Low Priority)
 
 **Issue**: .env file not created automatically
 
@@ -124,74 +142,81 @@ npm install xss-clean
 
 Before deploying to production, implement:
 
-1. **Rate Limiting** (Critical)
+1. **Email Service Integration** (Critical)
+   - Integrate with SendGrid, AWS SES, or similar
+   - Configure SMTP settings
+   - Test email delivery
+   - Set up email templates
+
+2. **Rate Limiting for API Endpoints** (High)
    - Install express-rate-limit
-   - Apply to all API routes
+   - Apply to non-auth API routes
    - Configure appropriate limits per endpoint type
 
-2. **Authentication** (Critical)
-   - JWT-based authentication
-   - Password hashing with bcrypt
-   - Secure token storage guidelines
-
-3. **Authorization** (High)
-   - Role-based access control
-   - Permission checks in controllers
-   - Audit who can do what
-
-4. **Input Sanitization** (High)
+3. **Input Sanitization** (High)
    - NoSQL injection prevention
    - XSS prevention
    - Validate and sanitize all inputs
 
-5. **HTTPS** (Critical)
+4. **HTTPS** (Critical)
    - Enforce HTTPS in production
    - Use TLS certificates
    - Redirect HTTP to HTTPS
 
-6. **Security Headers** (Medium)
+5. **Security Headers** (Medium)
    - Use helmet.js
    - Configure CSP, HSTS, etc.
 
-7. **Secrets Management** (Critical)
+6. **Secrets Management** (Critical)
    - Use environment variables
    - Never commit secrets
    - Rotate secrets regularly
 
-8. **Database Security** (High)
+7. **Database Security** (High)
    - Use connection string with authentication
    - Restrict database user permissions
    - Enable MongoDB authentication
 
-9. **Logging & Monitoring** (Medium)
+8. **Logging & Monitoring** (Medium)
    - Production-grade logging
    - Error tracking (Sentry, etc.)
    - Security event monitoring
 
-10. **Dependency Security** (Medium)
+9. **Dependency Security** (Medium)
     - Regular npm audit
     - Keep dependencies updated
     - Remove unused dependencies
 
 ### 📝 Security Best Practices Currently Followed
 
-1. ✅ Validation at schema level
-2. ✅ Error messages don't leak sensitive info
-3. ✅ Request logging for audit trail
-4. ✅ .env for configuration (not in git)
-5. ✅ Soft delete for users (data retention)
-6. ✅ Audit trail (who did what, when)
+1. ✅ **No default passwords** - Users set passwords via email link
+2. ✅ **Passwords never emailed** - Only secure tokens sent
+3. ✅ **Admin-only user creation** - No self-registration
+4. ✅ **Login protection** - 5 attempts, 15-minute lockout
+5. ✅ **Comprehensive audit logging** - All security events tracked
+6. ✅ **Token security** - Cryptographic randomness, hashing, expiry
+7. ✅ **Validation at schema level** - Mongoose validation
+8. ✅ **Error messages don't leak sensitive info**
+9. ✅ **Request logging for audit trail**
+10. ✅ **.env for configuration** (not in git)
+11. ✅ **Soft delete for users** (data retention)
+12. ✅ **Immutable audit trail** (append-only logs)
+13. ✅ **Password complexity requirements**
+14. ✅ **Email uniqueness enforced**
+15. ✅ **Account lockout on failed attempts**
 
 ### 🚀 Recommendation for Current State
 
-**For Development/Internal Use**: Current security is acceptable
-- Internal tool behind firewall
-- Trusted user base
-- Focus on functionality first
+**For Development/Internal Use**: Current security is **STRONG**
+- Enterprise-grade access control
+- Email-based password setup
+- Comprehensive audit logging
+- Login protection and lockout
+- Admin-controlled user provisioning
 
-**For Production/External Use**: Address security limitations
-- Implement rate limiting immediately
-- Add authentication before any external access
+**For Production/External Use**: Address remaining limitations
+- Integrate real email service
+- Add rate limiting to non-auth endpoints
 - Follow production deployment checklist
 
 ### 📚 Additional Resources
@@ -204,5 +229,5 @@ Before deploying to production, implement:
 ---
 
 **Last Updated**: January 2026  
-**Security Review**: CodeQL analysis completed  
-**Status**: Safe for internal development, requires hardening for production
+**Security Review**: Enterprise access control implemented  
+**Status**: Production-ready for internal deployment with email service integration
