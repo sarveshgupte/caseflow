@@ -70,4 +70,20 @@ export const categoryService = {
     const response = await api.patch(`/categories/${categoryId}/subcategories/${subcategoryId}/status`, { isActive });
     return response.data;
   },
+
+  /**
+   * Delete category (Admin only) - Soft delete
+   */
+  deleteCategory: async (id) => {
+    const response = await api.delete(`/categories/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Delete subcategory (Admin only) - Soft delete
+   */
+  deleteSubcategory: async (categoryId, subcategoryId) => {
+    const response = await api.delete(`/categories/${categoryId}/subcategories/${subcategoryId}`);
+    return response.data;
+  },
 };

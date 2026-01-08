@@ -1070,6 +1070,106 @@ const pullCase = async (req, res) => {
   }
 };
 
+/**
+ * Bulk pull cases from global worklist (PR #39)
+ * POST /api/cases/bulk-pull
+ * 
+ * Atomically assigns multiple cases to user with race safety
+ * Uses updateMany with atomic filter to prevent double assignment
+ */
+const bulkPullCases = async (req, res) => {
+  try {
+    const { caseIds, userEmail } = req.body;
+    
+    if (!userEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'User email is required',
+      });
+    }
+    
+    if (!Array.isArray(caseIds) || caseIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Case IDs array is required and must not be empty',
+      });
+    }
+    
+    const normalizedEmail = userEmail.trim().toLowerCase();
+    
+    // Atomic bulk update - only updates cases that are still UNASSIGNED
+    // This prevents race conditions when multiple users try to pull the same cases
+    const result = await Case.updateMany(
+      {
+        caseId: { $in: caseIds },
+        status: 'UNASSIGNED', // Only pull if still unassigned
+      },
+      {
+        $set: {
+          assignedTo: normalizedEmail,
+          assignedAt: new Date(),
+          status: 'Open',
+        },
+      }
+    );
+    
+    // Get the actual cases that were updated
+    const updatedCases = await Case.find({
+      caseId: { $in: caseIds },
+      assignedTo: normalizedEmail,
+    });
+    
+    // Create history entries for successfully pulled cases
+    const historyEntries = updatedCases.map(caseData => ({
+      caseId: caseData.caseId,
+      actionType: 'Pulled',
+      description: `Case pulled from global worklist and assigned to ${normalizedEmail}`,
+      performedBy: normalizedEmail,
+    }));
+    
+    if (historyEntries.length > 0) {
+      await CaseHistory.insertMany(historyEntries);
+    }
+    
+    // Determine success/partial success message
+    const successCount = result.modifiedCount;
+    const requestedCount = caseIds.length;
+    
+    if (successCount === 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'No cases were pulled. All cases were already assigned to other users.',
+        pulled: 0,
+        requested: requestedCount,
+      });
+    }
+    
+    if (successCount < requestedCount) {
+      return res.status(200).json({
+        success: true,
+        message: `Partial success: ${successCount} of ${requestedCount} cases pulled. Some cases were already assigned to other users.`,
+        pulled: successCount,
+        requested: requestedCount,
+        data: updatedCases,
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: `All ${successCount} cases pulled successfully`,
+      pulled: successCount,
+      requested: requestedCount,
+      data: updatedCases,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error pulling cases',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createCase,
   addComment,
@@ -1083,4 +1183,5 @@ module.exports = {
   unlockCaseEndpoint,
   updateCaseActivity,
   pullCase,
+  bulkPullCases,
 };

@@ -23,6 +23,7 @@ const newCaseRoutes = require('./routes/case.routes');  // New case routes
 const searchRoutes = require('./routes/search.routes');  // Search and worklist routes
 const authRoutes = require('./routes/auth.routes');  // Authentication routes
 const clientApprovalRoutes = require('./routes/clientApproval.routes');  // Client approval routes
+const clientRoutes = require('./routes/client.routes');  // Client management routes (PR #39)
 const reportsRoutes = require('./routes/reports.routes');  // Reports routes
 const categoryRoutes = require('./routes/category.routes');  // Category routes
 
@@ -100,6 +101,7 @@ app.get('/api', (req, res) => {
       worklists: '/api/worklists',
       auth: '/api/auth',
       clientApproval: '/api/client-approval',
+      clients: '/api/clients',
       reports: '/api/reports',
       categories: '/api/categories',
     },
@@ -119,6 +121,7 @@ app.use('/api/cases', authenticate, newCaseRoutes);
 app.use('/api/search', authenticate, searchRoutes);
 app.use('/api/worklists', authenticate, searchRoutes);
 app.use('/api/client-approval', authenticate, clientApprovalRoutes);
+app.use('/api/clients', clientRoutes);  // Client management (PR #39) - authentication handled in routes
 app.use('/api/reports', reportsRoutes);  // Reports routes (authentication handled in routes file)
 
 // Root route - API status

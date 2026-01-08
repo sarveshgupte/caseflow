@@ -45,6 +45,14 @@ export const worklistService = {
   },
 
   /**
+   * Pull multiple cases from global worklist (PR #39)
+   */
+  bulkPullCases: async (caseIds, userEmail) => {
+    const response = await api.post('/cases/bulk-pull', { caseIds, userEmail });
+    return response.data;
+  },
+
+  /**
    * Get category worklist
    */
   getCategoryWorklist: async (categoryId) => {

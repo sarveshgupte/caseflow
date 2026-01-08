@@ -14,6 +14,7 @@ import { Modal } from '../components/common/Modal';
 import { Loading } from '../components/common/Loading';
 import { adminService } from '../services/adminService';
 import { categoryService } from '../services/categoryService';
+import { clientService } from '../services/clientService';
 import { useToast } from '../hooks/useToast';
 import './AdminPage.css';
 
@@ -26,10 +27,13 @@ export const AdminPage = () => {
   const [pendingCases, setPendingCases] = useState([]);
   const [users, setUsers] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [clients, setClients] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
+  const [showClientModal, setShowClientModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedClient, setSelectedClient] = useState(null);
   const [creatingUser, setCreatingUser] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -48,6 +52,19 @@ export const AdminPage = () => {
   // Subcategory form state
   const [subcategoryForm, setSubcategoryForm] = useState({
     name: '',
+  });
+
+  // Client form state
+  const [clientForm, setClientForm] = useState({
+    businessName: '',
+    businessAddress: '',
+    businessPhone: '',
+    businessEmail: '',
+    PAN: '',
+    GST: '',
+    CIN: '',
+    latitude: '',
+    longitude: '',
   });
 
   useEffect(() => {
@@ -71,6 +88,11 @@ export const AdminPage = () => {
         const response = await categoryService.getCategories(false); // Get all categories including inactive
         if (response.success) {
           setCategories(response.data || []);
+        }
+      } else if (activeTab === 'clients') {
+        const response = await clientService.getClients(false); // Get all clients including inactive
+        if (response.success) {
+          setClients(response.data || []);
         }
       }
     } catch (error) {
@@ -267,6 +289,179 @@ export const AdminPage = () => {
     }
   };
 
+  const handleDeleteCategory = async (category) => {
+    if (!confirm(`Are you sure you want to delete category "${category.name}"? This is a soft delete - the category will be hidden from dropdowns but historical cases will remain valid.`)) {
+      return;
+    }
+    
+    try {
+      const response = await categoryService.deleteCategory(category._id);
+      
+      if (response.success) {
+        showToast('Category deleted successfully', 'success');
+        loadAdminData();
+      } else {
+        showToast(response.message || 'Failed to delete category', 'error');
+      }
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Failed to delete category', 'error');
+    }
+  };
+
+  const handleDeleteSubcategory = async (category, subcategory) => {
+    if (!confirm(`Are you sure you want to delete subcategory "${subcategory.name}"? This is a soft delete - the subcategory will be hidden from dropdowns but historical cases will remain valid.`)) {
+      return;
+    }
+    
+    try {
+      const response = await categoryService.deleteSubcategory(category._id, subcategory.id);
+      
+      if (response.success) {
+        showToast('Subcategory deleted successfully', 'success');
+        loadAdminData();
+      } else {
+        showToast(response.message || 'Failed to delete subcategory', 'error');
+      }
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Failed to delete subcategory', 'error');
+    }
+  };
+
+  // Client Management Handlers
+  const handleCreateClient = async (e) => {
+    e.preventDefault();
+    
+    if (!clientForm.businessName || !clientForm.businessAddress || 
+        !clientForm.businessPhone || !clientForm.businessEmail) {
+      showToast('Please fill in all required fields', 'error');
+      return;
+    }
+    
+    setSubmitting(true);
+    
+    try {
+      const response = await clientService.createClient(clientForm);
+      
+      if (response.success) {
+        showToast(`Client created successfully! Client ID: ${response.data?.clientId}`, 'success');
+        setShowClientModal(false);
+        setClientForm({
+          businessName: '',
+          businessAddress: '',
+          businessPhone: '',
+          businessEmail: '',
+          PAN: '',
+          GST: '',
+          CIN: '',
+          latitude: '',
+          longitude: '',
+        });
+        loadAdminData();
+      } else {
+        showToast(response.message || 'Failed to create client', 'error');
+      }
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Failed to create client', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditClient = (client) => {
+    setSelectedClient(client);
+    setClientForm({
+      businessName: client.businessName,
+      businessAddress: client.businessAddress,
+      businessPhone: client.businessPhone,
+      businessEmail: client.businessEmail,
+      PAN: client.PAN || '',
+      GST: client.GST || '',
+      CIN: client.CIN || '',
+      latitude: client.latitude || '',
+      longitude: client.longitude || '',
+    });
+    setShowClientModal(true);
+  };
+
+  const handleUpdateClient = async (e) => {
+    e.preventDefault();
+    
+    if (!selectedClient) {
+      showToast('No client selected', 'error');
+      return;
+    }
+    
+    if (!clientForm.businessName || !clientForm.businessAddress || 
+        !clientForm.businessPhone || !clientForm.businessEmail) {
+      showToast('Please fill in all required fields', 'error');
+      return;
+    }
+    
+    setSubmitting(true);
+    
+    try {
+      const response = await clientService.updateClient(selectedClient.clientId, clientForm);
+      
+      if (response.success) {
+        showToast('Client updated successfully', 'success');
+        setShowClientModal(false);
+        setSelectedClient(null);
+        setClientForm({
+          businessName: '',
+          businessAddress: '',
+          businessPhone: '',
+          businessEmail: '',
+          PAN: '',
+          GST: '',
+          CIN: '',
+          latitude: '',
+          longitude: '',
+        });
+        loadAdminData();
+      } else {
+        showToast(response.message || 'Failed to update client', 'error');
+      }
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Failed to update client', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleToggleClientStatus = async (client) => {
+    const newStatus = !client.isActive;
+    const action = newStatus ? 'enable' : 'disable';
+    
+    try {
+      const response = await clientService.toggleClientStatus(client.clientId, newStatus);
+      
+      if (response.success) {
+        showToast(`Client ${action}d successfully`, 'success');
+        loadAdminData();
+      } else {
+        showToast(response.message || `Failed to ${action} client`, 'error');
+      }
+    } catch (error) {
+      showToast(error.response?.data?.message || `Failed to ${action} client`, 'error');
+    }
+  };
+
+  const handleCloseClientModal = () => {
+    setShowClientModal(false);
+    setSelectedClient(null);
+    setClientForm({
+      businessName: '',
+      businessAddress: '',
+      businessPhone: '',
+      businessEmail: '',
+      PAN: '',
+      GST: '',
+      CIN: '',
+      latitude: '',
+      longitude: '',
+    });
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -289,6 +484,12 @@ export const AdminPage = () => {
             onClick={() => setActiveTab('users')}
           >
             User Management ({users.length})
+          </Button>
+          <Button
+            variant={activeTab === 'clients' ? 'primary' : 'default'}
+            onClick={() => setActiveTab('clients')}
+          >
+            Client Management ({clients.length})
           </Button>
           <Button
             variant={activeTab === 'categories' ? 'primary' : 'default'}
@@ -395,6 +596,88 @@ export const AdminPage = () => {
           </Card>
         )}
 
+        {activeTab === 'clients' && (
+          <Card>
+            <div className="admin__section-header">
+              <h2 className="neo-section__header">Client Management</h2>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setSelectedClient(null);
+                  setClientForm({
+                    businessName: '',
+                    businessAddress: '',
+                    businessPhone: '',
+                    businessEmail: '',
+                    PAN: '',
+                    GST: '',
+                    CIN: '',
+                    latitude: '',
+                    longitude: '',
+                  });
+                  setShowClientModal(true);
+                }}
+              >
+                + Create Client
+              </Button>
+            </div>
+            
+            {clients.length === 0 ? (
+              <div className="admin__empty">
+                <p className="text-secondary">No clients found</p>
+              </div>
+            ) : (
+              <table className="neo-table">
+                <thead>
+                  <tr>
+                    <th>Client ID</th>
+                    <th>Business Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clients.map((client) => (
+                    <tr key={client.clientId}>
+                      <td>{client.clientId}</td>
+                      <td>{client.businessName}</td>
+                      <td>{client.businessEmail}</td>
+                      <td>{client.businessPhone}</td>
+                      <td>
+                        <Badge status={client.isActive ? 'Approved' : 'Rejected'}>
+                          {client.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </td>
+                      <td>{new Date(client.createdAt).toLocaleDateString()}</td>
+                      <td className="admin__actions">
+                        <Button
+                          size="small"
+                          variant="default"
+                          onClick={() => handleEditClient(client)}
+                          disabled={client.isSystemClient}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="small"
+                          variant={client.isActive ? 'danger' : 'success'}
+                          onClick={() => handleToggleClientStatus(client)}
+                          disabled={client.isSystemClient}
+                        >
+                          {client.isActive ? 'Disable' : 'Enable'}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Card>
+        )}
+
         {activeTab === 'categories' && (
           <Card>
             <div className="admin__section-header">
@@ -440,6 +723,13 @@ export const AdminPage = () => {
                         >
                           {category.isActive ? 'Disable' : 'Enable'}
                         </Button>
+                        <Button
+                          size="small"
+                          variant="danger"
+                          onClick={() => handleDeleteCategory(category)}
+                        >
+                          Delete
+                        </Button>
                       </div>
                     </div>
                     
@@ -470,6 +760,13 @@ export const AdminPage = () => {
                                     onClick={() => handleToggleSubcategoryStatus(category, sub)}
                                   >
                                     {sub.isActive ? 'Disable' : 'Enable'}
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    variant="danger"
+                                    onClick={() => handleDeleteSubcategory(category, sub)}
+                                  >
+                                    Delete
                                   </Button>
                                 </td>
                               </tr>
@@ -664,6 +961,121 @@ export const AdminPage = () => {
               disabled={submitting}
             >
               {submitting ? 'Adding...' : 'Add Subcategory'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+      
+      {/* Client Modal (Create/Edit) */}
+      <Modal
+        isOpen={showClientModal}
+        onClose={handleCloseClientModal}
+        title={selectedClient ? 'Edit Client' : 'Create New Client'}
+      >
+        <form onSubmit={selectedClient ? handleUpdateClient : handleCreateClient} className="admin__create-form">
+          {selectedClient && (
+            <div className="neo-form-group">
+              <label className="neo-label">Client ID</label>
+              <div className="neo-info-text">{selectedClient.clientId} (Immutable)</div>
+            </div>
+          )}
+
+          <Input
+            label="Business Name *"
+            name="businessName"
+            value={clientForm.businessName}
+            onChange={(e) => setClientForm({ ...clientForm, businessName: e.target.value })}
+            placeholder="Enter business name"
+            required
+          />
+
+          <Input
+            label="Business Address *"
+            name="businessAddress"
+            value={clientForm.businessAddress}
+            onChange={(e) => setClientForm({ ...clientForm, businessAddress: e.target.value })}
+            placeholder="Enter business address"
+            required
+          />
+
+          <Input
+            label="Business Phone *"
+            name="businessPhone"
+            type="tel"
+            value={clientForm.businessPhone}
+            onChange={(e) => setClientForm({ ...clientForm, businessPhone: e.target.value })}
+            placeholder="Enter business phone"
+            required
+          />
+
+          <Input
+            label="Business Email *"
+            name="businessEmail"
+            type="email"
+            value={clientForm.businessEmail}
+            onChange={(e) => setClientForm({ ...clientForm, businessEmail: e.target.value })}
+            placeholder="Enter business email"
+            required
+          />
+
+          <Input
+            label="PAN"
+            name="PAN"
+            value={clientForm.PAN}
+            onChange={(e) => setClientForm({ ...clientForm, PAN: e.target.value })}
+            placeholder="Enter PAN (optional)"
+          />
+
+          <Input
+            label="GST"
+            name="GST"
+            value={clientForm.GST}
+            onChange={(e) => setClientForm({ ...clientForm, GST: e.target.value })}
+            placeholder="Enter GST (optional)"
+          />
+
+          <Input
+            label="CIN"
+            name="CIN"
+            value={clientForm.CIN}
+            onChange={(e) => setClientForm({ ...clientForm, CIN: e.target.value })}
+            placeholder="Enter CIN (optional)"
+          />
+
+          <Input
+            label="Latitude"
+            name="latitude"
+            type="number"
+            step="any"
+            value={clientForm.latitude}
+            onChange={(e) => setClientForm({ ...clientForm, latitude: e.target.value })}
+            placeholder="Enter latitude (optional)"
+          />
+
+          <Input
+            label="Longitude"
+            name="longitude"
+            type="number"
+            step="any"
+            value={clientForm.longitude}
+            onChange={(e) => setClientForm({ ...clientForm, longitude: e.target.value })}
+            placeholder="Enter longitude (optional)"
+          />
+
+          <div className="neo-form-actions">
+            <Button
+              type="button"
+              variant="default"
+              onClick={handleCloseClientModal}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={submitting}
+            >
+              {submitting ? (selectedClient ? 'Updating...' : 'Creating...') : (selectedClient ? 'Update Client' : 'Create Client')}
             </Button>
           </div>
         </form>

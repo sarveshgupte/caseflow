@@ -304,16 +304,20 @@ const employeeWorklist = async (req, res) => {
     };
     
     const cases = await Case.find(query)
-      .select('category createdAt createdBy status clientId clientName')
+      .select('caseId caseName category createdAt createdBy updatedAt status clientId clientName')
       .sort({ createdAt: -1 })
       .lean();
     
     res.json({
       success: true,
       data: cases.map(c => ({
+        _id: c._id, // Include _id for UI compatibility
+        caseId: c.caseId,
+        caseName: c.caseName,
         category: c.category,
         createdAt: c.createdAt,
         createdBy: c.createdBy,
+        updatedAt: c.updatedAt,
         status: c.status,
         clientId: c.clientId || null,
         clientName: c.clientName,
