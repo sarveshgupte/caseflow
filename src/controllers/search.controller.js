@@ -465,7 +465,7 @@ const globalWorklist = async (req, res) => {
     
     // Calculate SLA days remaining for each case
     const now = new Date();
-    const casesWithSLA = allCases.map(c => {
+    const casesWithSLAInfo = allCases.map(c => {
       let slaDaysRemaining = null;
       if (c.slaDueDate) {
         const dueDate = new Date(c.slaDueDate);
@@ -492,7 +492,7 @@ const globalWorklist = async (req, res) => {
     
     res.json({
       success: true,
-      data: casesWithSLA,
+      data: casesWithSLAInfo,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
