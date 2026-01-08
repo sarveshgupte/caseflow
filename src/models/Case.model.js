@@ -173,7 +173,6 @@ const caseSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Client ID is required - every case must have a client'],
     trim: true,
-    index: true,
   },
   
   /**
