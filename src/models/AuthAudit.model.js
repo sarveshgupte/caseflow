@@ -23,23 +23,29 @@ const authAuditSchema = new mongoose.Schema({
     type: String,
     required: true,
     enum: [
+      // User lifecycle events
       'UserCreated',
-      'Login',
-      'Logout',
-      'PasswordChanged',
-      'PasswordResetByAdmin',
-      'PasswordExpired',
+      'InviteEmailSent',
       'ProfileUpdated',
       'AccountActivated',
       'AccountDeactivated',
+      
+      // Authentication events
+      'Login',
+      'Logout',
       'LoginFailed',
+      'AccountLocked',
+      'AccountUnlocked',
+      
+      // Password management events
       'PasswordSetupEmailSent',
       'PasswordSetup',
+      'PasswordChanged',
+      'PasswordResetByAdmin',
+      'PasswordExpired',
       'PasswordReset',
       'PasswordResetEmailSent',
       'ForgotPasswordRequested',
-      'AccountLocked',
-      'AccountUnlocked',
     ],
   },
   
