@@ -14,15 +14,21 @@ const isSmtpConfigured = process.env.SMTP_HOST && process.env.SMTP_PORT;
 
 if (isSmtpConfigured) {
   try {
-    transporter = nodemailer.createTransport({
+    const transportConfig = {
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT, 10),
       secure: parseInt(process.env.SMTP_PORT, 10) === 465, // true for 465, false for other ports
-      auth: {
+    };
+    
+    // Only add auth if credentials are provided
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      transportConfig.auth = {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
-      },
-    });
+      };
+    }
+    
+    transporter = nodemailer.createTransport(transportConfig);
     console.log('[EMAIL] SMTP transport initialized successfully');
   } catch (error) {
     console.error('[EMAIL] Failed to initialize SMTP transport:', error.message);
@@ -45,10 +51,10 @@ const sendEmail = async (mailOptions) => {
         from: fromAddress,
         ...mailOptions,
       });
-      console.log(`[EMAIL] Invite email sent successfully to ${mailOptions.to}`);
+      console.log(`[EMAIL] Email sent successfully to ${mailOptions.to}`);
       return true;
     } catch (error) {
-      console.error(`[EMAIL] Failed to send invite email: ${error.message}`);
+      console.error(`[EMAIL] Failed to send email: ${error.message}`);
       return false;
     }
   } else {
