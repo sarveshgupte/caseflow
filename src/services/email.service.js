@@ -2,10 +2,76 @@
  * Email Service for Docketra
  * 
  * Sends transactional emails for authentication and user management
- * Uses console logging in development (can be replaced with actual email service in production)
+ * Uses SMTP in production when configured, falls back to console logging in development
  */
 
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+
+// Initialize SMTP transporter if SMTP is configured
+let transporter = null;
+const isSmtpConfigured = process.env.SMTP_HOST && process.env.SMTP_PORT;
+
+if (isSmtpConfigured) {
+  try {
+    const transportConfig = {
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT, 10),
+      secure: parseInt(process.env.SMTP_PORT, 10) === 465, // true for 465, false for other ports
+    };
+    
+    // Only add auth if credentials are provided
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      transportConfig.auth = {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      };
+    }
+    
+    transporter = nodemailer.createTransport(transportConfig);
+    console.log('[EMAIL] SMTP transport initialized successfully');
+  } catch (error) {
+    console.error('[EMAIL] Failed to initialize SMTP transport:', error.message);
+    transporter = null;
+  }
+}
+
+/**
+ * Send email via SMTP or log to console
+ * @param {Object} mailOptions - Email options (to, subject, html, text)
+ * @returns {Promise<boolean>} Success status
+ */
+const sendEmail = async (mailOptions) => {
+  const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || `noreply@${process.env.SMTP_HOST || 'localhost'}`;
+  
+  if (transporter) {
+    // Send via SMTP
+    try {
+      await transporter.sendMail({
+        from: fromAddress,
+        ...mailOptions,
+      });
+      console.log(`[EMAIL] Email sent successfully to ${mailOptions.to}`);
+      return true;
+    } catch (error) {
+      console.error(`[EMAIL] Failed to send email: ${error.message}`);
+      return false;
+    }
+  } else {
+    // Fallback to console logging (development mode)
+    console.log('\n========================================');
+    console.log('📧 EMAIL (Console Mode - Development)');
+    console.log('========================================');
+    console.log(`To: ${mailOptions.to}`);
+    console.log(`Subject: ${mailOptions.subject}`);
+    console.log('');
+    console.log('Note: SMTP not configured. Email logged to console only.');
+    console.log('Configure SMTP_HOST and SMTP_PORT to enable email delivery.');
+    console.log('Optionally configure SMTP_USER and SMTP_PASS for authenticated SMTP.');
+    console.log('========================================\n');
+    return true;
+  }
+};
 
 /**
  * Generate a cryptographically secure random token
@@ -35,50 +101,58 @@ const hashToken = (token) => {
 const sendPasswordSetupEmail = async (email, name, token, xID, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
   const setupLink = `${frontendUrl}/set-password?token=${token}`;
   
-  // In production, replace this with actual email service (SendGrid, AWS SES, etc.)
-  console.log('\n========================================');
-  console.log('📧 INVITE EMAIL - PASSWORD SETUP');
-  console.log('========================================');
-  console.log(`To: ${email}`);
-  console.log(`Name: ${name}`);
-  console.log(`xID: ${xID}`);
-  console.log('Subject: Welcome to Docketra - Set up your account');
-  console.log('');
-  console.log('Message:');
-  console.log(`Hello ${name},`);
-  console.log('');
-  console.log('Welcome to Docketra! An administrator has created an account for you.');
-  console.log('');
-  console.log(`Your Employee ID (xID): ${xID}`);
-  console.log('');
-  console.log('Please set up your account by clicking the secure link below:');
-  console.log(setupLink);
-  console.log('');
-  console.log('⚠️ This link will expire in 48 hours for security reasons.');
-  console.log('');
-  console.log('For your security:');
-  console.log('- Keep your xID and password confidential');
-  console.log('- Do not share this link with anyone');
-  console.log('- Use a strong, unique password');
-  console.log('');
-  console.log('If you did not expect this invitation, please contact your administrator.');
-  console.log('');
-  console.log('Best regards,');
-  console.log('Docketra Team');
-  console.log('========================================\n');
+  const subject = 'Welcome to Docketra - Set up your account';
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Hello ${name},</h2>
+      <p>Welcome to Docketra! An administrator has created an account for you.</p>
+      <p><strong>Your Employee ID (xID):</strong> ${xID}</p>
+      <p>Please set up your account by clicking the secure link below:</p>
+      <p style="margin: 20px 0;">
+        <a href="${setupLink}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Set Up Your Account</a>
+      </p>
+      <p style="color: #666; font-size: 14px;">Or copy this link: ${setupLink}</p>
+      <p style="color: #d32f2f;">⚠️ This link will expire in 48 hours for security reasons.</p>
+      <h3>For your security:</h3>
+      <ul>
+        <li>Keep your xID and password confidential</li>
+        <li>Do not share this link with anyone</li>
+        <li>Use a strong, unique password</li>
+      </ul>
+      <p>If you did not expect this invitation, please contact your administrator.</p>
+      <p>Best regards,<br>Docketra Team</p>
+    </div>
+  `;
   
-  // In production, implement actual email sending here
-  // Example with SendGrid:
-  // const sgMail = require('@sendgrid/mail');
-  // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  // await sgMail.send({
-  //   to: email,
-  //   from: process.env.EMAIL_FROM,
-  //   subject: 'Welcome to Docketra - Set up your account',
-  //   html: `...`
-  // });
+  const textContent = `
+Hello ${name},
+
+Welcome to Docketra! An administrator has created an account for you.
+
+Your Employee ID (xID): ${xID}
+
+Please set up your account by clicking the secure link below:
+${setupLink}
+
+⚠️ This link will expire in 48 hours for security reasons.
+
+For your security:
+- Keep your xID and password confidential
+- Do not share this link with anyone
+- Use a strong, unique password
+
+If you did not expect this invitation, please contact your administrator.
+
+Best regards,
+Docketra Team
+  `.trim();
   
-  return true;
+  return await sendEmail({
+    to: email,
+    subject,
+    html: htmlContent,
+    text: textContent,
+  });
 };
 
 /**
@@ -92,31 +166,44 @@ const sendPasswordSetupEmail = async (email, name, token, xID, frontendUrl = pro
 const sendPasswordSetupReminderEmail = async (email, name, token, xID, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
   const setupLink = `${frontendUrl}/set-password?token=${token}`;
   
-  console.log('\n========================================');
-  console.log('📧 INVITE REMINDER EMAIL');
-  console.log('========================================');
-  console.log(`To: ${email}`);
-  console.log(`Name: ${name}`);
-  console.log(`xID: ${xID}`);
-  console.log('Subject: Reminder: Set up your Docketra account');
-  console.log('');
-  console.log('Message:');
-  console.log(`Hello ${name},`);
-  console.log('');
-  console.log('This is a reminder to set up your Docketra account.');
-  console.log('');
-  console.log(`Your Employee ID (xID): ${xID}`);
-  console.log('');
-  console.log('Please complete your account setup by clicking the link below:');
-  console.log(setupLink);
-  console.log('');
-  console.log('⚠️ This link will expire in 48 hours.');
-  console.log('');
-  console.log('Best regards,');
-  console.log('Docketra Team');
-  console.log('========================================\n');
+  const subject = 'Reminder: Set up your Docketra account';
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Hello ${name},</h2>
+      <p>This is a reminder to set up your Docketra account.</p>
+      <p><strong>Your Employee ID (xID):</strong> ${xID}</p>
+      <p>Please complete your account setup by clicking the link below:</p>
+      <p style="margin: 20px 0;">
+        <a href="${setupLink}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Set Up Your Account</a>
+      </p>
+      <p style="color: #666; font-size: 14px;">Or copy this link: ${setupLink}</p>
+      <p style="color: #d32f2f;">⚠️ This link will expire in 48 hours.</p>
+      <p>Best regards,<br>Docketra Team</p>
+    </div>
+  `;
   
-  return true;
+  const textContent = `
+Hello ${name},
+
+This is a reminder to set up your Docketra account.
+
+Your Employee ID (xID): ${xID}
+
+Please complete your account setup by clicking the link below:
+${setupLink}
+
+⚠️ This link will expire in 48 hours.
+
+Best regards,
+Docketra Team
+  `.trim();
+  
+  return await sendEmail({
+    to: email,
+    subject,
+    html: htmlContent,
+    text: textContent,
+  });
 };
 
 /**
@@ -129,31 +216,46 @@ const sendPasswordSetupReminderEmail = async (email, name, token, xID, frontendU
 const sendPasswordResetEmail = async (email, name, token, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
   const resetLink = `${frontendUrl}/reset-password?token=${token}`;
   
-  console.log('\n========================================');
-  console.log('📧 PASSWORD RESET EMAIL');
-  console.log('========================================');
-  console.log(`To: ${email}`);
-  console.log(`Name: ${name}`);
-  console.log('Subject: Password Reset Required for your Docketra account');
-  console.log('');
-  console.log('Message:');
-  console.log(`Hello ${name},`);
-  console.log('');
-  console.log('You have successfully logged in to your Docketra account.');
-  console.log('For security reasons, you are required to reset your password.');
-  console.log('');
-  console.log('Please reset your password by clicking the link below:');
-  console.log(resetLink);
-  console.log('');
-  console.log('This link will expire in 24 hours.');
-  console.log('');
-  console.log('If you did not attempt to log in, please contact your administrator immediately.');
-  console.log('');
-  console.log('Best regards,');
-  console.log('Docketra Team');
-  console.log('========================================\n');
+  const subject = 'Password Reset Required for your Docketra account';
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Hello ${name},</h2>
+      <p>You have successfully logged in to your Docketra account.</p>
+      <p>For security reasons, you are required to reset your password.</p>
+      <p>Please reset your password by clicking the link below:</p>
+      <p style="margin: 20px 0;">
+        <a href="${resetLink}" style="background-color: #2196F3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Reset Password</a>
+      </p>
+      <p style="color: #666; font-size: 14px;">Or copy this link: ${resetLink}</p>
+      <p style="color: #d32f2f;">This link will expire in 24 hours.</p>
+      <p>If you did not attempt to log in, please contact your administrator immediately.</p>
+      <p>Best regards,<br>Docketra Team</p>
+    </div>
+  `;
   
-  return true;
+  const textContent = `
+Hello ${name},
+
+You have successfully logged in to your Docketra account.
+For security reasons, you are required to reset your password.
+
+Please reset your password by clicking the link below:
+${resetLink}
+
+This link will expire in 24 hours.
+
+If you did not attempt to log in, please contact your administrator immediately.
+
+Best regards,
+Docketra Team
+  `.trim();
+  
+  return await sendEmail({
+    to: email,
+    subject,
+    html: htmlContent,
+    text: textContent,
+  });
 };
 
 /**
@@ -166,30 +268,44 @@ const sendPasswordResetEmail = async (email, name, token, frontendUrl = process.
 const sendForgotPasswordEmail = async (email, name, token, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
   const resetLink = `${frontendUrl}/reset-password?token=${token}`;
   
-  console.log('\n========================================');
-  console.log('📧 FORGOT PASSWORD EMAIL');
-  console.log('========================================');
-  console.log(`To: ${email}`);
-  console.log(`Name: ${name}`);
-  console.log('Subject: Reset your Docketra password');
-  console.log('');
-  console.log('Message:');
-  console.log(`Hello ${name},`);
-  console.log('');
-  console.log('We received a request to reset your password for your Docketra account.');
-  console.log('');
-  console.log('Please reset your password by clicking the link below:');
-  console.log(resetLink);
-  console.log('');
-  console.log('This link will expire in 30 minutes for security reasons.');
-  console.log('');
-  console.log('If you did not request a password reset, please ignore this email and your password will remain unchanged.');
-  console.log('');
-  console.log('Best regards,');
-  console.log('Docketra Team');
-  console.log('========================================\n');
+  const subject = 'Reset your Docketra password';
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Hello ${name},</h2>
+      <p>We received a request to reset your password for your Docketra account.</p>
+      <p>Please reset your password by clicking the link below:</p>
+      <p style="margin: 20px 0;">
+        <a href="${resetLink}" style="background-color: #2196F3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Reset Password</a>
+      </p>
+      <p style="color: #666; font-size: 14px;">Or copy this link: ${resetLink}</p>
+      <p style="color: #d32f2f;">This link will expire in 30 minutes for security reasons.</p>
+      <p>If you did not request a password reset, please ignore this email and your password will remain unchanged.</p>
+      <p>Best regards,<br>Docketra Team</p>
+    </div>
+  `;
   
-  return true;
+  const textContent = `
+Hello ${name},
+
+We received a request to reset your password for your Docketra account.
+
+Please reset your password by clicking the link below:
+${resetLink}
+
+This link will expire in 30 minutes for security reasons.
+
+If you did not request a password reset, please ignore this email and your password will remain unchanged.
+
+Best regards,
+Docketra Team
+  `.trim();
+  
+  return await sendEmail({
+    to: email,
+    subject,
+    html: htmlContent,
+    text: textContent,
+  });
 };
 
 module.exports = {
