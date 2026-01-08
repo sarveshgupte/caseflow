@@ -782,13 +782,39 @@ const createUser = async (req, res) => {
       },
     });
   } catch (error) {
-    // Handle duplicate email error from MongoDB
-    if (error.code === 11000 && error.keyPattern && error.keyPattern.email) {
+    // Handle duplicate key errors from MongoDB (E11000)
+    if (error.code === 11000) {
+      // Check which field caused the duplicate
+      if (error.keyPattern && error.keyPattern.email) {
+        console.error('[AUTH] Duplicate email error:', error.message);
+        return res.status(409).json({
+          success: false,
+          message: 'User with this email already exists',
+        });
+      }
+      
+      if (error.keyPattern && error.keyPattern.xID) {
+        // This should never happen with atomic counter operations
+        // If this occurs, it indicates a critical system issue
+        console.error('[AUTH] CRITICAL: Duplicate xID error (identity collision):', error.message);
+        console.error('[AUTH] Counter value:', error.keyValue?.xID);
+        console.error('[AUTH] This should be investigated immediately');
+        return res.status(500).json({
+          success: false,
+          message: 'Identity generation collision. Please try again or contact support.',
+        });
+      }
+      
+      // Generic duplicate key error
+      console.error('[AUTH] Duplicate key error:', error.message);
       return res.status(409).json({
         success: false,
-        message: 'User with this email already exists',
+        message: 'A user with this information already exists',
       });
     }
+    
+    // Log all other errors for debugging
+    console.error('[AUTH] Error creating user:', error);
     
     res.status(500).json({
       success: false,
