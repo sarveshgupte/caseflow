@@ -794,9 +794,11 @@ const createUser = async (req, res) => {
       }
       
       if (error.keyPattern && error.keyPattern.xID) {
-        // This should be extremely rare with atomic counter, but handle it gracefully
-        console.error('[AUTH] Duplicate xID error (identity collision):', error.message);
-        console.error('[AUTH] This indicates a critical issue with xID generation atomicity');
+        // This should never happen with atomic counter operations
+        // If this occurs, it indicates a critical system issue
+        console.error('[AUTH] CRITICAL: Duplicate xID error (identity collision):', error.message);
+        console.error('[AUTH] Counter value:', error.keyValue?.xID);
+        console.error('[AUTH] This should be investigated immediately');
         return res.status(500).json({
           success: false,
           message: 'Identity generation collision. Please try again or contact support.',

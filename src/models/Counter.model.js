@@ -27,7 +27,4 @@ const counterSchema = new mongoose.Schema({
   },
 });
 
-// Index for fast lookups
-counterSchema.index({ name: 1 }, { unique: true });
-
 module.exports = mongoose.model('Counter', counterSchema);
