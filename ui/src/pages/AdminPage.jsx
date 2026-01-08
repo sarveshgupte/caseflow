@@ -267,6 +267,44 @@ export const AdminPage = () => {
     }
   };
 
+  const handleDeleteCategory = async (category) => {
+    if (!confirm(`Are you sure you want to delete category "${category.name}"? This is a soft delete - the category will be hidden from dropdowns but historical cases will remain valid.`)) {
+      return;
+    }
+    
+    try {
+      const response = await categoryService.deleteCategory(category._id);
+      
+      if (response.success) {
+        showToast('Category deleted successfully', 'success');
+        loadAdminData();
+      } else {
+        showToast(response.message || 'Failed to delete category', 'error');
+      }
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Failed to delete category', 'error');
+    }
+  };
+
+  const handleDeleteSubcategory = async (category, subcategory) => {
+    if (!confirm(`Are you sure you want to delete subcategory "${subcategory.name}"? This is a soft delete - the subcategory will be hidden from dropdowns but historical cases will remain valid.`)) {
+      return;
+    }
+    
+    try {
+      const response = await categoryService.deleteSubcategory(category._id, subcategory.id);
+      
+      if (response.success) {
+        showToast('Subcategory deleted successfully', 'success');
+        loadAdminData();
+      } else {
+        showToast(response.message || 'Failed to delete subcategory', 'error');
+      }
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Failed to delete subcategory', 'error');
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -440,6 +478,13 @@ export const AdminPage = () => {
                         >
                           {category.isActive ? 'Disable' : 'Enable'}
                         </Button>
+                        <Button
+                          size="small"
+                          variant="danger"
+                          onClick={() => handleDeleteCategory(category)}
+                        >
+                          Delete
+                        </Button>
                       </div>
                     </div>
                     
@@ -470,6 +515,13 @@ export const AdminPage = () => {
                                     onClick={() => handleToggleSubcategoryStatus(category, sub)}
                                   >
                                     {sub.isActive ? 'Disable' : 'Enable'}
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    variant="danger"
+                                    onClick={() => handleDeleteSubcategory(category, sub)}
+                                  >
+                                    Delete
                                   </Button>
                                 </td>
                               </tr>

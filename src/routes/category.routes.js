@@ -8,9 +8,11 @@ const {
   createCategory,
   updateCategory,
   toggleCategoryStatus,
+  deleteCategory,
   addSubcategory,
   updateSubcategory,
   toggleSubcategoryStatus,
+  deleteSubcategory,
 } = require('../controllers/category.controller');
 
 /**
@@ -33,10 +35,12 @@ router.get('/:id', authenticate, getCategoryById);
 router.post('/', authenticate, requireAdmin, createCategory);
 router.put('/:id', authenticate, requireAdmin, updateCategory);
 router.patch('/:id/status', authenticate, requireAdmin, toggleCategoryStatus);
+router.delete('/:id', authenticate, requireAdmin, deleteCategory);
 
 // Subcategory management (Admin only)
 router.post('/:id/subcategories', authenticate, requireAdmin, addSubcategory);
 router.put('/:id/subcategories/:subcategoryId', authenticate, requireAdmin, updateSubcategory);
 router.patch('/:id/subcategories/:subcategoryId/status', authenticate, requireAdmin, toggleSubcategoryStatus);
+router.delete('/:id/subcategories/:subcategoryId', authenticate, requireAdmin, deleteSubcategory);
 
 module.exports = router;

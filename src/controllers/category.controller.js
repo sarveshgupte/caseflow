@@ -173,6 +173,9 @@ const updateCategory = async (req, res) => {
 /**
  * Enable/disable category (Admin only)
  * PATCH /api/categories/:id/status
+ * 
+ * PR #39: Safe deletion - Categories can be disabled even when in use by cases.
+ * Disabled categories are hidden from UI dropdowns but historical cases remain valid.
  */
 const toggleCategoryStatus = async (req, res) => {
   try {
@@ -195,24 +198,9 @@ const toggleCategoryStatus = async (req, res) => {
       });
     }
     
-    // Check if category is in use by any cases when trying to disable
-    if (!isActive) {
-      const casesCount = await Case.countDocuments({ 
-        $or: [
-          { category: category.name },
-          { caseCategory: category.name },
-          { categoryId: category._id }
-        ]
-      });
-      
-      if (casesCount > 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Cannot disable category. It is currently used by ${casesCount} case(s)`,
-        });
-      }
-    }
-    
+    // PR #39: Allow soft delete even when category is in use
+    // Historical cases will continue to display the category label
+    // Only hide from new case creation dropdowns
     category.isActive = isActive;
     await category.save();
     
@@ -406,13 +394,100 @@ const toggleSubcategoryStatus = async (req, res) => {
   }
 };
 
+/**
+ * Delete category (Admin only) - Soft delete
+ * DELETE /api/categories/:id
+ * 
+ * PR #39: Safe deletion - Sets isActive to false
+ * Category remains in database for historical cases
+ */
+const deleteCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const category = await Category.findById(id);
+    
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found',
+      });
+    }
+    
+    // Soft delete - set isActive to false
+    category.isActive = false;
+    await category.save();
+    
+    res.json({
+      success: true,
+      data: category,
+      message: 'Category deleted successfully (soft delete)',
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Error deleting category',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Delete subcategory (Admin only) - Soft delete
+ * DELETE /api/categories/:id/subcategories/:subcategoryId
+ * 
+ * PR #39: Safe deletion - Sets isActive to false
+ * Subcategory remains in database for historical cases
+ */
+const deleteSubcategory = async (req, res) => {
+  try {
+    const { id, subcategoryId } = req.params;
+    
+    const category = await Category.findById(id);
+    
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found',
+      });
+    }
+    
+    const subcategory = category.subcategories.find(sub => sub.id === subcategoryId);
+    
+    if (!subcategory) {
+      return res.status(404).json({
+        success: false,
+        message: 'Subcategory not found',
+      });
+    }
+    
+    // Soft delete - set isActive to false
+    subcategory.isActive = false;
+    await category.save();
+    
+    res.json({
+      success: true,
+      data: category,
+      message: 'Subcategory deleted successfully (soft delete)',
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Error deleting subcategory',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getCategories,
   getCategoryById,
   createCategory,
   updateCategory,
   toggleCategoryStatus,
+  deleteCategory,
   addSubcategory,
   updateSubcategory,
   toggleSubcategoryStatus,
+  deleteSubcategory,
 };
