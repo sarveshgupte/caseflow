@@ -5,17 +5,37 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 export const CASE_STATUS = {
+  DRAFT: 'DRAFT',
+  SUBMITTED: 'SUBMITTED',
+  UNDER_REVIEW: 'UNDER_REVIEW',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  CLOSED: 'CLOSED',
+  // Legacy statuses for backward compatibility
   OPEN: 'Open',
+  REVIEWED: 'Reviewed',
   PENDING: 'Pending',
-  CLOSED: 'Closed',
   FILED: 'Filed',
+  ARCHIVED: 'Archived',
 };
 
 export const CASE_CATEGORIES = {
-  CLIENT_NEW: 'Client – New',
-  CLIENT_EDIT: 'Client – Edit',
+  CLIENT_NEW: 'Client - New',
+  CLIENT_EDIT: 'Client - Edit',
+  CLIENT_DELETE: 'Client - Delete',
+  SALES: 'Sales',
+  ACCOUNTING: 'Accounting',
+  EXPENSES: 'Expenses',
+  PAYROLL: 'Payroll',
+  HR: 'HR',
+  COMPLIANCE: 'Compliance',
+  CORE_BUSINESS: 'Core Business',
+  MANAGEMENT_REVIEW: 'Management Review',
+  INTERNAL: 'Internal',
   OTHER: 'Other',
 };
+
+export const DEFAULT_CLIENT_ID = 'C000001';
 
 export const USER_ROLES = {
   ADMIN: 'Admin',

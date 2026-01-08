@@ -152,6 +152,16 @@ const userSchema = new mongoose.Schema({
     default: null,
   },
   
+  /**
+   * Client approval permission flag
+   * When true, this user can approve client cases regardless of hierarchy
+   * Top-most admins (managerId = null) OR users with canApproveClients = true can approve
+   */
+  canApproveClients: {
+    type: Boolean,
+    default: false,
+  },
+  
   // Audit trail for user account creation
   createdAt: {
     type: Date,

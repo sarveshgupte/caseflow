@@ -1,7 +1,7 @@
 /**
  * Seed Organization Client Script
  * 
- * Purpose: Creates the default system organization client (C123456)
+ * Purpose: Creates the default system organization client (C000001)
  * This is a MANDATORY client that must always exist in the system.
  * 
  * Usage:
@@ -10,7 +10,7 @@
  *   3. The script will check if organization client exists before creating
  * 
  * Organization Client Details:
- *   - clientId: C123456 (immutable, reserved)
+ *   - clientId: C000001 (immutable, reserved)
  *   - businessName: Organization
  *   - isSystemClient: true (cannot be deleted or edited directly)
  *   - Used for internal/organization work
@@ -30,17 +30,17 @@ const seedOrganizationClient = async () => {
     console.log('✓ MongoDB Connected');
 
     // Check if organization client already exists
-    const existingOrgClient = await Client.findOne({ clientId: 'C123456' });
+    const existingOrgClient = await Client.findOne({ clientId: 'C000001' });
     
     if (existingOrgClient) {
-      console.log('ℹ Organization client (C123456) already exists.');
+      console.log('ℹ Organization client (C000001) already exists.');
       console.log('  Business Name:', existingOrgClient.businessName);
       console.log('  System Client:', existingOrgClient.isSystemClient);
       console.log('  Created:', existingOrgClient.createdAt);
     } else {
       // Create the organization client
       const organizationClient = new Client({
-        clientId: 'C123456',
+        clientId: 'C000001',
         businessName: 'Organization',
         businessAddress: 'Organization Headquarters',
         businessPhone: '0000000000',

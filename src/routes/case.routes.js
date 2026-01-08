@@ -14,6 +14,7 @@ const {
   getCases,
   lockCaseEndpoint,
   unlockCaseEndpoint,
+  updateCaseActivity,
 } = require('../controllers/case.controller');
 
 /**
@@ -73,5 +74,28 @@ router.post('/:caseId/lock', lockCaseEndpoint);
 
 // POST /api/cases/:caseId/unlock - Unlock a case
 router.post('/:caseId/unlock', unlockCaseEndpoint);
+
+// POST /api/cases/:caseId/activity - Update case activity (heartbeat)
+router.post('/:caseId/activity', updateCaseActivity);
+
+// Workflow state transition routes
+const {
+  submitCase,
+  moveToUnderReview,
+  closeCase,
+  reopenCase,
+} = require('../controllers/caseWorkflow.controller');
+
+// POST /api/cases/:caseId/submit - Submit case for review
+router.post('/:caseId/submit', submitCase);
+
+// POST /api/cases/:caseId/review - Move case to under review
+router.post('/:caseId/review', moveToUnderReview);
+
+// POST /api/cases/:caseId/close - Close a case
+router.post('/:caseId/close', closeCase);
+
+// POST /api/cases/:caseId/reopen - Reopen a case
+router.post('/:caseId/reopen', reopenCase);
 
 module.exports = router;

@@ -92,6 +92,19 @@ export const CaseDetailPage = () => {
           <Badge status={caseData.status}>{caseData.status}</Badge>
         </div>
 
+        {/* Lock Status Warning */}
+        {caseData.lockStatus?.isLocked && 
+         caseData.lockStatus.activeUserEmail !== user?.email?.toLowerCase() && (
+          <div className="neo-alert neo-alert--warning" style={{ marginBottom: 'var(--spacing-lg)' }}>
+            <h3>Case is Currently Locked</h3>
+            <p>
+              This case is currently being worked on by <strong>{caseData.lockStatus.activeUserEmail}</strong> since{' '}
+              {formatDateTime(caseData.lockStatus.lastActivityAt || caseData.lockStatus.lockedAt)}.
+            </p>
+            <p>You can view the case in read-only mode.</p>
+          </div>
+        )}
+
         <div className="case-detail__grid">
           <Card className="case-detail__section">
             <h2 className="neo-section__header">Case Information</h2>

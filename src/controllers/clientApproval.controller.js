@@ -1,7 +1,8 @@
 const Case = require('../models/Case.model');
+const Comment = require('../models/Comment.model');
 const Client = require('../models/Client.model');
 const CaseHistory = require('../models/CaseHistory.model');
-const Comment = require('../models/Comment.model');
+const { CASE_CATEGORIES, CASE_STATUS } = require('../config/constants');
 
 /**
  * Client Approval Controller
@@ -23,6 +24,7 @@ const Comment = require('../models/Comment.model');
  * 
  * Admin-only endpoint to approve a "Client - New" case
  * Creates the new client in the database and updates case status
+ * Uses new workflow states and payload structure
  */
 const approveNewClient = async (req, res) => {
   try {
@@ -55,31 +57,37 @@ const approveNewClient = async (req, res) => {
     }
     
     // Verify case category
-    if (caseData.category !== 'Client - New') {
+    const category = caseData.caseCategory || caseData.category;
+    if (category !== CASE_CATEGORIES.CLIENT_NEW) {
       return res.status(400).json({
         success: false,
         message: 'This endpoint is only for "Client - New" cases',
       });
     }
     
-    // Verify case is in Reviewed status (ready for approval)
-    if (caseData.status !== 'Reviewed') {
+    // Verify case is in SUBMITTED or UNDER_REVIEW status
+    const validStatuses = [CASE_STATUS.SUBMITTED, CASE_STATUS.UNDER_REVIEW, CASE_STATUS.REVIEWED];
+    if (!validStatuses.includes(caseData.status)) {
       return res.status(400).json({
         success: false,
-        message: 'Case must be in Reviewed status to approve. Current status: ' + caseData.status,
+        message: `Case must be in SUBMITTED or UNDER_REVIEW status to approve. Current status: ${caseData.status}`,
       });
     }
     
-    // Extract client data from case description (should be JSON in description)
-    // Expected format in description: {"businessName": "...", "businessAddress": "...", ...}
+    // Extract client data from payload or legacy description
     let clientData;
-    try {
-      clientData = JSON.parse(caseData.description);
-    } catch (error) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid client data format in case description. Expected JSON.',
-      });
+    if (caseData.payload && caseData.payload.clientData) {
+      clientData = caseData.payload.clientData;
+    } else {
+      // Fallback to legacy description format
+      try {
+        clientData = JSON.parse(caseData.description);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid client data format. Expected payload.clientData or JSON in description.',
+        });
+      }
     }
     
     // Validate required client fields
@@ -111,8 +119,11 @@ const approveNewClient = async (req, res) => {
     
     await newClient.save();
     
-    // Update case status to Approved (Closed)
-    caseData.status = 'Closed';
+    // Update case with approval metadata
+    caseData.status = CASE_STATUS.APPROVED;
+    caseData.approvedAt = new Date();
+    caseData.approvedBy = approverEmail.toLowerCase();
+    caseData.decisionComments = comment;
     await caseData.save();
     
     // Add approval comment
@@ -131,11 +142,11 @@ const approveNewClient = async (req, res) => {
       performedBy: approverEmail.toLowerCase(),
     });
     
-    // Also log case closure
+    // Also log case approval
     await CaseHistory.create({
       caseId,
       actionType: 'Approved',
-      description: `Case approved and closed by Admin. Client ${newClient.clientId} created successfully.`,
+      description: `Case approved by Admin. Client ${newClient.clientId} created successfully.`,
       performedBy: approverEmail.toLowerCase(),
     });
     
@@ -162,6 +173,7 @@ const approveNewClient = async (req, res) => {
  * 
  * Admin-only endpoint to approve a "Client - Edit" case
  * Updates the existing client in the database and logs changes in audit trail
+ * Uses new workflow states and payload structure
  */
 const approveClientEdit = async (req, res) => {
   try {
@@ -194,31 +206,40 @@ const approveClientEdit = async (req, res) => {
     }
     
     // Verify case category
-    if (caseData.category !== 'Client - Edit') {
+    const category = caseData.caseCategory || caseData.category;
+    if (category !== CASE_CATEGORIES.CLIENT_EDIT) {
       return res.status(400).json({
         success: false,
         message: 'This endpoint is only for "Client - Edit" cases',
       });
     }
     
-    // Verify case is in Reviewed status (ready for approval)
-    if (caseData.status !== 'Reviewed') {
+    // Verify case is in SUBMITTED or UNDER_REVIEW status
+    const validStatuses = [CASE_STATUS.SUBMITTED, CASE_STATUS.UNDER_REVIEW, CASE_STATUS.REVIEWED];
+    if (!validStatuses.includes(caseData.status)) {
       return res.status(400).json({
         success: false,
-        message: 'Case must be in Reviewed status to approve. Current status: ' + caseData.status,
+        message: `Case must be in SUBMITTED or UNDER_REVIEW status to approve. Current status: ${caseData.status}`,
       });
     }
     
-    // Extract edit data from case description (should be JSON)
-    // Expected format: {"clientId": "C123457", "updates": {"businessPhone": "...", ...}}
+    // Extract edit data from payload or legacy description
     let editData;
-    try {
-      editData = JSON.parse(caseData.description);
-    } catch (error) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid edit data format in case description. Expected JSON.',
-      });
+    if (caseData.payload && caseData.payload.clientId && caseData.payload.updates) {
+      editData = {
+        clientId: caseData.payload.clientId,
+        updates: caseData.payload.updates,
+      };
+    } else {
+      // Fallback to legacy description format
+      try {
+        editData = JSON.parse(caseData.description);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid edit data format. Expected payload with clientId and updates.',
+        });
+      }
     }
     
     if (!editData.clientId || !editData.updates) {
@@ -289,8 +310,11 @@ const approveClientEdit = async (req, res) => {
     
     await client.save();
     
-    // Update case status to Approved (Closed)
-    caseData.status = 'Closed';
+    // Update case with approval metadata
+    caseData.status = CASE_STATUS.APPROVED;
+    caseData.approvedAt = new Date();
+    caseData.approvedBy = approverEmail.toLowerCase();
+    caseData.decisionComments = comment;
     await caseData.save();
     
     // Add approval comment
@@ -313,11 +337,11 @@ const approveClientEdit = async (req, res) => {
       performedBy: approverEmail.toLowerCase(),
     });
     
-    // Also log case closure
+    // Also log case approval
     await CaseHistory.create({
       caseId,
       actionType: 'Approved',
-      description: `Case approved and closed by Admin. Client ${client.clientId} updated successfully.`,
+      description: `Case approved by Admin. Client ${client.clientId} updated successfully.`,
       performedBy: approverEmail.toLowerCase(),
     });
     
@@ -352,6 +376,7 @@ const approveClientEdit = async (req, res) => {
  * 
  * Admin-only endpoint to reject a client case
  * Updates case status but does NOT mutate client data
+ * Uses new workflow states
  */
 const rejectClientCase = async (req, res) => {
   try {
@@ -384,23 +409,29 @@ const rejectClientCase = async (req, res) => {
     }
     
     // Verify case category
-    if (caseData.category !== 'Client - New' && caseData.category !== 'Client - Edit') {
+    const category = caseData.caseCategory || caseData.category;
+    const validCategories = [CASE_CATEGORIES.CLIENT_NEW, CASE_CATEGORIES.CLIENT_EDIT, CASE_CATEGORIES.CLIENT_DELETE];
+    if (!validCategories.includes(category)) {
       return res.status(400).json({
         success: false,
         message: 'This endpoint is only for client-related cases',
       });
     }
     
-    // Verify case is in Reviewed status
-    if (caseData.status !== 'Reviewed') {
+    // Verify case is in SUBMITTED or UNDER_REVIEW status
+    const validStatuses = [CASE_STATUS.SUBMITTED, CASE_STATUS.UNDER_REVIEW, CASE_STATUS.REVIEWED];
+    if (!validStatuses.includes(caseData.status)) {
       return res.status(400).json({
         success: false,
-        message: 'Case must be in Reviewed status to reject. Current status: ' + caseData.status,
+        message: `Case must be in SUBMITTED or UNDER_REVIEW status to reject. Current status: ${caseData.status}`,
       });
     }
     
-    // Update case status to Closed (rejected)
-    caseData.status = 'Closed';
+    // Update case with rejection metadata
+    caseData.status = CASE_STATUS.REJECTED;
+    caseData.approvedAt = new Date();
+    caseData.approvedBy = approverEmail.toLowerCase();
+    caseData.decisionComments = comment;
     await caseData.save();
     
     // Add rejection comment

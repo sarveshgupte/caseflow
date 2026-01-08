@@ -7,6 +7,7 @@ const {
   getClientById,
   listClients,
 } = require('../controllers/clientApproval.controller');
+const { checkClientApprovalPermission } = require('../middleware/adminApproval.middleware');
 
 /**
  * Client Approval Routes
@@ -22,8 +23,9 @@ router.get('/clients', listClients);
 router.get('/clients/:clientId', getClientById);
 
 // Admin approval endpoints (mutations only through case workflow)
-router.post('/:caseId/approve-new', approveNewClient);
-router.post('/:caseId/approve-edit', approveClientEdit);
-router.post('/:caseId/reject', rejectClientCase);
+// Apply hierarchy check middleware to enforce top-most admin or canApproveClients permission
+router.post('/:caseId/approve-new', checkClientApprovalPermission, approveNewClient);
+router.post('/:caseId/approve-edit', checkClientApprovalPermission, approveClientEdit);
+router.post('/:caseId/reject', checkClientApprovalPermission, rejectClientCase);
 
 module.exports = router;
