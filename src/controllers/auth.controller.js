@@ -156,9 +156,36 @@ const login = async (req, res) => {
     
     // Check if must change password
     if (user.mustChangePassword) {
+      // Generate new secure password setup token
+      const token = emailService.generateSecureToken();
+      const tokenHash = emailService.hashToken(token);
+      const tokenExpiry = new Date(Date.now() + PASSWORD_SETUP_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
+      
+      // Update user with token
+      user.passwordSetupTokenHash = tokenHash;
+      user.passwordSetupExpires = tokenExpiry;
+      await user.save();
+      
+      // Send password setup email
+      try {
+        await emailService.sendPasswordSetupEmail(user.email, user.name, token);
+        
+        // Log password setup email sent
+        await AuthAudit.create({
+          xID: user.xID,
+          actionType: 'PasswordSetupEmailSent',
+          description: `Password setup required - email sent to ${user.email}`,
+          performedBy: user.xID,
+          ipAddress: req.ip,
+        });
+      } catch (emailError) {
+        console.error('Failed to send password setup email:', emailError);
+        // Continue even if email fails - user can request resend
+      }
+      
       return res.status(403).json({
         success: false,
-        message: 'You must change your password before continuing.',
+        message: 'Password setup required. Check your email.',
         mustChangePassword: true,
       });
     }
