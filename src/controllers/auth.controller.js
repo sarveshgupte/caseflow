@@ -219,7 +219,7 @@ const login = async (req, res) => {
     // Return user info (exclude sensitive fields)
     const response = {
       success: true,
-      message: 'Login successful',
+      message: user.forcePasswordReset ? 'Password reset required' : 'Login successful',
       data: {
         xID: user.xID,
         name: user.name,
@@ -230,8 +230,9 @@ const login = async (req, res) => {
       },
     };
     
-    // Add forcePasswordReset flag if needed
+    // Add password reset flags if needed
     if (user.forcePasswordReset) {
+      response.mustChangePassword = true;
       response.forcePasswordReset = true;
     }
     
