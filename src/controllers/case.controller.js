@@ -186,7 +186,7 @@ const createCase = async (req, res) => {
       caseSubCategory: subcategory.name,
       clientId: finalClientId,
       createdByXID, // Set from authenticated user context
-      createdBy: req.user.email, // Legacy field - set from user context
+      createdBy: req.user.email || req.user.xID, // Legacy field - use email or xID as fallback
       priority: priority || 'Medium',
       status: 'UNASSIGNED', // New cases default to UNASSIGNED for global worklist
       assignedTo: assignedTo ? assignedTo.toLowerCase() : null,

@@ -200,7 +200,8 @@ const toggleCategoryStatus = async (req, res) => {
       const casesCount = await Case.countDocuments({ 
         $or: [
           { category: category.name },
-          { caseCategory: category.name }
+          { caseCategory: category.name },
+          { categoryId: category._id }
         ]
       });
       

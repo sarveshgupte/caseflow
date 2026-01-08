@@ -140,8 +140,13 @@ export const CreateCasePage = () => {
       case 'slaDueDate':
         if (!value) {
           error = 'SLA Due Date is required';
-        } else if (new Date(value) < new Date()) {
-          error = 'SLA Due Date must be in the future';
+        } else {
+          // Parse the datetime-local value and compare with current time
+          const selectedDate = new Date(value);
+          const now = new Date();
+          if (selectedDate <= now) {
+            error = 'SLA Due Date must be in the future';
+          }
         }
         break;
       default:
