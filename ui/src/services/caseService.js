@@ -3,6 +3,7 @@
  */
 
 import api from './api';
+import { STORAGE_KEYS } from '../utils/constants';
 
 export const caseService = {
   /**
@@ -40,21 +41,33 @@ export const caseService = {
 
   /**
    * Add comment to case
+   * PR #41: Fixed to send text and createdBy as expected by backend
    */
-  addComment: async (caseId, comment) => {
+  addComment: async (caseId, commentText) => {
+    // Get user from localStorage
+    const userStr = localStorage.getItem(STORAGE_KEYS.USER);
+    const user = userStr ? JSON.parse(userStr) : null;
+    
     const response = await api.post(`/cases/${caseId}/comments`, {
-      comment,
+      text: commentText,
+      createdBy: user?.email || 'unknown',
     });
     return response.data;
   },
 
   /**
    * Add attachment to case
+   * PR #41: Fixed to send createdBy as expected by backend
    */
   addAttachment: async (caseId, file, description) => {
+    // Get user from localStorage
+    const userStr = localStorage.getItem(STORAGE_KEYS.USER);
+    const user = userStr ? JSON.parse(userStr) : null;
+    
     const formData = new FormData();
     formData.append('file', file);
     formData.append('description', description);
+    formData.append('createdBy', user?.email || 'unknown');
     
     const response = await api.post(`/cases/${caseId}/attachments`, formData, {
       headers: {
