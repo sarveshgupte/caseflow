@@ -164,6 +164,11 @@ const login = async (req, res) => {
       const tokenHash = emailService.hashToken(token);
       const tokenExpiry = new Date(Date.now() + PASSWORD_SETUP_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
       
+      // Construct reset URL for logging
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
+      console.log('PASSWORD RESET LINK:', resetUrl);
+      
       // Update user with token
       user.passwordResetTokenHash = tokenHash;
       user.passwordResetExpires = tokenExpiry;
@@ -172,12 +177,6 @@ const login = async (req, res) => {
         await user.save();
       } catch (saveError) {
         console.error('[AUTH] Failed to save password reset token:', saveError.message);
-      }
-      
-      // Validate environment variables for email
-      const frontendUrl = process.env.FRONTEND_URL;
-      if (!frontendUrl) {
-        console.warn('[AUTH] FRONTEND_URL not configured. Using default http://localhost:3000. Password reset link may not work in production.');
       }
       
       // Send password reset email
