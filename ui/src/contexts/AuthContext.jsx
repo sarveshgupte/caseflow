@@ -41,9 +41,20 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await authService.logout();
-    setUser(null);
-    setIsAuthenticated(false);
+    try {
+      // Call backend logout endpoint
+      await authService.logout();
+    } catch (error) {
+      // Even if backend call fails, clear client state
+      console.error('Logout error:', error);
+    } finally {
+      // Always clear client-side state
+      setUser(null);
+      setIsAuthenticated(false);
+      // Force clear localStorage in case service didn't
+      localStorage.removeItem('xID');
+      localStorage.removeItem('user');
+    }
   };
 
   const updateUser = (userData) => {

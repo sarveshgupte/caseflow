@@ -18,8 +18,8 @@ export const CASE_CATEGORIES = {
 };
 
 export const USER_ROLES = {
-  ADMIN: 'admin',
-  EMPLOYEE: 'employee',
+  ADMIN: 'Admin',
+  EMPLOYEE: 'Employee',
 };
 
 export const STORAGE_KEYS = {
