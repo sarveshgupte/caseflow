@@ -26,6 +26,7 @@ const clientApprovalRoutes = require('./routes/clientApproval.routes');  // Clie
 const clientRoutes = require('./routes/client.routes');  // Client management routes (PR #39)
 const reportsRoutes = require('./routes/reports.routes');  // Reports routes
 const categoryRoutes = require('./routes/category.routes');  // Category routes
+const adminRoutes = require('./routes/admin.routes');  // Admin routes (PR #41)
 
 /**
  * Docketra - Task & Case Management System
@@ -104,6 +105,7 @@ app.get('/api', (req, res) => {
       clients: '/api/clients',
       reports: '/api/reports',
       categories: '/api/categories',
+      admin: '/api/admin',
     },
   });
 });
@@ -113,6 +115,9 @@ app.use('/api/auth', authRoutes);
 
 // Category routes (public GET for active categories, admin-only for modifications)
 app.use('/api/categories', categoryRoutes);
+
+// Admin routes (PR #41) - require authentication and admin role
+app.use('/api/admin', adminRoutes);
 
 // Protected routes - require authentication
 app.use('/api/users', authenticate, userRoutes);

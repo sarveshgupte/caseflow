@@ -36,6 +36,14 @@ export const AdminPage = () => {
   const [selectedClient, setSelectedClient] = useState(null);
   const [creatingUser, setCreatingUser] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Admin stats (PR #41)
+  const [adminStats, setAdminStats] = useState({
+    totalUsers: 0,
+    totalClients: 0,
+    totalCategories: 0,
+    pendingApprovals: 0,
+  });
 
   // Create user form state (PR 32: xID is auto-generated, not user-provided)
   const [newUser, setNewUser] = useState({
@@ -68,8 +76,26 @@ export const AdminPage = () => {
   });
 
   useEffect(() => {
+    loadAdminStats();
     loadAdminData();
   }, [activeTab]);
+
+  const loadAdminStats = async () => {
+    try {
+      const response = await adminService.getAdminStats();
+      if (response.success) {
+        setAdminStats(response.data || {
+          totalUsers: 0,
+          totalClients: 0,
+          totalCategories: 0,
+          pendingApprovals: 0,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load admin stats:', error);
+      showToast('Failed to load admin statistics', 'error');
+    }
+  };
 
   const loadAdminData = async () => {
     setLoading(true);
@@ -483,25 +509,25 @@ export const AdminPage = () => {
             variant={activeTab === 'users' ? 'primary' : 'default'}
             onClick={() => setActiveTab('users')}
           >
-            User Management ({users.length})
+            User Management ({adminStats.totalUsers})
           </Button>
           <Button
             variant={activeTab === 'clients' ? 'primary' : 'default'}
             onClick={() => setActiveTab('clients')}
           >
-            Client Management ({clients.length})
+            Client Management ({adminStats.totalClients})
           </Button>
           <Button
             variant={activeTab === 'categories' ? 'primary' : 'default'}
             onClick={() => setActiveTab('categories')}
           >
-            Categories ({categories.length})
+            Categories ({adminStats.totalCategories})
           </Button>
           <Button
             variant={activeTab === 'approvals' ? 'primary' : 'default'}
             onClick={() => setActiveTab('approvals')}
           >
-            Pending Approvals ({pendingCases.length})
+            Pending Approvals ({adminStats.pendingApprovals})
           </Button>
           <Button
             variant={activeTab === 'reports' ? 'primary' : 'default'}
