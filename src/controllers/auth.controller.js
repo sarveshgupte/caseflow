@@ -156,7 +156,6 @@ const login = async (req, res) => {
     
     // Check if force password reset is required (for first login)
     // This allows login to succeed but prompts for password reset
-    let forcePasswordReset = false;
     if (user.forcePasswordReset) {
       console.log(`[AUTH] First login detected for user ${user.xID}, generating password reset token`);
       
@@ -178,7 +177,7 @@ const login = async (req, res) => {
       // Validate environment variables for email
       const frontendUrl = process.env.FRONTEND_URL;
       if (!frontendUrl) {
-        console.warn('[AUTH] FRONTEND_URL not configured, password reset link may not work correctly');
+        console.warn('[AUTH] FRONTEND_URL not configured. Using default http://localhost:3000. Password reset link may not work in production.');
       }
       
       // Send password reset email
@@ -206,8 +205,6 @@ const login = async (req, res) => {
       } catch (auditError) {
         console.error('[AUTH] Failed to create audit log:', auditError.message);
       }
-      
-      forcePasswordReset = true;
     }
     
     // Log successful login
@@ -234,7 +231,7 @@ const login = async (req, res) => {
     };
     
     // Add forcePasswordReset flag if needed
-    if (forcePasswordReset) {
+    if (user.forcePasswordReset) {
       response.forcePasswordReset = true;
     }
     
@@ -870,19 +867,19 @@ const resetPasswordWithToken = async (req, res) => {
     // Hash the token to compare with stored hash
     const tokenHash = emailService.hashToken(token);
     
-    // Find user with matching token hash (check both setup and reset tokens)
-    let user = await User.findOne({ 
-      passwordResetTokenHash: tokenHash,
-      passwordResetExpires: { $gt: new Date() }
+    // Find user with matching token hash (check both reset and setup tokens in one query)
+    const user = await User.findOne({ 
+      $or: [
+        {
+          passwordResetTokenHash: tokenHash,
+          passwordResetExpires: { $gt: new Date() }
+        },
+        {
+          passwordSetupTokenHash: tokenHash,
+          passwordSetupExpires: { $gt: new Date() }
+        }
+      ]
     });
-    
-    // If not found in reset tokens, check setup tokens for backward compatibility
-    if (!user) {
-      user = await User.findOne({ 
-        passwordSetupTokenHash: tokenHash,
-        passwordSetupExpires: { $gt: new Date() }
-      });
-    }
     
     if (!user) {
       return res.status(400).json({
