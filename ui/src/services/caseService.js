@@ -5,6 +5,21 @@
 import api from './api';
 import { STORAGE_KEYS } from '../utils/constants';
 
+/**
+ * Get authenticated user from localStorage
+ * Throws error if not authenticated
+ */
+const getAuthenticatedUser = () => {
+  const userStr = localStorage.getItem(STORAGE_KEYS.USER);
+  const user = userStr ? JSON.parse(userStr) : null;
+  
+  if (!user?.email) {
+    throw new Error('User not authenticated. Please log in again.');
+  }
+  
+  return user;
+};
+
 export const caseService = {
   /**
    * Get all cases with optional filters
@@ -44,13 +59,7 @@ export const caseService = {
    * PR #41: Fixed to send text and createdBy as expected by backend
    */
   addComment: async (caseId, commentText) => {
-    // Get user from localStorage
-    const userStr = localStorage.getItem(STORAGE_KEYS.USER);
-    const user = userStr ? JSON.parse(userStr) : null;
-    
-    if (!user?.email) {
-      throw new Error('User not authenticated. Please log in again.');
-    }
+    const user = getAuthenticatedUser();
     
     const response = await api.post(`/cases/${caseId}/comments`, {
       text: commentText,
@@ -64,13 +73,7 @@ export const caseService = {
    * PR #41: Fixed to send createdBy as expected by backend
    */
   addAttachment: async (caseId, file, description) => {
-    // Get user from localStorage
-    const userStr = localStorage.getItem(STORAGE_KEYS.USER);
-    const user = userStr ? JSON.parse(userStr) : null;
-    
-    if (!user?.email) {
-      throw new Error('User not authenticated. Please log in again.');
-    }
+    const user = getAuthenticatedUser();
     
     const formData = new FormData();
     formData.append('file', file);

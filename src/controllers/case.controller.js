@@ -240,7 +240,15 @@ const createCase = async (req, res) => {
 const addComment = async (req, res) => {
   try {
     const { caseId } = req.params;
-    const { text, createdBy, note } = req.body;
+    const { text, createdBy } = req.body;
+    
+    // PR #41: Require authenticated user for security
+    if (!req.user?.email) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
     
     // Validate required fields
     if (!text) {
@@ -285,12 +293,12 @@ const addComment = async (req, res) => {
       note,
     });
     
-    // PR #41: Add audit log entry for comment
+    // PR #41: Add audit log entry for comment - use authenticated user for security
     await CaseHistory.create({
       caseId,
       actionType: 'CASE_COMMENT_ADDED',
-      description: `Comment added by ${createdBy.toLowerCase()}: ${text.substring(0, COMMENT_PREVIEW_LENGTH)}${text.length > COMMENT_PREVIEW_LENGTH ? '...' : ''}`,
-      performedBy: createdBy.toLowerCase(),
+      description: `Comment added by ${req.user.email}: ${text.substring(0, COMMENT_PREVIEW_LENGTH)}${text.length > COMMENT_PREVIEW_LENGTH ? '...' : ''}`,
+      performedBy: req.user.email.toLowerCase(),
     });
     
     res.status(201).json({
@@ -317,6 +325,14 @@ const addAttachment = async (req, res) => {
   try {
     const { caseId } = req.params;
     const { description, createdBy, note } = req.body;
+    
+    // PR #41: Require authenticated user for security
+    if (!req.user?.email) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
     
     // Validate file upload
     if (!req.file) {
@@ -371,12 +387,12 @@ const addAttachment = async (req, res) => {
       note,
     });
     
-    // PR #41: Add audit log entry for attachment
+    // PR #41: Add audit log entry for attachment - use authenticated user for security
     await CaseHistory.create({
       caseId,
       actionType: 'CASE_ATTACHMENT_ADDED',
-      description: `Attachment uploaded by ${createdBy.toLowerCase()}: ${req.file.originalname}`,
-      performedBy: createdBy.toLowerCase(),
+      description: `Attachment uploaded by ${req.user.email}: ${req.file.originalname}`,
+      performedBy: req.user.email.toLowerCase(),
     });
     
     res.status(201).json({
@@ -712,17 +728,20 @@ const getCaseByCaseId = async (req, res) => {
     const client = await Client.findOne({ clientId: caseData.clientId, isActive: true });
     
     // PR #41: Add CASE_VIEWED audit log
-    // Only use authenticated user from req.user for security
-    const userEmail = req.user?.email;
-    
-    if (userEmail) {
-      await CaseHistory.create({
-        caseId,
-        actionType: 'CASE_VIEWED',
-        description: `Case viewed by ${userEmail}`,
-        performedBy: userEmail.toLowerCase(),
+    // Require authenticated user for audit logging
+    if (!req.user?.email) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
       });
     }
+    
+    await CaseHistory.create({
+      caseId,
+      actionType: 'CASE_VIEWED',
+      description: `Case viewed by ${req.user.email}`,
+      performedBy: req.user.email.toLowerCase(),
+    });
     
     res.json({
       success: true,
