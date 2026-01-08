@@ -172,7 +172,7 @@ const login = async (req, res) => {
         await emailService.sendPasswordSetupEmail(user.email, user.name, token);
         emailSent = true;
       } catch (emailError) {
-        console.error('Failed to send password setup email:', emailError.message || 'Unknown error');
+        console.error('Failed to send password setup email:', emailError);
         // Continue even if email fails - user can request resend
       }
       
@@ -186,7 +186,7 @@ const login = async (req, res) => {
           ipAddress: req.ip,
         });
       } catch (auditError) {
-        console.error('Failed to create audit log:', auditError.message || 'Unknown error');
+        console.error('Failed to create audit log:', auditError);
       }
       
       return res.status(403).json({
