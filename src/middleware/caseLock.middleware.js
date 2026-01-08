@@ -14,6 +14,7 @@ const Case = require('../models/Case.model');
 /**
  * Check if a case is locked by another user
  * Returns 409 Conflict if case is locked by someone else
+ * Auto-unlocks if inactive for more than 2 hours
  */
 const checkCaseLock = async (req, res, next) => {
   try {
@@ -41,12 +42,46 @@ const checkCaseLock = async (req, res, next) => {
     if (caseData.lockStatus.isLocked && 
         caseData.lockStatus.activeUserEmail && 
         caseData.lockStatus.activeUserEmail !== userEmail.toLowerCase()) {
-      return res.status(409).json({
-        success: false,
-        message: `Case is currently locked by ${caseData.lockStatus.activeUserEmail}. Please try again later.`,
-        lockedBy: caseData.lockStatus.activeUserEmail,
-        lockedAt: caseData.lockStatus.lockedAt,
-      });
+      
+      // Check for inactivity auto-unlock (2 hours = 7200000 ms)
+      const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+      const lastActivity = caseData.lockStatus.lastActivityAt || caseData.lockStatus.lockedAt;
+      const now = new Date();
+      
+      if (lastActivity && (now - lastActivity) > TWO_HOURS_MS) {
+        // Auto-unlock due to inactivity
+        console.log(`Auto-unlocking case ${caseId} due to 2-hour inactivity`);
+        
+        const CaseHistory = require('../models/CaseHistory.model');
+        
+        // Log the auto-unlock in history
+        await CaseHistory.create({
+          caseId,
+          actionType: 'AutoUnlocked',
+          description: `Case auto-unlocked due to 2 hours of inactivity. Previous lock holder: ${caseData.lockStatus.activeUserEmail}`,
+          performedBy: 'system',
+        });
+        
+        // Unlock the case
+        caseData.lockStatus = {
+          isLocked: false,
+          activeUserEmail: null,
+          lockedAt: null,
+          lastActivityAt: null,
+        };
+        await caseData.save();
+        
+        // Continue with the request
+      } else {
+        // Still within 2-hour window, deny access
+        return res.status(409).json({
+          success: false,
+          message: `Case is currently locked by ${caseData.lockStatus.activeUserEmail}. Please try again later.`,
+          lockedBy: caseData.lockStatus.activeUserEmail,
+          lockedAt: caseData.lockStatus.lockedAt,
+          lastActivityAt: lastActivity,
+        });
+      }
     }
     
     // Store case data for use in controller
