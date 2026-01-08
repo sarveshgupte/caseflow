@@ -32,34 +32,86 @@ const createCase = async (req, res) => {
     const {
       title,
       description,
+      categoryId,
+      subcategoryId,
       category, // Legacy field for backward compatibility
       caseCategory,
       caseSubCategory,
       clientId,
-      createdBy,
       priority,
       assignedTo,
-      slaDueDate, // SLA due date for case completion
+      slaDueDate, // SLA due date for case completion - MANDATORY
       forceCreate, // Flag to override duplicate warning
       clientData, // Client data for duplicate detection (for "Client – New" cases)
       payload, // Payload for client governance cases
     } = req.body;
     
-    // Determine the actual category to use
-    const actualCategory = caseCategory || category;
-    
     // Validate required fields
-    if (!actualCategory) {
+    if (!title || !title.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'caseCategory field is required',
+        message: 'Case title is required',
       });
     }
     
-    if (!createdBy) {
+    if (!description || !description.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'Created by email is required',
+        message: 'Case description is required',
+      });
+    }
+    
+    if (!categoryId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category is required',
+      });
+    }
+    
+    if (!subcategoryId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Subcategory is required',
+      });
+    }
+    
+    if (!slaDueDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'SLA Due Date is required',
+      });
+    }
+    
+    // Get creator xID from authenticated user (req.user is set by auth middleware)
+    const createdByXID = req.user.xID;
+    
+    if (!createdByXID) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required - user identity not found',
+      });
+    }
+    
+    // Verify category exists and is active
+    const Category = require('../models/Category.model');
+    const categoryDoc = await Category.findById(categoryId);
+    
+    if (!categoryDoc || !categoryDoc.isActive) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found or inactive',
+      });
+    }
+    
+    // Verify subcategory exists and is active within the category
+    const subcategory = categoryDoc.subcategories.find(
+      sub => sub.id === subcategoryId && sub.isActive
+    );
+    
+    if (!subcategory) {
+      return res.status(404).json({
+        success: false,
+        message: 'Subcategory not found or inactive',
       });
     }
     
@@ -75,6 +127,9 @@ const createCase = async (req, res) => {
         message: `Client ${finalClientId} not found or inactive`,
       });
     }
+    
+    // Determine the actual category name to use (for backward compatibility)
+    const actualCategory = caseCategory || category || categoryDoc.name;
     
     // PART F: Duplicate detection for "Client – New" category
     let duplicateMatches = null;
@@ -122,17 +177,20 @@ const createCase = async (req, res) => {
     
     // Create new case with defaults
     const newCase = new Case({
-      title,
-      description,
+      title: title.trim(),
+      description: description.trim(),
+      categoryId,
+      subcategoryId,
       category: actualCategory, // Legacy field
       caseCategory: actualCategory,
-      caseSubCategory,
+      caseSubCategory: subcategory.name,
       clientId: finalClientId,
-      createdBy: createdBy.toLowerCase(),
+      createdByXID, // Set from authenticated user context
+      createdBy: req.user.email || req.user.xID, // Legacy field - use email or xID as fallback
       priority: priority || 'Medium',
       status: 'UNASSIGNED', // New cases default to UNASSIGNED for global worklist
       assignedTo: assignedTo ? assignedTo.toLowerCase() : null,
-      slaDueDate: slaDueDate ? new Date(slaDueDate) : null, // Store SLA due date if provided
+      slaDueDate: new Date(slaDueDate), // Store SLA due date - MANDATORY
       payload, // Store client case payload if provided
     });
     
@@ -143,7 +201,7 @@ const createCase = async (req, res) => {
       caseId: newCase.caseId,
       actionType: 'Created',
       description: `Case created with status: UNASSIGNED, Client: ${finalClientId}`,
-      performedBy: createdBy.toLowerCase(),
+      performedBy: createdByXID,
     });
     
     // Add system comment if duplicate was overridden

@@ -46,49 +46,71 @@ const caseSchema = new mongoose.Schema({
   
   /**
    * Brief description of the case/matter
-   * Optional field - cases are now primarily identified by caseCategory
+   * MANDATORY field - provides clear case identification
    */
   title: {
     type: String,
+    required: [true, 'Case title is required'],
     trim: true,
   },
   
   /**
    * Detailed information about the case
-   * Optional to allow quick case creation
+   * MANDATORY field - provides comprehensive case context
    */
   description: {
     type: String,
+    required: [true, 'Case description is required'],
     trim: true,
   },
   
   /**
    * Classification for access control and organization
    * Used to determine which users can access this case
+   * Legacy field - kept for backward compatibility
    */
   category: {
     type: String,
-    required: [true, 'Case category is required'],
     trim: true,
   },
   
   /**
    * Primary case category - drives all workflows
-   * MANDATORY field that determines case processing
+   * Legacy field - kept for backward compatibility
    * Examples: 'Client - New', 'Client - Edit', 'Client - Delete', 'Sales', etc.
    */
   caseCategory: {
     type: String,
-    required: [true, 'Case category is required'],
     trim: true,
   },
   
   /**
-   * Optional sub-category for additional classification
-   * Provides finer-grained categorization without UI complexity
+   * Legacy sub-category field
+   * Kept for backward compatibility
    */
   caseSubCategory: {
     type: String,
+    trim: true,
+  },
+  
+  /**
+   * Category ID - Reference to Category model
+   * MANDATORY field for case classification
+   * References admin-managed categories
+   */
+  categoryId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+    required: [true, 'Category is required'],
+  },
+  
+  /**
+   * Subcategory ID - Reference to subcategory within Category
+   * MANDATORY field for detailed case classification
+   */
+  subcategoryId: {
+    type: String,
+    required: [true, 'Subcategory is required'],
     trim: true,
   },
   
@@ -152,21 +174,35 @@ const caseSchema = new mongoose.Schema({
   
   /**
    * SLA Due Date - absolute datetime for case completion
-   * Used for global worklist prioritization and SLA tracking
+   * MANDATORY field - used for global worklist prioritization and SLA tracking
    * Stored as absolute date/time value (not duration)
    */
   slaDueDate: {
     type: Date,
+    required: [true, 'SLA Due Date is required'],
+  },
+  
+  /**
+   * xID of user who created the case
+   * MANDATORY field - derived from auth context (req.user.xID)
+   * Format: X123456
+   * Immutable after creation
+   */
+  createdByXID: {
+    type: String,
+    required: [true, 'Creator xID is required'],
+    uppercase: true,
+    trim: true,
+    immutable: true,
   },
   
   /**
    * Email of user who created the case
-   * Required for accountability and audit trail
-   * Stored as email (lowercase) rather than ObjectId for simplicity
+   * LEGACY field - kept for backward compatibility
+   * New cases should use createdByXID instead
    */
   createdBy: {
     type: String,
-    required: [true, 'Creator email is required'],
     lowercase: true,
     trim: true,
   },

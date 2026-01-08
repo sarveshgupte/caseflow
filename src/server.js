@@ -23,6 +23,7 @@ const searchRoutes = require('./routes/search.routes');  // Search and worklist 
 const authRoutes = require('./routes/auth.routes');  // Authentication routes
 const clientApprovalRoutes = require('./routes/clientApproval.routes');  // Client approval routes
 const reportsRoutes = require('./routes/reports.routes');  // Reports routes
+const categoryRoutes = require('./routes/category.routes');  // Category routes
 
 /**
  * Docketra - Task & Case Management System
@@ -94,12 +95,16 @@ app.get('/api', (req, res) => {
       auth: '/api/auth',
       clientApproval: '/api/client-approval',
       reports: '/api/reports',
+      categories: '/api/categories',
     },
   });
 });
 
 // Authentication routes (public - no authentication required for login)
 app.use('/api/auth', authRoutes);
+
+// Category routes (public GET for active categories, admin-only for modifications)
+app.use('/api/categories', categoryRoutes);
 
 // Protected routes - require authentication
 app.use('/api/users', authenticate, userRoutes);

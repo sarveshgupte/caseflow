@@ -4,20 +4,51 @@ const mongoose = require('mongoose');
  * Category Model for Docketra Case Management System
  * 
  * Represents centralized case categories for organization and access control.
- * Categories can be system-defined (cannot be deleted) or user-defined.
+ * Admin-managed categories with nested subcategories for case classification.
  * 
  * Key Features:
- * - System categories (isSystem: true) are protected from deletion
- * - Soft delete mechanism (no hard deletes)
  * - Unique category names
- * - Used for case classification and employee access control
+ * - Nested subcategories with unique names within each category
+ * - Soft delete mechanism (isActive flag)
+ * - Categories in use by cases cannot be deleted
  */
+
+const subcategorySchema = new mongoose.Schema({
+  /**
+   * Subcategory ID (auto-generated)
+   */
+  id: {
+    type: String,
+    required: true,
+  },
+  
+  /**
+   * Subcategory name
+   * Must be unique within the parent category
+   */
+  name: {
+    type: String,
+    required: [true, 'Subcategory name is required'],
+    trim: true,
+  },
+  
+  /**
+   * Soft delete mechanism for subcategories
+   * When false, subcategory is considered deleted
+   */
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+}, {
+  _id: false, // Disable automatic _id generation for subdocuments
+});
 
 const categorySchema = new mongoose.Schema({
   /**
    * Category name
    * Required and unique to prevent duplicate categories
-   * Used in Case model's category field and User model's allowedCategories
+   * Used for case classification
    */
   name: {
     type: String,
@@ -27,20 +58,18 @@ const categorySchema = new mongoose.Schema({
   },
   
   /**
-   * System category flag
-   * When true, category is system-defined and cannot be deleted or deactivated
-   * Default categories seeded by seedCategories.js script are marked as system
+   * Nested subcategories array
+   * Subcategory names must be unique within the category
    */
-  isSystem: {
-    type: Boolean,
-    default: false,
+  subcategories: {
+    type: [subcategorySchema],
+    default: [],
   },
   
   /**
    * Soft delete mechanism
    * When false, category is considered deleted without removing from database
    * Maintains data integrity and audit trail
-   * System categories (isSystem: true) cannot be deactivated
    */
   isActive: {
     type: Boolean,
