@@ -29,6 +29,7 @@ const CASE_CATEGORIES = {
  */
 const CASE_STATUS = {
   // New workflow states
+  UNASSIGNED: 'UNASSIGNED',
   DRAFT: 'DRAFT',
   SUBMITTED: 'SUBMITTED',
   UNDER_REVIEW: 'UNDER_REVIEW',

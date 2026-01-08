@@ -328,8 +328,190 @@ const employeeWorklist = async (req, res) => {
   }
 };
 
+/**
+ * Global Worklist (Unassigned Cases Queue)
+ * GET /api/worklists/global
+ * 
+ * Returns all cases with status UNASSIGNED
+ * Supports server-side filtering and sorting
+ * 
+ * Query Parameters:
+ * - clientId: Filter by client ID
+ * - category: Filter by case category
+ * - createdAtFrom: Filter by creation date (start)
+ * - createdAtTo: Filter by creation date (end)
+ * - slaStatus: Filter by SLA status (overdue, due_soon, on_track)
+ * - sortBy: Field to sort by (clientId, category, slaDueDate, createdAt)
+ * - sortOrder: Sort order (asc, desc)
+ * - page: Page number for pagination
+ * - limit: Results per page
+ * 
+ * Default sort: slaDueDate ASC
+ */
+const globalWorklist = async (req, res) => {
+  try {
+    const {
+      clientId,
+      category,
+      createdAtFrom,
+      createdAtTo,
+      slaStatus,
+      sortBy = 'slaDueDate',
+      sortOrder = 'asc',
+      page = 1,
+      limit = 20,
+    } = req.query;
+    
+    // Build query for UNASSIGNED cases only
+    const query = { status: 'UNASSIGNED' };
+    
+    // Apply filters
+    if (clientId) {
+      query.clientId = clientId;
+    }
+    
+    if (category) {
+      query.category = category;
+    }
+    
+    // Date range filter
+    if (createdAtFrom || createdAtTo) {
+      query.createdAt = {};
+      if (createdAtFrom) {
+        query.createdAt.$gte = new Date(createdAtFrom);
+      }
+      if (createdAtTo) {
+        query.createdAt.$lte = new Date(createdAtTo);
+      }
+    }
+    
+    // SLA status filter (computed based on slaDueDate)
+    if (slaStatus) {
+      const now = new Date();
+      const twoDaysFromNow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+      
+      if (slaStatus === 'overdue') {
+        // Cases where slaDueDate < now
+        query.slaDueDate = { $lt: now };
+      } else if (slaStatus === 'due_soon') {
+        // Cases where slaDueDate is between now and 2 days from now
+        query.slaDueDate = { $gte: now, $lte: twoDaysFromNow };
+      } else if (slaStatus === 'on_track') {
+        // Cases where slaDueDate > 2 days from now OR no slaDueDate
+        query.$or = [
+          { slaDueDate: { $gt: twoDaysFromNow } },
+          { slaDueDate: null },
+        ];
+      }
+    }
+    
+    // Build sort object
+    const sortFields = {
+      clientId: 'clientId',
+      category: 'category',
+      slaDueDate: 'slaDueDate',
+      createdAt: 'createdAt',
+    };
+    
+    const sortField = sortFields[sortBy] || 'slaDueDate';
+    const sortDirection = sortOrder === 'desc' ? -1 : 1;
+    const sort = { [sortField]: sortDirection };
+    
+    // Build the base query without slaDueDate modifications for separation
+    const baseQuery = { ...query };
+    
+    // Handle null slaDueDate - put them at the end
+    let casesWithSLA = [];
+    let casesWithoutSLA = [];
+    
+    if (sortBy === 'slaDueDate') {
+      // Query for cases WITH slaDueDate (not null)
+      const queryWithSLA = { ...baseQuery };
+      // Don't modify if slaStatus filter is already applied
+      if (!slaStatus) {
+        queryWithSLA.slaDueDate = { $ne: null };
+      }
+      
+      casesWithSLA = await Case.find(queryWithSLA)
+        .select('caseId caseName clientId category slaDueDate createdAt createdBy')
+        .sort(sort)
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit))
+        .lean();
+      
+      // Query for cases WITHOUT slaDueDate (null) - only if no slaStatus filter
+      if (!slaStatus && casesWithSLA.length < parseInt(limit)) {
+        const queryWithoutSLA = { ...baseQuery, slaDueDate: null };
+        
+        casesWithoutSLA = await Case.find(queryWithoutSLA)
+          .select('caseId caseName clientId category slaDueDate createdAt createdBy')
+          .sort({ createdAt: sortDirection })
+          .limit(parseInt(limit) - casesWithSLA.length)
+          .skip(Math.max(0, (parseInt(page) - 1) * parseInt(limit) - casesWithSLA.length))
+          .lean();
+      }
+    } else {
+      // For other sort fields, just execute the query normally
+      casesWithSLA = await Case.find(baseQuery)
+        .select('caseId caseName clientId category slaDueDate createdAt createdBy')
+        .sort(sort)
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit))
+        .lean();
+    }
+    
+    // Merge results
+    const allCases = [...casesWithSLA, ...casesWithoutSLA];
+    
+    // Calculate SLA days remaining for each case
+    const now = new Date();
+    const casesWithSLAInfo = allCases.map(c => {
+      let slaDaysRemaining = null;
+      if (c.slaDueDate) {
+        const dueDate = new Date(c.slaDueDate);
+        const diffTime = dueDate - now;
+        slaDaysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+      
+      return {
+        caseId: c.caseId,
+        caseName: c.caseName,
+        clientId: c.clientId,
+        category: c.category,
+        slaDueDate: c.slaDueDate,
+        slaDaysRemaining,
+        createdAt: c.createdAt,
+        createdBy: c.createdBy,
+      };
+    });
+    
+    // Count total for pagination
+    const totalQuery = { ...baseQuery };
+    // Don't exclude null slaDueDate from count unless slaStatus filter is applied
+    const total = await Case.countDocuments(totalQuery);
+    
+    res.json({
+      success: true,
+      data: casesWithSLAInfo,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching global worklist',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   globalSearch,
   categoryWorklist,
   employeeWorklist,
+  globalWorklist,
 };

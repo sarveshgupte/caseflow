@@ -15,6 +15,7 @@ const {
   lockCaseEndpoint,
   unlockCaseEndpoint,
   updateCaseActivity,
+  pullCase,
 } = require('../controllers/case.controller');
 
 /**
@@ -65,6 +66,9 @@ router.post('/:caseId/clone', cloneCase);
 
 // POST /api/cases/:caseId/unpend - Unpend a case
 router.post('/:caseId/unpend', unpendCase);
+
+// POST /api/cases/:caseId/pull - Pull case from global worklist (assign to self)
+router.post('/:caseId/pull', pullCase);
 
 // PUT /api/cases/:caseId/status - Update case status
 router.put('/:caseId/status', updateCaseStatus);

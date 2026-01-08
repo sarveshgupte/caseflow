@@ -4,6 +4,7 @@ const {
   globalSearch,
   categoryWorklist,
   employeeWorklist,
+  globalWorklist,
 } = require('../controllers/search.controller');
 
 /**
@@ -13,6 +14,9 @@ const {
 
 // GET /api/search?q=term - Global search
 router.get('/', globalSearch);
+
+// GET /api/worklists/global - Global worklist (unassigned cases)
+router.get('/global', globalWorklist);
 
 // GET /api/worklists/category/:categoryId - Category worklist
 router.get('/category/:categoryId', categoryWorklist);

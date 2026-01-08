@@ -95,6 +95,7 @@ const caseSchema = new mongoose.Schema({
   /**
    * Current lifecycle status of the case
    * Workflow states:
+   * - UNASSIGNED: Newly created case in global worklist, not yet assigned
    * - DRAFT: Being edited by creator
    * - SUBMITTED: Locked, awaiting review
    * - UNDER_REVIEW: Being reviewed by admin/approver
@@ -112,10 +113,10 @@ const caseSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: {
-      values: ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'CLOSED', 'Open', 'Reviewed', 'Pending', 'Filed', 'Archived'],
+      values: ['UNASSIGNED', 'DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'CLOSED', 'Open', 'Reviewed', 'Pending', 'Filed', 'Archived'],
       message: '{VALUE} is not a valid status',
     },
-    default: 'DRAFT',
+    default: 'UNASSIGNED',
     required: true,
   },
   
@@ -150,6 +151,15 @@ const caseSchema = new mongoose.Schema({
   },
   
   /**
+   * SLA Due Date - absolute datetime for case completion
+   * Used for global worklist prioritization and SLA tracking
+   * Stored as absolute date/time value (not duration)
+   */
+  slaDueDate: {
+    type: Date,
+  },
+  
+  /**
    * Email of user who created the case
    * Required for accountability and audit trail
    * Stored as email (lowercase) rather than ObjectId for simplicity
@@ -169,6 +179,14 @@ const caseSchema = new mongoose.Schema({
     type: String,
     lowercase: true,
     trim: true,
+  },
+  
+  /**
+   * Timestamp when case was assigned to current user
+   * Tracks when case was pulled from global worklist or assigned
+   */
+  assignedAt: {
+    type: Date,
   },
   
   /**

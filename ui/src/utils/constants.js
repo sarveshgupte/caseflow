@@ -5,6 +5,7 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 export const CASE_STATUS = {
+  UNASSIGNED: 'UNASSIGNED',
   DRAFT: 'DRAFT',
   SUBMITTED: 'SUBMITTED',
   UNDER_REVIEW: 'UNDER_REVIEW',

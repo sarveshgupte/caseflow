@@ -39,6 +39,7 @@ const createCase = async (req, res) => {
       createdBy,
       priority,
       assignedTo,
+      slaDueDate, // SLA due date for case completion
       forceCreate, // Flag to override duplicate warning
       clientData, // Client data for duplicate detection (for "Client – New" cases)
       payload, // Payload for client governance cases
@@ -129,8 +130,9 @@ const createCase = async (req, res) => {
       clientId: finalClientId,
       createdBy: createdBy.toLowerCase(),
       priority: priority || 'Medium',
-      status: 'DRAFT', // New workflow state
+      status: 'UNASSIGNED', // New cases default to UNASSIGNED for global worklist
       assignedTo: assignedTo ? assignedTo.toLowerCase() : null,
+      slaDueDate: slaDueDate ? new Date(slaDueDate) : null, // Store SLA due date if provided
       payload, // Store client case payload if provided
     });
     
@@ -140,7 +142,7 @@ const createCase = async (req, res) => {
     await CaseHistory.create({
       caseId: newCase.caseId,
       actionType: 'Created',
-      description: `Case created with status: DRAFT, Client: ${finalClientId}`,
+      description: `Case created with status: UNASSIGNED, Client: ${finalClientId}`,
       performedBy: createdBy.toLowerCase(),
     });
     
@@ -926,6 +928,90 @@ const updateCaseActivity = async (req, res) => {
   }
 };
 
+/**
+ * Pull a case from global worklist
+ * POST /api/cases/:caseId/pull
+ * 
+ * Atomically assigns the case to the logged-in user
+ * - Checks if case is UNASSIGNED
+ * - Sets assignedTo to user email
+ * - Sets assignedAt to current timestamp
+ * - Changes status from UNASSIGNED to Open
+ * - Creates history entry
+ */
+const pullCase = async (req, res) => {
+  try {
+    const { caseId } = req.params;
+    const { userEmail } = req.body;
+    
+    if (!userEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'User email is required',
+      });
+    }
+    
+    // Use findOneAndUpdate for atomic operation to prevent double assignment
+    const caseData = await Case.findOneAndUpdate(
+      {
+        caseId,
+        status: 'UNASSIGNED', // Only pull if still unassigned
+      },
+      {
+        $set: {
+          assignedTo: userEmail.toLowerCase(),
+          assignedAt: new Date(),
+          status: 'Open',
+        },
+      },
+      {
+        new: true, // Return updated document
+      }
+    );
+    
+    if (!caseData) {
+      // Either case doesn't exist or is not UNASSIGNED anymore
+      const existingCase = await Case.findOne({ caseId });
+      
+      if (!existingCase) {
+        return res.status(404).json({
+          success: false,
+          message: 'Case not found',
+        });
+      }
+      
+      if (existingCase.status !== 'UNASSIGNED') {
+        return res.status(409).json({
+          success: false,
+          message: 'Case is no longer available (already assigned)',
+          currentStatus: existingCase.status,
+          assignedTo: existingCase.assignedTo,
+        });
+      }
+    }
+    
+    // Create history entry
+    await CaseHistory.create({
+      caseId,
+      actionType: 'Pulled',
+      description: `Case pulled from global worklist and assigned to ${userEmail.toLowerCase()}`,
+      performedBy: userEmail.toLowerCase(),
+    });
+    
+    res.json({
+      success: true,
+      data: caseData,
+      message: 'Case pulled successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error pulling case',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createCase,
   addComment,
@@ -938,4 +1024,5 @@ module.exports = {
   lockCaseEndpoint,
   unlockCaseEndpoint,
   updateCaseActivity,
+  pullCase,
 };
