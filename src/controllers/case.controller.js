@@ -808,7 +808,8 @@ const getCaseByCaseId = async (req, res) => {
     
     // Fetch current client details
     // TODO: Consider using aggregation pipeline with $lookup for better performance
-    const client = await Client.findOne({ clientId: caseData.clientId, isActive: true });
+    // PR: Client Lifecycle - include inactive clients to display existing cases properly
+    const client = await Client.findOne({ clientId: caseData.clientId }); // Removed isActive filter
     
     // PR #45: Require authenticated user with xID for audit logging
     if (!req.user?.email || !req.user?.xID) {
@@ -860,6 +861,8 @@ const getCaseByCaseId = async (req, res) => {
           businessName: client.businessName,
           primaryContactNumber: client.primaryContactNumber,
           businessEmail: client.businessEmail,
+          status: client.status, // Include status for inactive label display
+          isActive: client.isActive, // Legacy field for backward compatibility
         } : null,
         comments,
         attachments,
@@ -947,9 +950,10 @@ const getCases = async (req, res) => {
     
     // Fetch client details for each case
     // TODO: Optimize N+1 query - consider pre-fetching unique clientIds or using aggregation
+    // PR: Client Lifecycle - include inactive clients to display existing cases properly
     const casesWithClients = await Promise.all(
       cases.map(async (caseItem) => {
-        const client = await Client.findOne({ clientId: caseItem.clientId, isActive: true });
+        const client = await Client.findOne({ clientId: caseItem.clientId }); // Removed isActive filter
         return {
           ...caseItem.toObject(),
           client: client ? {
@@ -957,6 +961,8 @@ const getCases = async (req, res) => {
             businessName: client.businessName,
             primaryContactNumber: client.primaryContactNumber,
             businessEmail: client.businessEmail,
+            status: client.status, // Include status for inactive label display
+            isActive: client.isActive, // Legacy field for backward compatibility
           } : null,
         };
       })
