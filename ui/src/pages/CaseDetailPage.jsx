@@ -39,6 +39,7 @@ export const CaseDetailPage = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileDescription, setFileDescription] = useState('');
   const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = React.useRef(null);
 
   useEffect(() => {
     loadCase();
@@ -92,9 +93,10 @@ export const CaseDetailPage = () => {
       await caseService.addAttachment(caseId, selectedFile, fileDescription);
       setSelectedFile(null);
       setFileDescription('');
-      // Reset file input
-      const fileInput = document.getElementById('file-upload-input');
-      if (fileInput) fileInput.value = '';
+      // Reset file input using ref
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       await loadCase(); // Reload to show new attachment
     } catch (error) {
       console.error('Failed to upload file:', error);
@@ -255,12 +257,16 @@ export const CaseDetailPage = () => {
           {(accessMode.canAttach || permissions.canAddAttachment(caseData)) && (
             <div className="case-detail__add-attachment" style={{ marginTop: 'var(--spacing-lg)' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                <Input
-                  id="file-upload-input"
-                  type="file"
-                  onChange={handleFileSelect}
-                  disabled={uploadingFile}
-                />
+                <div className="neo-form-group">
+                  <label className="neo-form-label">Attach File</label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="neo-input"
+                    onChange={handleFileSelect}
+                    disabled={uploadingFile}
+                  />
+                </div>
                 {selectedFile && (
                   <div className="text-sm text-secondary">
                     Selected: {selectedFile.name}

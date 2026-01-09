@@ -50,8 +50,8 @@ const attachmentSchema = new mongoose.Schema({
   
   /**
    * Email of user who uploaded the attachment
-   * ⚠️ DEPRECATED - FOR DISPLAY PURPOSES ONLY ⚠️
-   * Use createdByXID and createdByName for UI display
+   * ⚠️ DEPRECATED - MAINTAINED FOR BACKWARD COMPATIBILITY ONLY ⚠️
+   * Use createdByXID and createdByName for all purposes including UI display
    */
   createdBy: {
     type: String,
