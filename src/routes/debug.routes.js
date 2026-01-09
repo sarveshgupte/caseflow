@@ -10,14 +10,54 @@ const { sendTestEmail } = require('../services/email.service');
  * All routes require authentication and admin role
  */
 
+// Simple in-memory rate limiter for debug endpoint
+// Maps xID -> { count, resetTime }
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 5; // 5 requests per minute per admin
+
+/**
+ * Rate limiting middleware for debug endpoints
+ * Prevents abuse while allowing legitimate testing
+ */
+const debugRateLimit = (req, res, next) => {
+  const xID = req.user.xID;
+  const now = Date.now();
+  
+  let rateLimitData = rateLimitMap.get(xID);
+  
+  // Reset if window expired
+  if (!rateLimitData || now > rateLimitData.resetTime) {
+    rateLimitData = {
+      count: 0,
+      resetTime: now + RATE_LIMIT_WINDOW_MS,
+    };
+    rateLimitMap.set(xID, rateLimitData);
+  }
+  
+  // Check limit
+  if (rateLimitData.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return res.status(429).json({
+      success: false,
+      message: 'Rate limit exceeded. Please try again in a minute.',
+      resetTime: new Date(rateLimitData.resetTime).toISOString(),
+    });
+  }
+  
+  // Increment count
+  rateLimitData.count++;
+  next();
+};
+
 /**
  * Send test email
  * GET /api/debug/email-test
  * 
  * Sends a test email to verify SMTP configuration
  * Admin-only endpoint for debugging and validation
+ * Rate limited to 5 requests per minute per admin
  */
-router.get('/email-test', authenticate, requireAdmin, async (req, res) => {
+router.get('/email-test', authenticate, requireAdmin, debugRateLimit, async (req, res) => {
   try {
     // Use authenticated user's email or query parameter
     const testEmail = req.query.email || req.user.email;
