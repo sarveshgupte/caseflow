@@ -117,7 +117,7 @@ const pendCase = async (req, res) => {
   } catch (error) {
     // Handle specific errors
     if (error.message === 'Comment is mandatory for this action' ||
-        error.message === 'Comment and reopen date are required') {
+        error.message === 'Reopen date is required') {
       return res.status(400).json({
         success: false,
         message: error.message,

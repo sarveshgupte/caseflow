@@ -25,12 +25,15 @@ const { DateTime } = require('luxon');
  * Defines which status transitions are allowed
  * 
  * Terminal states (FILED, RESOLVED) cannot transition to any other state
- * PENDING state cannot transition (must wait for auto-reopen)
+ * PENDED/PENDING states cannot transition (must wait for auto-reopen)
+ * 
+ * Note: Both PENDING and PENDED are mapped because the codebase uses PENDED
+ * as the canonical status, but PENDING may exist for legacy compatibility
  */
 const CASE_TRANSITIONS = {
   OPEN: ['PENDED', 'FILED', 'RESOLVED'],
-  PENDING: [], // No transitions allowed from PENDING
-  PENDED: [], // No transitions allowed from PENDED (alternative name)
+  PENDING: [], // Legacy status - no transitions allowed
+  PENDED: [], // Canonical status - no transitions allowed  
   FILED: [], // Terminal state
   RESOLVED: [], // Terminal state
   UNASSIGNED: ['OPEN', 'PENDED', 'FILED', 'RESOLVED'], // Allow actions from unassigned state
@@ -172,7 +175,7 @@ const pendCase = async (caseId, comment, reopenDate, user) => {
   validateComment(comment);
   
   if (!reopenDate) {
-    throw new Error('Comment and reopen date are required');
+    throw new Error('Reopen date is required');
   }
   
   const caseData = await Case.findOne({ caseId });
