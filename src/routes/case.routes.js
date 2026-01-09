@@ -19,6 +19,12 @@ const {
   bulkPullCases,
 } = require('../controllers/case.controller');
 
+// PR #44: Import xID ownership validation middleware
+const {
+  validateCaseCreation,
+  validateCaseAssignment,
+} = require('../middleware/xidOwnership.middleware');
+
 /**
  * Configure multer for file uploads
  * Store files in uploads/ directory with unique names
@@ -51,7 +57,8 @@ const upload = multer({ storage: storage });
 router.get('/', getCases);
 
 // POST /api/cases - Create new case
-router.post('/', createCase);
+// PR #44: Apply xID ownership validation guardrails
+router.post('/', validateCaseCreation, createCase);
 
 // POST /api/cases/bulk-pull - Pull multiple cases from global worklist (PR #39)
 // IMPORTANT: Must come BEFORE /:caseId routes to avoid matching "bulk-pull" as a caseId
@@ -67,7 +74,8 @@ router.post('/:caseId/comments', addComment);
 router.post('/:caseId/attachments', upload.single('file'), addAttachment);
 
 // POST /api/cases/:caseId/clone - Clone case with comments and attachments
-router.post('/:caseId/clone', cloneCase);
+// PR #44: Apply xID validation for assignment fields
+router.post('/:caseId/clone', validateCaseAssignment, cloneCase);
 
 // POST /api/cases/:caseId/unpend - Unpend a case
 router.post('/:caseId/unpend', unpendCase);

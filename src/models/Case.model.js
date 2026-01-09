@@ -184,9 +184,20 @@ const caseSchema = new mongoose.Schema({
   
   /**
    * xID of user who created the case
+   * 
+   * ✅ CANONICAL IDENTIFIER - MANDATORY ✅
+   * 
+   * This is the ONLY field that should be used for:
+   * - Case ownership logic
+   * - Authorization checks
+   * - Creator identification
+   * - Audit trails
+   * 
    * MANDATORY field - derived from auth context (req.user.xID)
    * Format: X123456
    * Immutable after creation
+   * 
+   * NEVER infer this from email - it must come from authenticated user context.
    */
   createdByXID: {
     type: String,
@@ -198,8 +209,19 @@ const caseSchema = new mongoose.Schema({
   
   /**
    * Email of user who created the case
-   * LEGACY field - kept for backward compatibility
-   * New cases should use createdByXID instead
+   * 
+   * ⚠️ DEPRECATED - FOR DISPLAY PURPOSES ONLY ⚠️
+   * 
+   * NEVER use this field for:
+   * - Ownership logic
+   * - Authorization checks
+   * - Case queries
+   * - Assignment operations
+   * 
+   * ALWAYS use createdByXID instead for all ownership and authorization logic.
+   * This field is kept only for backward compatibility and display purposes.
+   * 
+   * Email must never be used as an ownership or attribution identifier.
    */
   createdBy: {
     type: String,
@@ -209,13 +231,26 @@ const caseSchema = new mongoose.Schema({
   
   /**
    * xID of currently assigned user
+   * 
+   * ✅ CANONICAL IDENTIFIER - REQUIRED FOR ASSIGNMENT ✅
+   * 
+   * This is the ONLY field that should be used for:
+   * - Case assignment operations
+   * - Ownership queries
+   * - Authorization checks
+   * - Worklist filtering
+   * 
    * CANONICAL IDENTIFIER: Stores user's xID (e.g., X123456), NOT email
    * Null when unassigned, tracks current ownership
    * 
    * PR #42: Standardized to use xID as the canonical identifier
+   * PR #44: Enforced with guardrails - email-based assignment is blocked
+   * 
    * - Assignment operations MUST store xID
    * - Query operations MUST filter by xID
    * - Display operations MUST resolve xID → user info
+   * 
+   * NEVER use email for assignment or ownership logic.
    */
   assignedTo: {
     type: String,
@@ -436,21 +471,26 @@ caseSchema.pre('validate', async function() {
  * - caseName: Unique index (automatic from schema definition with unique: true)
  * - status + priority: Common filter combination for listing cases
  * - category: Access control and filtering by case type
- * - createdBy: Find cases created by specific user
- * - assignedTo: Find cases assigned to specific user
+ * - createdBy: DEPRECATED - kept for backward compatibility only
+ * - createdByXID: CANONICAL - find cases created by specific user (xID)
+ * - assignedTo: CANONICAL - find cases assigned to specific user (xID)
  * - clientId: Find cases associated with a specific client
  * - Additional indexes for global search and worklists:
  *   - status: Filter by status for worklists
  *   - createdAt: Sort by creation date
- *   - assignedTo + status: Employee worklist queries
+ *   - assignedTo + status: Employee worklist queries (xID-based)
+ * 
+ * PR #44: Added createdByXID index for xID-based ownership queries
+ * Note: Email-based ownership queries are not supported
  */
 caseSchema.index({ status: 1, priority: 1 });
 caseSchema.index({ category: 1 });
-caseSchema.index({ createdBy: 1 });
-caseSchema.index({ assignedTo: 1 });
+caseSchema.index({ createdBy: 1 }); // DEPRECATED - kept for backward compatibility
+caseSchema.index({ createdByXID: 1 }); // CANONICAL - xID-based creator queries
+caseSchema.index({ assignedTo: 1 }); // CANONICAL - xID-based assignment queries
 caseSchema.index({ clientId: 1 });
 caseSchema.index({ status: 1 });
 caseSchema.index({ createdAt: -1 });
-caseSchema.index({ assignedTo: 1, status: 1 });
+caseSchema.index({ assignedTo: 1, status: 1 }); // CANONICAL - xID-based worklist queries
 
 module.exports = mongoose.model('Case', caseSchema);

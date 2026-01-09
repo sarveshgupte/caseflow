@@ -3,7 +3,7 @@
  * Centralized configuration management
  */
 
-module.exports = {
+const config = {
   port: process.env.PORT || 5000,
   env: process.env.NODE_ENV || 'development',
   appName: process.env.APP_NAME || 'Docketra',
@@ -19,4 +19,17 @@ module.exports = {
   audit: {
     enableDetailedLogs: true,
   },
+};
+
+/**
+ * Helper function to check if running in production environment
+ * Used by guardrails to determine when to log warnings
+ */
+const isProduction = () => {
+  return config.env === 'production';
+};
+
+module.exports = {
+  ...config,
+  isProduction,
 };
