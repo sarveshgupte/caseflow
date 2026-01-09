@@ -60,6 +60,7 @@ if (isProduction) {
     missingEmailVars.push('MAIL_FROM or SMTP_FROM');
   } else {
     // Validate MAIL_FROM format
+    // Note: Require here (not at top) to ensure env vars are loaded first
     try {
       const { parseSender } = require('./services/email.service');
       const sender = parseSender(senderEmail);
