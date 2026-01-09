@@ -13,6 +13,37 @@ const Case = require('../models/Case.model');
  */
 
 /**
+ * Generate next sequential client ID
+ * Format: C000001, C000002, etc.
+ * 
+ * This function generates the clientId server-side before creating the Client instance.
+ * This ensures the clientId is available during schema validation.
+ * 
+ * @returns {Promise<string>} The next clientId (e.g., "C000002")
+ */
+const generateClientId = async () => {
+  // Find the client with the highest clientId number
+  // The regex ensures we only match our format: C followed by digits
+  const lastClient = await Client.findOne(
+    { clientId: /^C\d+$/ },
+    { clientId: 1 }
+  ).sort({ clientId: -1 }).lean();
+  
+  let nextNumber = 1; // Start with C000001 for organization client
+  
+  if (lastClient && lastClient.clientId) {
+    // Extract the number from C000001 format
+    const match = lastClient.clientId.match(/^C(\d+)$/);
+    if (match) {
+      nextNumber = parseInt(match[1], 10) + 1;
+    }
+  }
+  
+  // Format as C + 6-digit zero-padded number
+  return `C${nextNumber.toString().padStart(6, '0')}`;
+};
+
+/**
  * Get all clients
  * GET /api/clients
  * Query param: activeOnly=true for only active clients
@@ -175,8 +206,13 @@ const createClient = async (req, res) => {
       });
     }
     
-    // STEP 7: Create new client with explicit field mapping
+    // STEP 7: Generate clientId server-side
+    const clientId = await generateClientId();
+    
+    // STEP 8: Create new client with explicit field mapping
     const client = new Client({
+      // System-generated ID (NEVER from client)
+      clientId,
       // Business fields from sanitized request
       businessName: businessName.trim(),
       businessAddress: businessAddress.trim(),
