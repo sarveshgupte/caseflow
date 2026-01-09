@@ -2,6 +2,7 @@ const Case = require('../models/Case.model');
 const Comment = require('../models/Comment.model');
 const Attachment = require('../models/Attachment.model');
 const { CASE_STATUS } = require('../config/constants');
+const { logCaseListViewed } = require('../services/auditLog.service');
 
 /**
  * Search Controller for Global Search and Worklists
@@ -173,6 +174,14 @@ const globalSearch = async (req, res) => {
     // Sort by createdAt descending
     uniqueCases.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     
+    // Log case list view for audit
+    await logCaseListViewed({
+      viewerXID: user.xID,
+      filters: { searchQuery: searchTerm },
+      listType: 'GLOBAL_SEARCH',
+      resultCount: uniqueCases.length,
+    });
+    
     res.json({
       success: true,
       data: uniqueCases.map(c => ({
@@ -247,6 +256,14 @@ const categoryWorklist = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
     
+    // Log case list view for audit
+    await logCaseListViewed({
+      viewerXID: user.xID,
+      filters: { category: categoryId },
+      listType: 'CATEGORY_WORKLIST',
+      resultCount: cases.length,
+    });
+    
     res.json({
       success: true,
       data: cases.map(c => ({
@@ -315,6 +332,14 @@ const employeeWorklist = async (req, res) => {
       .select('caseId caseName category createdAt createdBy updatedAt status clientId clientName')
       .sort({ createdAt: -1 })
       .lean();
+    
+    // Log case list view for audit
+    await logCaseListViewed({
+      viewerXID: user.xID,
+      filters: { status: CASE_STATUS.OPEN },
+      listType: 'MY_WORKLIST',
+      resultCount: cases.length,
+    });
     
     res.json({
       success: true,
@@ -501,6 +526,22 @@ const globalWorklist = async (req, res) => {
     const totalQuery = { ...baseQuery };
     // Don't exclude null slaDueDate from count unless slaStatus filter is applied
     const total = await Case.countDocuments(totalQuery);
+    
+    // Log case list view for audit (if user is authenticated)
+    if (req.user?.xID) {
+      await logCaseListViewed({
+        viewerXID: req.user.xID,
+        filters: { 
+          clientId, 
+          category, 
+          slaStatus,
+          createdAtFrom,
+          createdAtTo,
+        },
+        listType: 'GLOBAL_WORKLIST',
+        resultCount: casesWithSLAInfo.length,
+      });
+    }
     
     res.json({
       success: true,

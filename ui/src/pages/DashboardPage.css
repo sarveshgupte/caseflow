@@ -29,6 +29,16 @@
   text-align: center;
 }
 
+.dashboard__stat-card--clickable {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard__stat-card--clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 .dashboard__stat-card--admin {
   border-left: 4px solid var(--accent-warning);
 }
@@ -46,6 +56,10 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.dashboard__stat-description {
+  margin-top: var(--spacing-xs);
 }
 
 .dashboard__section {

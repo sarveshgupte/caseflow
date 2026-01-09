@@ -1,5 +1,6 @@
 const caseActionService = require('../services/caseAction.service');
 const { CASE_STATUS } = require('../config/constants');
+const { logCaseListViewed } = require('../services/auditLog.service');
 
 /**
  * Case Actions Controller
@@ -248,6 +249,14 @@ const getMyPendingCases = async (req, res) => {
       .select('caseId caseName category createdAt updatedAt status clientId clientName pendingUntil')
       .sort({ pendingUntil: 1 }) // Sort by pending deadline (earliest first)
       .lean();
+    
+    // Log case list view for audit
+    await logCaseListViewed({
+      viewerXID: req.user.xID,
+      filters: { status: CASE_STATUS.PENDED, pendedByXID: req.user.xID },
+      listType: 'MY_PENDING_CASES',
+      resultCount: cases.length,
+    });
     
     res.json({
       success: true,

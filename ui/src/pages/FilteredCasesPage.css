@@ -1,0 +1,56 @@
+/**
+ * Filtered Cases Page Styles
+ */
+
+.filtered-cases {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.filtered-cases__header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.filtered-cases__header h1 {
+  color: var(--text-primary);
+  font-size: var(--font-size-2xl);
+  margin-bottom: var(--spacing-sm);
+}
+
+.filtered-cases__info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background-color: var(--bg-secondary);
+  border-radius: var(--border-radius-md);
+}
+
+.filtered-cases__count {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.filtered-cases__page {
+  color: var(--text-secondary);
+}
+
+.filtered-cases__empty {
+  padding: var(--spacing-2xl);
+  text-align: center;
+}
+
+.filtered-cases__pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-lg);
+  margin-top: var(--spacing-xl);
+  padding: var(--spacing-lg);
+}
+
+.filtered-cases__pagination-info {
+  color: var(--text-secondary);
+  font-size: var(--font-size-md);
+}

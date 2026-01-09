@@ -8,6 +8,7 @@ const User = require('../models/User.model');
 const { detectDuplicates, generateDuplicateOverrideComment } = require('../services/clientDuplicateDetector');
 const { CASE_CATEGORIES, CASE_LOCK_CONFIG, CASE_STATUS, COMMENT_PREVIEW_LENGTH, CLIENT_STATUS } = require('../config/constants');
 const { isProduction } = require('../config/config');
+const { logCaseListViewed, logAdminAction } = require('../services/auditLog.service');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -1007,6 +1008,33 @@ const getCases = async (req, res) => {
     );
     
     const total = await Case.countDocuments(query);
+    
+    // Log case list view for audit
+    if (req.user?.xID) {
+      // Determine if this is an admin viewing pending approvals
+      const isPendingApprovalView = status === 'Pending' || status === 'Reviewed' || status === 'UNDER_REVIEW';
+      
+      if (isPendingApprovalView && req.user.role === 'Admin') {
+        // Log admin approval queue access
+        await logAdminAction({
+          adminXID: req.user.xID,
+          actionType: 'ADMIN_APPROVAL_QUEUE_VIEWED',
+          metadata: {
+            filters: { status, category, priority, assignedTo, clientId },
+            resultCount: casesWithClients.length,
+            total,
+          },
+        });
+      } else {
+        // Log regular case list view
+        await logCaseListViewed({
+          viewerXID: req.user.xID,
+          filters: { status, category, priority, assignedTo, clientId },
+          listType: 'FILTERED_CASES',
+          resultCount: casesWithClients.length,
+        });
+      }
+    }
     
     res.json({
       success: true,

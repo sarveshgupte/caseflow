@@ -46,6 +46,10 @@ const caseAuditSchema = new mongoose.Schema({
    * - CASE_EDITED: Case details modified
    * - CASE_ASSIGNED: Case assigned to user
    * - CASE_STATUS_CHANGED: Case status updated
+   * - CASE_LIST_VIEWED: User viewed a filtered case list
+   * - ADMIN_FILED_CASES_VIEWED: Admin viewed filed cases list
+   * - ADMIN_APPROVAL_QUEUE_VIEWED: Admin viewed pending approvals
+   * - CASE_ATTACHMENT_ADDED: File attached to case (alias for CASE_FILE_ATTACHED)
    */
   actionType: {
     type: String,
@@ -58,6 +62,10 @@ const caseAuditSchema = new mongoose.Schema({
       'CASE_EDITED',
       'CASE_ASSIGNED',
       'CASE_STATUS_CHANGED',
+      'CASE_LIST_VIEWED',
+      'ADMIN_FILED_CASES_VIEWED',
+      'ADMIN_APPROVAL_QUEUE_VIEWED',
+      'CASE_ATTACHMENT_ADDED',
     ],
   },
   

@@ -5,6 +5,7 @@ const Case = require('../models/Case.model');
 const AuthAudit = require('../models/AuthAudit.model');
 const emailService = require('../services/email.service');
 const { CASE_STATUS } = require('../config/constants');
+const { logAdminAction, logCaseListViewed } = require('../services/auditLog.service');
 
 /**
  * Admin Controller for Admin Panel Operations
@@ -241,6 +242,14 @@ const getAllOpenCases = async (req, res) => {
     
     const total = await Case.countDocuments({ status: CASE_STATUS.OPEN });
     
+    // Log admin action for audit
+    await logCaseListViewed({
+      viewerXID: req.user.xID,
+      filters: { status: CASE_STATUS.OPEN },
+      listType: 'ADMIN_ALL_OPEN_CASES',
+      resultCount: cases.length,
+    });
+    
     res.json({
       success: true,
       data: cases,
@@ -282,6 +291,14 @@ const getAllPendingCases = async (req, res) => {
     
     const total = await Case.countDocuments({ status: CASE_STATUS.PENDED });
     
+    // Log admin action for audit
+    await logCaseListViewed({
+      viewerXID: req.user.xID,
+      filters: { status: CASE_STATUS.PENDED },
+      listType: 'ADMIN_ALL_PENDING_CASES',
+      resultCount: cases.length,
+    });
+    
     res.json({
       success: true,
       data: cases,
@@ -322,6 +339,18 @@ const getAllFiledCases = async (req, res) => {
       .lean();
     
     const total = await Case.countDocuments({ status: CASE_STATUS.FILED });
+    
+    // MANDATORY: Log admin filed cases access for audit
+    await logAdminAction({
+      adminXID: req.user.xID,
+      actionType: 'ADMIN_FILED_CASES_VIEWED',
+      metadata: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        resultCount: cases.length,
+        total,
+      },
+    });
     
     res.json({
       success: true,
