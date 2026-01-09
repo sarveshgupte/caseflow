@@ -1158,6 +1158,10 @@ const resetPasswordWithToken = async (req, res) => {
 /**
  * Resend password setup email (Admin only)
  * POST /api/auth/resend-setup-email
+ * 
+ * @deprecated This function is deprecated as of PR #48
+ * Use POST /api/admin/users/:xID/resend-invite instead (admin.controller.js)
+ * This endpoint has been removed from auth.routes.js to prevent password enforcement issues
  */
 const resendSetupEmail = async (req, res) => {
   try {

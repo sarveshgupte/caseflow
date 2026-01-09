@@ -14,7 +14,6 @@ const {
   deactivateUser,
   setPassword,
   resetPasswordWithToken,
-  resendSetupEmail,
   updateUserStatus,
   unlockAccount,
   forgotPassword,
@@ -44,7 +43,8 @@ router.put('/profile', authenticate, updateProfile);
 
 // Admin-only endpoints - require authentication and admin role
 router.post('/reset-password', authenticate, requireAdmin, resetPassword);
-router.post('/resend-setup-email', authenticate, requireAdmin, resendSetupEmail);
+// NOTE: resend-setup-email has been moved to /api/admin/users/:xID/resend-invite (PR #48)
+// This ensures admin actions bypass password enforcement middleware
 router.post('/unlock-account', authenticate, requireAdmin, unlockAccount);
 router.get('/admin/users', authenticate, requireAdmin, getAllUsers);
 router.post('/admin/users', authenticate, requireAdmin, createUser);
