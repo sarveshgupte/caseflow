@@ -292,3 +292,41 @@ The system is suitable for development and internal testing but requires the hig
 4. ⚠️ **Query Param Auth**: Documented as limitation with recommended solution
 
 All critical security issues from code review have been addressed.
+
+## CodeQL Security Scan Results
+
+**Scan Date**: 2026-01-09
+
+### Findings
+
+#### 1. Missing Rate Limiting (3 occurrences)
+**Severity**: Medium  
+**Status**: Known Limitation  
+
+**Affected Endpoints:**
+- `POST /api/inbound/email` (inbound.routes.js:11)
+- `GET /api/cases/:caseId/attachments/:attachmentId/view` (case.routes.js:82)
+- `GET /api/cases/:caseId/attachments/:attachmentId/download` (case.routes.js:85)
+
+**Details:**
+These route handlers perform database and file system operations without rate limiting, which could allow abuse.
+
+**Mitigation Status:**
+- All endpoints require authentication
+- Database queries are simple lookups (not expensive)
+- File system operations are single-file reads
+- Risk level: LOW to MEDIUM
+
+**Recommendation:**
+See "Rate Limiting" section above for implementation guidance.
+
+**Priority**: High for production deployment
+
+### Summary
+- **Total Alerts**: 3
+- **Critical**: 0
+- **High**: 0
+- **Medium**: 3 (rate limiting)
+- **Low**: 0
+
+All findings are documented with mitigation plans. No critical vulnerabilities found.
