@@ -64,7 +64,7 @@ const resolveCase = async (req, res) => {
       });
     }
     
-    if (error.message === 'Case is already resolved') {
+    if (error.message.startsWith('Cannot change case from')) {
       return res.status(400).json({
         success: false,
         message: error.message,
@@ -83,12 +83,12 @@ const resolveCase = async (req, res) => {
  * Pend a case
  * POST /api/cases/:caseId/pend
  * 
- * Changes case status to PENDED with mandatory comment and pendingUntil date.
+ * Changes case status to PENDED with mandatory comment and reopenDate.
  * Case disappears from My Worklist but appears in My Pending Cases dashboard.
  * 
  * Request body:
  * - comment: Mandatory pending comment
- * - pendingUntil: Date when case should auto-reopen (required)
+ * - reopenDate: Date (YYYY-MM-DD format) when case should auto-reopen (required)
  * 
  * @param {object} req - Express request
  * @param {object} res - Express response
@@ -96,7 +96,7 @@ const resolveCase = async (req, res) => {
 const pendCase = async (req, res) => {
   try {
     const { caseId } = req.params;
-    const { comment, pendingUntil } = req.body;
+    const { comment, reopenDate } = req.body;
     
     // Validate user authentication
     if (!req.user || !req.user.xID) {
@@ -107,7 +107,7 @@ const pendCase = async (req, res) => {
     }
     
     // Call service to pend case
-    const caseData = await caseActionService.pendCase(caseId, comment, pendingUntil, req.user);
+    const caseData = await caseActionService.pendCase(caseId, comment, reopenDate, req.user);
     
     res.json({
       success: true,
@@ -117,7 +117,7 @@ const pendCase = async (req, res) => {
   } catch (error) {
     // Handle specific errors
     if (error.message === 'Comment is mandatory for this action' ||
-        error.message === 'pendingUntil date is required when pending a case') {
+        error.message === 'Comment and reopen date are required') {
       return res.status(400).json({
         success: false,
         message: error.message,
@@ -131,7 +131,7 @@ const pendCase = async (req, res) => {
       });
     }
     
-    if (error.message === 'Case is already pended') {
+    if (error.message.startsWith('Cannot change case from')) {
       return res.status(400).json({
         success: false,
         message: error.message,
@@ -197,7 +197,7 @@ const fileCase = async (req, res) => {
       });
     }
     
-    if (error.message === 'Case is already filed') {
+    if (error.message.startsWith('Cannot change case from')) {
       return res.status(400).json({
         success: false,
         message: error.message,

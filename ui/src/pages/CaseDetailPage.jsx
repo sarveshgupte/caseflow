@@ -322,11 +322,10 @@ export const CaseDetailPage = () => {
   const showMoveToGlobalButton = isAdmin && caseInfo.assignedToXID;
 
   // Case action buttons (File, Pend, Resolve)
-  // Show only when case is in a non-terminal state
-  const isTerminalState = caseInfo.status === 'RESOLVED' || 
-                           caseInfo.status === 'FILED' || 
-                           caseInfo.status === 'CLOSED';
-  const showActionButtons = !isViewOnlyMode && !isTerminalState;
+  // According to requirements: Only OPEN cases can perform these actions
+  // PENDING, FILED, RESOLVED are terminal/locked states
+  const canPerformActions = caseInfo.status === 'OPEN';
+  const showActionButtons = !isViewOnlyMode && canPerformActions;
 
   return (
     <Layout>
