@@ -36,6 +36,7 @@ export const CreateCasePage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [successMessage, setSuccessMessage] = useState(null);
 
   // Fetch categories for dropdown
   useEffect(() => {
@@ -212,6 +213,7 @@ export const CreateCasePage = () => {
   const handleSubmit = async (e, forceCreate = false) => {
     e.preventDefault();
     setDuplicateWarning(null);
+    setSuccessMessage(null);
 
     if (!validateForm()) {
       return;
@@ -223,7 +225,24 @@ export const CreateCasePage = () => {
       const response = await caseService.createCase(formData, forceCreate);
       
       if (response.success) {
-        navigate(`/cases/${response.data.caseName}`);
+        // DO NOT redirect to case detail - show success message instead
+        // Per PR requirements: show success and options to go to Global Worklist or create another
+        setSuccessMessage({
+          caseId: response.data.caseId,
+          caseName: response.data.caseName,
+        });
+        // Reset form for creating another case
+        setFormData({
+          clientId: clients.length > 0 ? clients[0].clientId : '',
+          categoryId: '',
+          subcategoryId: '',
+          title: '',
+          description: '',
+          slaDueDate: '',
+        });
+        setErrors({});
+        setTouched({});
+        setDuplicateWarning(null);
       }
     } catch (err) {
       if (err.response?.status === 409) {
@@ -253,6 +272,24 @@ export const CreateCasePage = () => {
           <h1>Create New Case</h1>
           <p className="text-secondary">All fields marked with * are required</p>
         </div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="neo-alert neo-alert--success" style={{ marginBottom: 'var(--spacing-lg)' }}>
+            <h3>✅ Case Created Successfully!</h3>
+            <p>
+              Case <strong>{successMessage.caseId}</strong> has been created and moved to the Global Worklist.
+            </p>
+            <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
+              <Button variant="primary" onClick={() => navigate('/global-worklist')}>
+                Go to Global Worklist
+              </Button>
+              <Button variant="default" onClick={() => setSuccessMessage(null)}>
+                Create Another Case
+              </Button>
+            </div>
+          </div>
+        )}
 
         <Card>
           {duplicateWarning ? (

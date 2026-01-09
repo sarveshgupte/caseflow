@@ -16,10 +16,21 @@ const mongoose = require('mongoose');
 
 const caseSchema = new mongoose.Schema({
   /**
+   * ✅ CANONICAL CASE IDENTIFIER - USE THIS FOR ALL OPERATIONS ✅
+   * 
    * Auto-generated deterministic case identifier
    * Format: CASE-YYYYMMDD-XXXXX (e.g., CASE-20260108-00012)
    * Generated via pre-save hook with daily sequence reset
+   * 
    * MANDATORY - Never editable
+   * 
+   * ⚠️ CRITICAL: This is the ONLY identifier for:
+   * - URLs: /cases/:caseId
+   * - API routes: /api/cases/:caseId
+   * - DB queries: findOne({ caseId })
+   * - Frontend navigation: navigate(`/cases/${caseId}`)
+   * 
+   * 🚫 NEVER use displayCaseId or caseName for routing or queries
    */
   caseId: {
     type: String,
@@ -30,10 +41,14 @@ const caseSchema = new mongoose.Schema({
   },
   
   /**
-   * Deterministic case name - PRIMARY external identifier
+   * Deterministic case name - DISPLAY ONLY
    * Format: caseYYYYMMDDxxxxx (e.g., case2026010700001)
    * Generated automatically at case creation
    * Unique, immutable, resets daily
+   * 
+   * ⚠️ DISPLAY ONLY: Use only for human-readable display in tables/lists
+   * 🚫 NEVER use for URLs, routes, queries, or navigation
+   * 
    * PART E - Deterministic Case Naming
    */
   caseName: {
