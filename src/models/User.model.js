@@ -194,6 +194,15 @@ const userSchema = new mongoose.Schema({
     required: true,
   },
   
+  /**
+   * Timestamp when invite email was last sent
+   * PR #48: Track when admin resends invite emails
+   */
+  inviteSentAt: {
+    type: Date,
+    default: null,
+  },
+  
   // Audit trail for user account creation
   createdAt: {
     type: Date,

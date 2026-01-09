@@ -64,9 +64,10 @@ export const adminService = {
 
   /**
    * Resend password setup email (Admin only)
+   * PR #48: Updated to use dedicated admin endpoint
    */
   resendSetupEmail: async (xID) => {
-    const response = await api.post('/auth/resend-setup-email', { xID });
+    const response = await api.post(`/admin/users/${xID}/resend-invite`);
     return response.data;
   },
 
