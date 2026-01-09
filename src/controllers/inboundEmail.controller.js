@@ -92,8 +92,7 @@ const handleInboundEmail = async (req, res) => {
     }
     
     // Save email to file system
-    // For this implementation, we'll create a simple text file with email content
-    // In production, you'd save the raw email (.eml) or parse it properly
+    // Store as a text file with email metadata and content
     const timestamp = Date.now();
     const randomSuffix = Math.random().toString(36).substring(7);
     const emailFileName = `email-${timestamp}-${randomSuffix}.txt`;
@@ -124,8 +123,9 @@ ${bodyHtml || '(no HTML body)'}
     
     await fs.writeFile(emailFilePath, emailContent, 'utf8');
     
-    // Determine MIME type
-    const mimeType = 'message/rfc822';
+    // Use text/plain MIME type since we're storing as a text file
+    // In production, you would store the raw .eml file and use 'message/rfc822'
+    const mimeType = 'text/plain';
     
     // Create attachment record
     const attachment = await Attachment.create({

@@ -10,6 +10,7 @@ const { CASE_CATEGORIES, CASE_LOCK_CONFIG, CASE_STATUS, COMMENT_PREVIEW_LENGTH, 
 const { isProduction } = require('../config/config');
 const { logCaseListViewed, logAdminAction } = require('../services/auditLog.service');
 const caseActionService = require('../services/caseAction.service');
+const { getMimeType, sanitizeFilename } = require('../utils/fileUtils');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -1531,29 +1532,13 @@ const viewAttachment = async (req, res) => {
       });
     }
     
-    // Determine MIME type based on file extension
-    const ext = path.extname(attachment.fileName).toLowerCase();
-    let mimeType = 'application/octet-stream';
-    
-    if (ext === '.pdf') {
-      mimeType = 'application/pdf';
-    } else if (ext === '.jpg' || ext === '.jpeg') {
-      mimeType = 'image/jpeg';
-    } else if (ext === '.png') {
-      mimeType = 'image/png';
-    } else if (ext === '.doc') {
-      mimeType = 'application/msword';
-    } else if (ext === '.docx') {
-      mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    } else if (ext === '.eml') {
-      mimeType = 'message/rfc822';
-    } else if (ext === '.msg') {
-      mimeType = 'application/vnd.ms-outlook';
-    }
+    // Determine MIME type and sanitize filename
+    const mimeType = getMimeType(attachment.fileName);
+    const safeFilename = sanitizeFilename(attachment.fileName);
     
     // Set headers for inline viewing
     res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Disposition', `inline; filename="${attachment.fileName}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
     
     // Send file
     res.sendFile(path.resolve(attachment.filePath));
@@ -1625,29 +1610,13 @@ const downloadAttachment = async (req, res) => {
       });
     }
     
-    // Determine MIME type based on file extension
-    const ext = path.extname(attachment.fileName).toLowerCase();
-    let mimeType = 'application/octet-stream';
-    
-    if (ext === '.pdf') {
-      mimeType = 'application/pdf';
-    } else if (ext === '.jpg' || ext === '.jpeg') {
-      mimeType = 'image/jpeg';
-    } else if (ext === '.png') {
-      mimeType = 'image/png';
-    } else if (ext === '.doc') {
-      mimeType = 'application/msword';
-    } else if (ext === '.docx') {
-      mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    } else if (ext === '.eml') {
-      mimeType = 'message/rfc822';
-    } else if (ext === '.msg') {
-      mimeType = 'application/vnd.ms-outlook';
-    }
+    // Determine MIME type and sanitize filename
+    const mimeType = getMimeType(attachment.fileName);
+    const safeFilename = sanitizeFilename(attachment.fileName);
     
     // Set headers for download
     res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Disposition', `attachment; filename="${attachment.fileName}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
     
     // Send file
     res.sendFile(path.resolve(attachment.filePath));
