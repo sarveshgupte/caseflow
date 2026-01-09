@@ -9,11 +9,17 @@ import api from './api';
 export const clientService = {
   /**
    * Get all clients (with optional activeOnly filter)
+   * @param {boolean} activeOnly - If true, only return active clients
+   * @param {boolean} forCreateCase - If true, always include Default Client + active clients
    */
-  getClients: async (activeOnly = false) => {
-    const response = await api.get('/clients', {
-      params: { activeOnly: activeOnly ? 'true' : 'false' }
-    });
+  getClients: async (activeOnly = false, forCreateCase = false) => {
+    const params = {};
+    if (forCreateCase) {
+      params.forCreateCase = 'true';
+    } else {
+      params.activeOnly = activeOnly ? 'true' : 'false';
+    }
+    const response = await api.get('/clients', { params });
     return response.data;
   },
 

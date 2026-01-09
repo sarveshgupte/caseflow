@@ -487,7 +487,9 @@ export const AdminPage = () => {
   };
 
   const handleToggleClientStatus = async (client) => {
-    const newStatus = !client.isActive;
+    // Use canonical status field (ACTIVE/INACTIVE)
+    const isCurrentlyActive = client.status === 'ACTIVE';
+    const newStatus = !isCurrentlyActive;
     const action = newStatus ? 'activate' : 'deactivate';
     
     try {
@@ -764,13 +766,20 @@ export const AdminPage = () => {
                 <tbody>
                   {clients.map((client) => (
                     <tr key={client.clientId}>
-                      <td>{client.clientId}</td>
+                      <td>
+                        {client.clientId}
+                        {client.clientId === 'C000001' && (
+                          <span style={{ marginLeft: '8px' }}>
+                            <Badge status="Approved">Default</Badge>
+                          </span>
+                        )}
+                      </td>
                       <td>{client.businessName}</td>
                       <td>{client.businessEmail}</td>
                       <td>{client.primaryContactNumber}</td>
                       <td>
-                        <Badge status={client.isActive ? 'Approved' : 'Rejected'}>
-                          {client.isActive ? 'Active' : 'Inactive'}
+                        <Badge status={client.status === 'ACTIVE' ? 'Approved' : 'Rejected'}>
+                          {client.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                         </Badge>
                       </td>
                       <td>{new Date(client.createdAt).toLocaleDateString()}</td>
@@ -791,14 +800,16 @@ export const AdminPage = () => {
                         >
                           Change Name
                         </Button>
-                        <Button
-                          size="small"
-                          variant={client.isActive ? 'danger' : 'success'}
-                          onClick={() => handleToggleClientStatus(client)}
-                          disabled={client.isSystemClient}
-                        >
-                          {client.isActive ? 'Deactivate' : 'Activate'}
-                        </Button>
+                        {/* Only show Activate/Deactivate button if NOT Default Client */}
+                        {client.clientId !== 'C000001' && (
+                          <Button
+                            size="small"
+                            variant={client.status === 'ACTIVE' ? 'danger' : 'success'}
+                            onClick={() => handleToggleClientStatus(client)}
+                          >
+                            {client.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}

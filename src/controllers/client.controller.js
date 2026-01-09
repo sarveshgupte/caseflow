@@ -18,10 +18,28 @@ const { CLIENT_STATUS } = require('../config/constants');
  * Get all clients
  * GET /api/clients
  * Query param: activeOnly=true for only active clients
+ * Query param: forCreateCase=true to get clients for case creation (always includes Default Client)
  */
 const getClients = async (req, res) => {
   try {
-    const { activeOnly } = req.query;
+    const { activeOnly, forCreateCase } = req.query;
+    
+    // Special logic for Create Case: Always include Default Client + other active clients
+    if (forCreateCase === 'true') {
+      const clients = await Client.find({
+        $or: [
+          { clientId: 'C000001' }, // Always include Default Client
+          { status: CLIENT_STATUS.ACTIVE } // Include other active clients
+        ]
+      })
+        .select('clientId businessName status')
+        .sort({ clientId: 1 });
+      
+      return res.json({
+        success: true,
+        data: clients,
+      });
+    }
     
     // Filter based on activeOnly query parameter
     // Use canonical status field (ACTIVE/INACTIVE) instead of deprecated isActive
@@ -369,6 +387,15 @@ const toggleClientStatus = async (req, res) => {
       });
     }
     
+    // HARD BLOCK: Prevent deactivation of Default Client (C000001)
+    // This is a system invariant that must be enforced server-side
+    if (clientId === 'C000001' && !isActive) {
+      return res.status(400).json({
+        success: false,
+        message: 'Default client cannot be deactivated.',
+      });
+    }
+    
     const client = await Client.findOne({ clientId });
     
     if (!client) {
@@ -378,11 +405,11 @@ const toggleClientStatus = async (req, res) => {
       });
     }
     
-    // Prevent disabling system client
+    // Additional check using isSystemClient flag
     if (client.isSystemClient && !isActive) {
-      return res.status(403).json({
+      return res.status(400).json({
         success: false,
-        message: 'System client cannot be disabled',
+        message: 'Default client cannot be deactivated.',
       });
     }
     
