@@ -55,7 +55,9 @@ const authenticate = async (req, res, next) => {
     const isProfileEndpoint = req.path.endsWith('/profile');
     
     // Block access to other routes if password change is required
-    if (user.mustChangePassword && !isChangePasswordEndpoint && !isProfileEndpoint) {
+    // IMPORTANT: Admin users are exempt from this restriction to allow user management operations
+    // (e.g., resending invite emails for users without passwords)
+    if (user.mustChangePassword && !isChangePasswordEndpoint && !isProfileEndpoint && user.role !== 'Admin') {
       return res.status(403).json({
         success: false,
         message: 'You must change your password before accessing other resources.',
