@@ -5,7 +5,7 @@ const CaseHistory = require('../models/CaseHistory.model');
 const CaseAudit = require('../models/CaseAudit.model');
 const Client = require('../models/Client.model');
 const { detectDuplicates, generateDuplicateOverrideComment } = require('../services/clientDuplicateDetector');
-const { CASE_CATEGORIES, CASE_LOCK_CONFIG, CASE_STATUS, COMMENT_PREVIEW_LENGTH } = require('../config/constants');
+const { CASE_CATEGORIES, CASE_LOCK_CONFIG, CASE_STATUS, COMMENT_PREVIEW_LENGTH, CLIENT_STATUS } = require('../config/constants');
 const { isProduction } = require('../config/config');
 const fs = require('fs').promises;
 const path = require('path');
@@ -148,7 +148,7 @@ const createCase = async (req, res) => {
     }
     
     // Check client status
-    if (client.status !== 'ACTIVE') {
+    if (client.status !== CLIENT_STATUS.ACTIVE) {
       return res.status(400).json({
         success: false,
         message: 'This client is no longer active. Please contact your administrator to proceed.',
@@ -521,7 +521,7 @@ const cloneCase = async (req, res) => {
     }
     
     // Check client status
-    if (client.status !== 'ACTIVE') {
+    if (client.status !== CLIENT_STATUS.ACTIVE) {
       return res.status(400).json({
         success: false,
         message: 'This client is no longer active. Please contact your administrator to proceed.',

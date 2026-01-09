@@ -50,9 +50,19 @@ const CASE_STATUS = {
  */
 const COMMENT_PREVIEW_LENGTH = 50;
 
+/**
+ * Client status constants
+ * Use these instead of string literals to ensure consistency
+ */
+const CLIENT_STATUS = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+};
+
 module.exports = {
   CASE_LOCK_CONFIG,
   CASE_CATEGORIES,
   CASE_STATUS,
   COMMENT_PREVIEW_LENGTH,
+  CLIENT_STATUS,
 };

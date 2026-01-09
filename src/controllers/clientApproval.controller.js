@@ -2,7 +2,7 @@ const Case = require('../models/Case.model');
 const Comment = require('../models/Comment.model');
 const Client = require('../models/Client.model');
 const CaseHistory = require('../models/CaseHistory.model');
-const { CASE_CATEGORIES, CASE_STATUS } = require('../config/constants');
+const { CASE_CATEGORIES, CASE_STATUS, CLIENT_STATUS } = require('../config/constants');
 
 /**
  * Client Approval Controller
@@ -537,7 +537,7 @@ const listClients = async (req, res) => {
     
     // For case creation dropdown: only ACTIVE clients, unless explicitly requesting all
     // This enforces client lifecycle rules - deactivated clients cannot be used for new cases
-    const query = includeInactive === 'true' ? {} : { status: 'ACTIVE' };
+    const query = includeInactive === 'true' ? {} : { status: CLIENT_STATUS.ACTIVE };
     
     const clients = await Client.find(query)
       .select('clientId businessName status isActive') // Select only necessary fields

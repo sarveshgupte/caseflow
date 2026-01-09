@@ -38,6 +38,11 @@ export const CASE_CATEGORIES = {
 
 export const DEFAULT_CLIENT_ID = 'C000001';
 
+export const CLIENT_STATUS = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+};
+
 export const USER_ROLES = {
   ADMIN: 'Admin',
   EMPLOYEE: 'Employee',

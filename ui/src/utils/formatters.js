@@ -77,6 +77,7 @@ export const formatClientDisplay = (client, showInactiveLabel = false) => {
   
   // Append inactive label if client is not active
   // Use status field as the canonical field (per Client model)
+  // Import CLIENT_STATUS constant for consistency
   if (showInactiveLabel && client.status !== 'ACTIVE') {
     display += ' (Inactive)';
   }
