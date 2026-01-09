@@ -50,12 +50,40 @@ const attachmentSchema = new mongoose.Schema({
   
   /**
    * Email of user who uploaded the attachment
-   * Required for accountability
+   * ⚠️ DEPRECATED - FOR DISPLAY PURPOSES ONLY ⚠️
+   * Use createdByXID and createdByName for UI display
    */
   createdBy: {
     type: String,
     required: [true, 'Creator email is required'],
     lowercase: true,
+    trim: true,
+  },
+  
+  /**
+   * xID of user who uploaded the attachment
+   * ✅ CANONICAL IDENTIFIER ✅
+   * Format: X123456
+   * Used for attribution and audit trails
+   * 
+   * Optional for backward compatibility with existing attachments.
+   * All new attachments should include this field.
+   */
+  createdByXID: {
+    type: String,
+    uppercase: true,
+    trim: true,
+  },
+  
+  /**
+   * Name of user who uploaded the attachment
+   * Used for display in UI
+   * 
+   * Optional for backward compatibility with existing attachments.
+   * All new attachments should include this field.
+   */
+  createdByName: {
+    type: String,
     trim: true,
   },
   

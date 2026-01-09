@@ -4,6 +4,7 @@ const Attachment = require('../models/Attachment.model');
 const CaseHistory = require('../models/CaseHistory.model');
 const CaseAudit = require('../models/CaseAudit.model');
 const Client = require('../models/Client.model');
+const User = require('../models/User.model');
 const { detectDuplicates, generateDuplicateOverrideComment } = require('../services/clientDuplicateDetector');
 const { CASE_CATEGORIES, CASE_LOCK_CONFIG, CASE_STATUS, COMMENT_PREVIEW_LENGTH, CLIENT_STATUS } = require('../config/constants');
 const { isProduction } = require('../config/config');
@@ -431,6 +432,8 @@ const addAttachment = async (req, res) => {
       filePath: req.file.path,
       description,
       createdBy: createdBy.toLowerCase(),
+      createdByXID: req.user.xID,
+      createdByName: req.user.name,
       note,
     });
     
@@ -818,7 +821,30 @@ const getCaseByCaseId = async (req, res) => {
     const history = await CaseHistory.find({ caseId }).sort({ timestamp: -1 });
     
     // PR #45: Also fetch CaseAudit entries for view-mode tracking
-    const auditLog = await CaseAudit.find({ caseId }).sort({ timestamp: -1 }).limit(50);
+    // Use aggregation to lookup user names from performedByXID
+    const auditLog = await CaseAudit.aggregate([
+      { $match: { caseId } },
+      { $sort: { timestamp: -1 } },
+      { $limit: 50 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'performedByXID',
+          foreignField: 'xID',
+          as: 'userInfo'
+        }
+      },
+      {
+        $addFields: {
+          performedByName: { $arrayElemAt: ['$userInfo.name', 0] }
+        }
+      },
+      {
+        $project: {
+          userInfo: 0  // Remove the userInfo array from results
+        }
+      }
+    ]);
     
     // Fetch current client details
     // TODO: Consider using aggregation pipeline with $lookup for better performance

@@ -36,6 +36,9 @@ export const CaseDetailPage = () => {
   const [caseData, setCaseData] = useState(null);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileDescription, setFileDescription] = useState('');
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   useEffect(() => {
     loadCase();
@@ -68,6 +71,36 @@ export const CaseDetailPage = () => {
       console.error('Failed to add comment:', error);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const handleUploadFile = async () => {
+    if (!selectedFile || !fileDescription.trim()) {
+      alert('Please select a file and provide a description');
+      return;
+    }
+
+    setUploadingFile(true);
+    try {
+      await caseService.addAttachment(caseId, selectedFile, fileDescription);
+      setSelectedFile(null);
+      setFileDescription('');
+      // Reset file input
+      const fileInput = document.getElementById('file-upload-input');
+      if (fileInput) fileInput.value = '';
+      await loadCase(); // Reload to show new attachment
+    } catch (error) {
+      console.error('Failed to upload file:', error);
+      alert('Failed to upload file. Please try again.');
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -186,6 +219,73 @@ export const CaseDetailPage = () => {
           )}
         </div>
 
+        {/* Attachments Section - Placed above Comments */}
+        <Card className="case-detail__section">
+          <h2 className="neo-section__header">Attachments</h2>
+          <div className="case-detail__attachments">
+            {caseData.attachments && caseData.attachments.length > 0 ? (
+              caseData.attachments.map((attachment, index) => (
+                <div key={index} className="neo-inset" style={{ marginBottom: 'var(--spacing-md)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+                    <div style={{ fontWeight: '500' }}>
+                      {attachment.fileName || attachment.filename}
+                    </div>
+                    <div className="text-secondary text-sm">
+                      Attached by {attachment.createdByName && attachment.createdByXID
+                        ? `${attachment.createdByName} (${attachment.createdByXID})`
+                        : 'System (Unknown)'}
+                    </div>
+                    <div className="text-secondary text-sm">
+                      {formatDateTime(attachment.createdAt)}
+                    </div>
+                    {attachment.description && (
+                      <div className="text-secondary text-sm" style={{ marginTop: 'var(--spacing-xs)' }}>
+                        {attachment.description}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-secondary">No attachments yet</p>
+            )}
+          </div>
+
+          {/* File upload UI - Always visible when user can attach */}
+          {(accessMode.canAttach || permissions.canAddAttachment(caseData)) && (
+            <div className="case-detail__add-attachment" style={{ marginTop: 'var(--spacing-lg)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                <Input
+                  id="file-upload-input"
+                  type="file"
+                  onChange={handleFileSelect}
+                  disabled={uploadingFile}
+                />
+                {selectedFile && (
+                  <div className="text-sm text-secondary">
+                    Selected: {selectedFile.name}
+                  </div>
+                )}
+                <Textarea
+                  label="File Description"
+                  value={fileDescription}
+                  onChange={(e) => setFileDescription(e.target.value)}
+                  placeholder="Describe this attachment..."
+                  rows={3}
+                  disabled={uploadingFile}
+                />
+                <Button
+                  variant="primary"
+                  onClick={handleUploadFile}
+                  disabled={!selectedFile || !fileDescription.trim() || uploadingFile}
+                >
+                  {uploadingFile ? 'Uploading...' : 'Upload File'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+
         <Card className="case-detail__section">
           <h2 className="neo-section__header">Comments</h2>
           <div className="case-detail__comments">
@@ -196,7 +296,7 @@ export const CaseDetailPage = () => {
                     <span className="case-detail__comment-author">
                       {comment.createdByName && comment.createdByXID 
                         ? `${comment.createdByName} (${comment.createdByXID})`
-                        : comment.createdBy || 'System'}
+                        : 'System (Unknown)'}
                     </span>
                     <span className="text-secondary text-sm">{formatDateTime(comment.createdAt)}</span>
                   </div>
@@ -229,22 +329,6 @@ export const CaseDetailPage = () => {
           )}
         </Card>
 
-        {caseData.attachments && caseData.attachments.length > 0 && (
-          <Card className="case-detail__section">
-            <h2 className="neo-section__header">Attachments</h2>
-            <div className="case-detail__attachments">
-              {caseData.attachments.map((attachment, index) => (
-                <div key={index} className="neo-inset" style={{ marginBottom: 'var(--spacing-sm)' }}>
-                  <div className="case-detail__attachment">
-                    <span>{attachment.fileName || attachment.filename}</span>
-                    <span className="text-secondary text-sm">{attachment.description}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
         {/* PR #45: Display audit log from CaseAudit collection */}
         {caseData.auditLog && caseData.auditLog.length > 0 && (
           <Card className="case-detail__section">
@@ -255,7 +339,11 @@ export const CaseDetailPage = () => {
                   <div className="case-detail__audit-entry">
                     <span className="text-sm">{formatDateTime(entry.timestamp)}</span>
                     <span>{entry.actionType}</span>
-                    <span className="text-secondary text-sm">{entry.performedByXID}</span>
+                    <span className="text-secondary text-sm">
+                      {entry.performedByName && entry.performedByXID
+                        ? `${entry.performedByName} (${entry.performedByXID})`
+                        : 'System (Unknown)'}
+                    </span>
                   </div>
                   <p className="text-sm text-secondary" style={{ marginTop: 'var(--spacing-xs)' }}>
                     {entry.description}
@@ -277,7 +365,11 @@ export const CaseDetailPage = () => {
                   <div className="case-detail__audit-entry">
                     <span className="text-sm">{formatDateTime(entry.timestamp)}</span>
                     <span>{entry.actionType}</span>
-                    <span className="text-secondary text-sm">{entry.performedBy}</span>
+                    <span className="text-secondary text-sm">
+                      {entry.performedByXID 
+                        ? `System (${entry.performedByXID})`
+                        : 'System (Unknown)'}
+                    </span>
                   </div>
                 </div>
               ))}
