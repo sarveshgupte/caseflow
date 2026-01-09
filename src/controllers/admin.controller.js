@@ -10,6 +10,7 @@ const { CASE_STATUS } = require('../config/constants');
  * Admin Controller for Admin Panel Operations
  * PR #41 - Admin panel statistics and management
  * PR #48 - Admin resend invite email functionality
+ * PR: Case Lifecycle - Admin dashboard for all cases, pending, filed
  */
 
 const INVITE_TOKEN_EXPIRY_HOURS = 48; // 48 hours for invite tokens
@@ -35,6 +36,11 @@ const safeAuditLog = async (auditData) => {
  * - Total clients (active + inactive)
  * - Total categories (including soft-deleted)
  * - Pending approvals
+ * - All open cases (across all users)
+ * - All pending cases (across all users)
+ * - Filed cases
+ * 
+ * PR: Case Lifecycle - Added comprehensive case counts
  */
 const getAdminStats = async (req, res) => {
   try {
@@ -44,6 +50,9 @@ const getAdminStats = async (req, res) => {
       totalClients,
       totalCategories,
       pendingApprovals,
+      allOpenCases,
+      allPendingCases,
+      filedCases,
     ] = await Promise.all([
       // Total users (all, regardless of status)
       User.countDocuments({}),
@@ -58,6 +67,15 @@ const getAdminStats = async (req, res) => {
       Case.countDocuments({
         status: { $in: [CASE_STATUS.REVIEWED, CASE_STATUS.UNDER_REVIEW] }
       }),
+      
+      // All open cases across all users (for admin visibility)
+      Case.countDocuments({ status: CASE_STATUS.OPEN }),
+      
+      // All pending cases across all users (for admin visibility)
+      Case.countDocuments({ status: CASE_STATUS.PENDED }),
+      
+      // All filed cases (for admin visibility)
+      Case.countDocuments({ status: CASE_STATUS.FILED }),
     ]);
     
     res.json({
@@ -67,6 +85,9 @@ const getAdminStats = async (req, res) => {
         totalClients,
         totalCategories,
         pendingApprovals,
+        allOpenCases,
+        allPendingCases,
+        filedCases,
       },
     });
   } catch (error) {
@@ -198,7 +219,133 @@ const resendInviteEmail = async (req, res) => {
   }
 };
 
+/**
+ * Get all open cases (Admin view)
+ * GET /api/admin/cases/open
+ * 
+ * Returns all cases with status OPEN across all users.
+ * Admins can see all open cases regardless of assignment.
+ * 
+ * PR: Case Lifecycle - Admin visibility for all open cases
+ */
+const getAllOpenCases = async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    
+    const cases = await Case.find({ status: CASE_STATUS.OPEN })
+      .select('caseId caseName category createdAt updatedAt status clientId assignedTo')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .lean();
+    
+    const total = await Case.countDocuments({ status: CASE_STATUS.OPEN });
+    
+    res.json({
+      success: true,
+      data: cases,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching open cases',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Get all pending cases (Admin view)
+ * GET /api/admin/cases/pending
+ * 
+ * Returns all cases with status PENDED across all users.
+ * Admins can see all pending cases regardless of who pended them.
+ * 
+ * PR: Case Lifecycle - Admin visibility for all pending cases
+ */
+const getAllPendingCases = async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    
+    const cases = await Case.find({ status: CASE_STATUS.PENDED })
+      .select('caseId caseName category createdAt updatedAt status clientId assignedTo pendedByXID pendingUntil')
+      .sort({ pendingUntil: 1 }) // Sort by pending deadline (earliest first)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .lean();
+    
+    const total = await Case.countDocuments({ status: CASE_STATUS.PENDED });
+    
+    res.json({
+      success: true,
+      data: cases,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching pending cases',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Get all filed cases (Admin view)
+ * GET /api/admin/cases/filed
+ * 
+ * Returns all cases with status FILED.
+ * Filed cases are hidden from employees and only visible to admins.
+ * 
+ * PR: Case Lifecycle - Admin visibility for filed cases
+ */
+const getAllFiledCases = async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    
+    const cases = await Case.find({ status: CASE_STATUS.FILED })
+      .select('caseId caseName category createdAt updatedAt status clientId assignedTo lastActionByXID lastActionAt')
+      .sort({ lastActionAt: -1 }) // Sort by last action (most recently filed first)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .lean();
+    
+    const total = await Case.countDocuments({ status: CASE_STATUS.FILED });
+    
+    res.json({
+      success: true,
+      data: cases,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching filed cases',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getAdminStats,
   resendInviteEmail,
+  getAllOpenCases,
+  getAllPendingCases,
+  getAllFiledCases,
 };
