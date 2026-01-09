@@ -16,6 +16,7 @@ const {
   unlockCaseEndpoint,
   updateCaseActivity,
   pullCases,
+  unassignCase,
 } = require('../controllers/case.controller');
 
 // PR #44: Import xID ownership validation middleware
@@ -138,5 +139,8 @@ router.post('/:caseId/pend', pendCase);
 
 // POST /api/cases/:caseId/file - File a case with mandatory comment
 router.post('/:caseId/file', fileCase);
+
+// POST /api/cases/:caseId/unassign - Move case to global worklist (Admin only)
+router.post('/:caseId/unassign', unassignCase);
 
 module.exports = router;

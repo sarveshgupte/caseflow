@@ -39,6 +39,8 @@ export const CaseDetailPage = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileDescription, setFileDescription] = useState('');
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [pullingCase, setPullingCase] = useState(false);
+  const [movingToGlobal, setMovingToGlobal] = useState(false);
   const fileInputRef = React.useRef(null);
 
   useEffect(() => {
@@ -57,6 +59,48 @@ export const CaseDetailPage = () => {
       console.error('Failed to load case:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePullCase = async () => {
+    if (!window.confirm('Pull this case? This will assign it to you.')) {
+      return;
+    }
+
+    setPullingCase(true);
+    try {
+      const response = await caseService.pullCase(caseId);
+      
+      if (response.success) {
+        alert('✅ Case pulled and assigned to you');
+        await loadCase(); // Reload to update UI
+      }
+    } catch (error) {
+      console.error('Failed to pull case:', error);
+      alert(`Failed to pull case: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setPullingCase(false);
+    }
+  };
+
+  const handleMoveToGlobal = async () => {
+    if (!window.confirm('This will remove the current assignment and move the case to the Global Worklist. Continue?')) {
+      return;
+    }
+
+    setMovingToGlobal(true);
+    try {
+      const response = await caseService.moveCaseToGlobal(caseId);
+      
+      if (response.success) {
+        alert('✅ Case moved to Global Worklist');
+        await loadCase(); // Reload to update UI
+      }
+    } catch (error) {
+      console.error('Failed to move case to global worklist:', error);
+      alert(`Failed to move case: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setMovingToGlobal(false);
     }
   };
 
@@ -133,6 +177,19 @@ export const CaseDetailPage = () => {
   // PR #45: Normalize case data structure
   const caseInfo = normalizeCase(caseData);
 
+  // Determine if user is admin
+  const isAdmin = user?.role === 'Admin';
+
+  // Determine button visibility
+  // Pull Case button: show only if view-only mode, unassigned, and in GLOBAL queue
+  const showPullButton = isViewOnlyMode && 
+                          !caseInfo.assignedToXID && 
+                          caseInfo.queueType === 'GLOBAL' &&
+                          caseInfo.status === 'UNASSIGNED';
+
+  // Move to Global button: show only for admin users
+  const showMoveToGlobalButton = isAdmin;
+
   return (
     <Layout>
       <div className="case-detail">
@@ -142,6 +199,29 @@ export const CaseDetailPage = () => {
             <p className="text-secondary">{caseInfo.category}</p>
           </div>
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+            {/* Contextual Action Buttons */}
+            {showPullButton && (
+              <Button
+                variant="primary"
+                onClick={handlePullCase}
+                disabled={pullingCase}
+              >
+                {pullingCase ? 'Pulling...' : 'Pull Case'}
+              </Button>
+            )}
+            {showMoveToGlobalButton && (
+              <Button
+                variant="default"
+                onClick={handleMoveToGlobal}
+                disabled={movingToGlobal}
+                style={{ 
+                  borderColor: 'var(--warning-color)',
+                  color: 'var(--warning-color)'
+                }}
+              >
+                {movingToGlobal ? 'Moving...' : 'Move to Global Worklist'}
+              </Button>
+            )}
             {/* PR #45: View-Only Mode Indicator */}
             {isViewOnlyMode && (
               <Badge variant="warning">View-Only Mode</Badge>

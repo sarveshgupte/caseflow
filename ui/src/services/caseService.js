@@ -132,4 +132,21 @@ export const caseService = {
     const response = await api.post(`/cases/${caseId}/unlock`);
     return response.data;
   },
+
+  /**
+   * Pull a single case from global worklist
+   * Uses the unified pull endpoint with caseIds array
+   */
+  pullCase: async (caseId) => {
+    const response = await api.post('/cases/pull', { caseIds: [caseId] });
+    return response.data;
+  },
+
+  /**
+   * Move case to global worklist (unassign) - Admin only
+   */
+  moveCaseToGlobal: async (caseId) => {
+    const response = await api.post(`/cases/${caseId}/unassign`);
+    return response.data;
+  },
 };

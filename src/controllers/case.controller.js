@@ -1364,6 +1364,99 @@ const pullCases = async (req, res) => {
   }
 };
 
+/**
+ * Move case to global worklist (unassign)
+ * POST /api/cases/:caseId/unassign
+ * Admin only - moves case back to global worklist
+ * 
+ * This endpoint:
+ * - Sets assignedToXID = null
+ * - Sets queueType = GLOBAL
+ * - Sets status = UNASSIGNED
+ * - Creates audit log entry
+ */
+const unassignCase = async (req, res) => {
+  try {
+    const { caseId } = req.params;
+    
+    // Get authenticated user from req.user (set by auth middleware)
+    const user = req.user;
+    
+    if (!user || !user.xID) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required - user identity not found',
+      });
+    }
+    
+    // Check if user is admin
+    if (user.role !== 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden - Only admins can move cases to global worklist',
+      });
+    }
+    
+    // Find the case
+    const caseData = await Case.findOne({ caseId });
+    
+    if (!caseData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
+    
+    // Store previous assignment for audit log
+    const previousAssignedToXID = caseData.assignedToXID;
+    const previousStatus = caseData.status;
+    
+    // Update case to move to global worklist
+    caseData.assignedToXID = null;
+    caseData.assignedTo = null; // Also clear legacy field
+    caseData.queueType = 'GLOBAL';
+    caseData.status = 'UNASSIGNED';
+    caseData.assignedAt = null;
+    
+    await caseData.save();
+    
+    // Create audit log entry
+    await CaseAudit.create({
+      caseId,
+      actionType: 'CASE_UNASSIGNED',
+      description: `Case moved to Global Worklist by admin ${user.xID}${previousAssignedToXID ? ` (was assigned to ${previousAssignedToXID})` : ''}`,
+      performedByXID: user.xID,
+      metadata: {
+        previousAssignedToXID,
+        previousStatus,
+        actionReason: 'Admin moved case to global worklist',
+      },
+    });
+    
+    // Also add to CaseHistory for backward compatibility
+    await CaseHistory.create({
+      caseId,
+      actionType: 'CASE_UNASSIGNED',
+      description: `Case moved to Global Worklist by ${user.email}${previousAssignedToXID ? ` (was assigned to ${previousAssignedToXID})` : ''}`,
+      performedBy: user.email.toLowerCase(),
+      performedByXID: user.xID.toUpperCase(),
+    });
+    
+    res.json({
+      success: true,
+      data: caseData,
+      message: 'Case moved to Global Worklist successfully',
+    });
+  } catch (error) {
+    console.error('[unassignCase] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error moving case to global worklist',
+      error: error.message,
+    });
+  }
+};
+
 
 module.exports = {
   createCase,
@@ -1378,4 +1471,5 @@ module.exports = {
   unlockCaseEndpoint,
   updateCaseActivity,
   pullCases,
+  unassignCase,
 };
