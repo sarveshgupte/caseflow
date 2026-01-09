@@ -17,6 +17,45 @@ const isProduction = process.env.NODE_ENV === 'production';
 const BREVO_MESSAGE_ID_FALLBACK = 'brevo-email-sent';
 
 /**
+ * Parse MAIL_FROM format "Name <email@domain>" into structured sender object
+ * @param {string} mailFrom - Email in format "Name <email@domain>" or just "email@domain"
+ * @returns {Object} { name, email }
+ * @throws {Error} If format is invalid
+ */
+const parseSender = (mailFrom) => {
+  if (!mailFrom || typeof mailFrom !== 'string') {
+    throw new Error('MAIL_FROM must be a valid string');
+  }
+  
+  const trimmed = mailFrom.trim();
+  
+  // Format: "Name <email@domain>"
+  const match = trimmed.match(/^(.+?)\s*<([^>]+)>$/);
+  
+  if (match) {
+    const name = match[1].trim().replace(/^["']|["']$/g, ''); // Remove quotes if present
+    const email = match[2].trim();
+    
+    // Validate email format
+    if (!email.includes('@')) {
+      throw new Error(`Invalid email format in MAIL_FROM: "${email}"`);
+    }
+    
+    return { name, email };
+  }
+  
+  // Format: just "email@domain"
+  if (trimmed.includes('@')) {
+    return {
+      name: process.env.APP_NAME || 'Docketra',
+      email: trimmed
+    };
+  }
+  
+  throw new Error(`Invalid MAIL_FROM format: "${mailFrom}". Expected "Name <email@domain>" or "email@domain"`);
+};
+
+/**
  * Mask email address for secure logging
  * Example: user@example.com -> us***@example.com
  */
@@ -44,20 +83,26 @@ const maskEmail = (email) => {
  */
 const sendTransactionalEmail = async ({ to, subject, html, text }) => {
   const apiKey = process.env.BREVO_API_KEY;
-  const fromAddress = process.env.MAIL_FROM || process.env.SMTP_FROM;
+  const mailFrom = process.env.MAIL_FROM || process.env.SMTP_FROM;
   
   if (!apiKey) {
     throw new Error('BREVO_API_KEY is not configured');
   }
   
-  if (!fromAddress) {
+  if (!mailFrom) {
     throw new Error('MAIL_FROM or SMTP_FROM is not configured');
   }
   
+  // Parse sender from MAIL_FROM format
+  const sender = parseSender(mailFrom);
+  
+  console.log(`[EMAIL] Using sender: ${sender.name} <${sender.email}>`);
+  console.log(`[EMAIL] Sending email via Brevo API`);
+  
   const payload = JSON.stringify({
     sender: {
-      email: fromAddress,
-      name: process.env.APP_NAME || 'Docketra'
+      name: sender.name,
+      email: sender.email
     },
     to: [{ email: to }],
     subject: subject,
@@ -448,4 +493,5 @@ module.exports = {
   sendForgotPasswordEmail,
   sendTestEmail,
   maskEmail,
+  parseSender,
 };
