@@ -358,11 +358,9 @@ export const CaseDetailPage = () => {
   // Action Visibility Rules:
   // - OPEN: Show File, Pend, Resolve (no Unpend)
   // - PENDING/PENDED: Show ONLY Unpend (no File, Pend, Resolve)
-  // - FILED: Show nothing (terminal state, read-only)
-  // - RESOLVED: Show nothing (terminal state, read-only)
+  // - FILED or RESOLVED: Show nothing (terminal states, read-only)
   const canPerformLifecycleActions = caseInfo.status === 'OPEN' && !isViewOnlyMode;
   const canUnpend = (caseInfo.status === 'PENDED' || caseInfo.status === 'PENDING') && !isViewOnlyMode;
-  const isTerminalState = caseInfo.status === 'FILED' || caseInfo.status === 'RESOLVED';
 
   return (
     <Layout>

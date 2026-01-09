@@ -20,24 +20,24 @@ const { DateTime } = require('luxon');
  * PR: Case Lifecycle & Dashboard Logic
  */
 
-/**
- * Central state transition map
- * Defines which status transitions are allowed
- * 
- * CANONICAL CASE LIFECYCLE (PR: Fix Case Lifecycle Errors)
- * 
- * Allowed Transitions:
- * - OPEN → PENDING, RESOLVED, FILED
- * - PENDING → OPEN (manual unpend), RESOLVED, FILED
- * - PENDED → OPEN (manual unpend), RESOLVED, FILED
- * - UNASSIGNED → OPEN, PENDING, RESOLVED, FILED
- * - FILED → (none - terminal)
- * - RESOLVED → (none - terminal)
- * 
- * Note: Both PENDING and PENDED are mapped because the codebase uses PENDED
- * as the canonical status, but PENDING may exist for legacy compatibility
- */
-const CASE_TRANSITIONS = {
+  /**
+   * Central state transition map
+   * Defines which status transitions are allowed
+   * 
+   * CANONICAL CASE LIFECYCLE (PR: Fix Case Lifecycle Errors)
+   * 
+   * Allowed Transitions:
+   * - OPEN → PENDED, RESOLVED, FILED
+   * - PENDING → OPEN (manual unpend), RESOLVED, FILED
+   * - PENDED → OPEN (manual unpend), RESOLVED, FILED
+   * - UNASSIGNED → OPEN, PENDED, RESOLVED, FILED
+   * - FILED → (none - terminal)
+   * - RESOLVED → (none - terminal)
+   * 
+   * Note: Both PENDING and PENDED are mapped because the codebase uses PENDED
+   * as the canonical status, but PENDING may exist for legacy compatibility
+   */
+  const CASE_TRANSITIONS = {
   OPEN: ['PENDED', 'FILED', 'RESOLVED'],
   PENDING: ['OPEN', 'RESOLVED', 'FILED'], // Can unpend to OPEN, or directly resolve/file
   PENDED: ['OPEN', 'RESOLVED', 'FILED'], // Can unpend to OPEN, or directly resolve/file  

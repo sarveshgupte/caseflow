@@ -1,3 +1,4 @@
+const Case = require('../models/Case.model');
 const caseActionService = require('../services/caseAction.service');
 const { CASE_STATUS } = require('../config/constants');
 const { logCaseListViewed } = require('../services/auditLog.service');
@@ -236,8 +237,6 @@ const getMyPendingCases = async (req, res) => {
       });
     }
     
-    const Case = require('../models/Case.model');
-    
     // CANONICAL QUERY for "My Pending Cases"
     const query = {
       assignedToXID: req.user.xID,
@@ -304,8 +303,6 @@ const getMyResolvedCases = async (req, res) => {
         message: 'Authentication required',
       });
     }
-    
-    const Case = require('../models/Case.model');
     
     // CANONICAL QUERY for "My Resolved Cases"
     // Cases that were resolved by this user
