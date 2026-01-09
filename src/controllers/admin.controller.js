@@ -132,6 +132,46 @@ const resendInviteEmail = async (req, res) => {
         console.error('[ADMIN] Failed to send invite reminder email');
         
         // Log failure but continue - token was updated
+        try {
+          await AuthAudit.create({
+            xID: user.xID,
+            actionType: 'InviteEmailResendFailed',
+            description: `Admin attempted to resend invite email but delivery failed`,
+            performedBy: admin.xID,
+            ipAddress: req.ip,
+          });
+        } catch (auditError) {
+          console.error('[ADMIN] Failed to log email failure to audit:', auditError.message);
+        }
+        
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to send email. Please check email service configuration.',
+        });
+      }
+      
+      // Log successful email send
+      try {
+        await AuthAudit.create({
+          xID: user.xID,
+          actionType: 'InviteEmailResent',
+          description: `Admin resent invite email to ${emailService.maskEmail(user.email)}`,
+          performedBy: admin.xID,
+          ipAddress: req.ip,
+        });
+      } catch (auditError) {
+        console.error('[ADMIN] Failed to log successful email to audit:', auditError.message);
+      }
+      
+      res.json({
+        success: true,
+        message: 'Invite email sent successfully',
+      });
+    } catch (emailError) {
+      console.error('[ADMIN] Failed to send invite email:', emailError.message);
+      
+      // Log failure
+      try {
         await AuthAudit.create({
           xID: user.xID,
           actionType: 'InviteEmailResendFailed',
@@ -139,41 +179,13 @@ const resendInviteEmail = async (req, res) => {
           performedBy: admin.xID,
           ipAddress: req.ip,
         });
-        
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to send email. Please check SMTP configuration.',
-        });
+      } catch (auditError) {
+        console.error('[ADMIN] Failed to log email failure to audit:', auditError.message);
       }
-      
-      // Log successful email send
-      await AuthAudit.create({
-        xID: user.xID,
-        actionType: 'InviteEmailResent',
-        description: `Admin resent invite email to ${emailService.maskEmail(user.email)}`,
-        performedBy: admin.xID,
-        ipAddress: req.ip,
-      });
-      
-      res.json({
-        success: true,
-        message: 'Invite email sent successfully',
-      });
-    } catch (emailError) {
-      console.error('[ADMIN] Failed to send invite email');
-      
-      // Log failure
-      await AuthAudit.create({
-        xID: user.xID,
-        actionType: 'InviteEmailResendFailed',
-        description: `Admin attempted to resend invite email but delivery failed`,
-        performedBy: admin.xID,
-        ipAddress: req.ip,
-      });
       
       return res.status(500).json({
         success: false,
-        message: 'Failed to send email. Please check SMTP configuration.',
+        message: 'Failed to send email. Please check email service configuration.',
       });
     }
   } catch (error) {

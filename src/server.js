@@ -51,21 +51,27 @@ if (missingEnvVars.length > 0) {
 
 // SMTP environment variable validation (production only)
 if (isProduction) {
-  const requiredSmtpVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'];
-  const missingSmtpVars = requiredSmtpVars.filter(key => !process.env[key]);
+  const requiredEmailVars = ['BREVO_API_KEY'];
+  const missingEmailVars = requiredEmailVars.filter(key => !process.env[key]);
   
-  if (missingSmtpVars.length > 0) {
-    console.error('❌ Error: Production requires all SMTP environment variables to be configured.');
-    console.error('Missing SMTP variables:', missingSmtpVars.join(', '));
+  // Check for sender email (prefer MAIL_FROM, fallback to SMTP_FROM)
+  const senderEmail = process.env.MAIL_FROM || process.env.SMTP_FROM;
+  if (!senderEmail) {
+    missingEmailVars.push('MAIL_FROM or SMTP_FROM');
+  }
+  
+  if (missingEmailVars.length > 0) {
+    console.error('❌ Error: Production requires Brevo API configuration for email delivery.');
+    console.error('Missing email variables:', missingEmailVars.join(', '));
     console.error('Please configure these variables in your production environment:');
-    missingSmtpVars.forEach(varName => {
+    missingEmailVars.forEach(varName => {
       console.error(`  - ${varName}`);
     });
     process.exit(1);
   }
-  console.log('[SMTP] All required SMTP environment variables configured for production.');
+  console.log('[EMAIL] Brevo API configured for production email delivery.');
 } else {
-  console.log('[SMTP] Development mode – emails will be logged to console only.');
+  console.log('[EMAIL] Development mode – emails will be logged to console only.');
 }
 
 // Initialize Express app

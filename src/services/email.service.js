@@ -2,13 +2,13 @@
  * Email Service for Docketra
  * 
  * Sends transactional emails for authentication and user management
- * Uses SMTP in production, console logging in development
+ * Uses Brevo Transactional Email API in production, console logging in development
  * 
  * Environment detection: process.env.NODE_ENV === 'production'
  */
 
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const https = require('https');
 
 // Detect production mode
 const isProduction = process.env.NODE_ENV === 'production';
@@ -34,94 +34,103 @@ const maskEmail = (email) => {
   return `${masked}@${domain}`;
 };
 
-// Centralized email transporter (single instance)
-let transporter = null;
-
 /**
- * Initialize SMTP transport for production
- * In development, returns null (emails logged to console)
+ * Send email via Brevo Transactional Email API
+ * @param {Object} options - Email options { to, subject, html, text }
+ * @returns {Promise<Object>} Result object with success status and messageId
  */
-const initializeTransport = () => {
-  if (!isProduction) {
-    console.log('[SMTP] Development mode – emails will be logged to console only.');
-    return null;
+const sendTransactionalEmail = async ({ to, subject, html, text }) => {
+  const apiKey = process.env.BREVO_API_KEY;
+  const fromAddress = process.env.MAIL_FROM || process.env.SMTP_FROM;
+  
+  if (!apiKey) {
+    throw new Error('BREVO_API_KEY is not configured');
   }
   
-  // Production: Create SMTP transport
-  const host = process.env.SMTP_HOST;
-  const port = process.env.SMTP_PORT;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  
-  // All SMTP vars should be validated by server.js before we get here
-  // But check again for safety
-  if (!host || !port || !user || !pass) {
-    console.error('[SMTP] ERROR: Missing SMTP configuration in production mode');
-    throw new Error('SMTP configuration incomplete in production');
+  if (!fromAddress) {
+    throw new Error('MAIL_FROM or SMTP_FROM is not configured');
   }
   
-  try {
-    const transportConfig = {
-      host,
-      port: parseInt(port, 10),
-      secure: false, // Use STARTTLS (required for port 587)
-      auth: {
-        user,
-        pass,
-      },
+  const payload = JSON.stringify({
+    sender: {
+      email: fromAddress,
+      name: process.env.APP_NAME || 'Docketra'
+    },
+    to: [{ email: to }],
+    subject: subject,
+    htmlContent: html,
+    textContent: text
+  });
+  
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api.brevo.com',
+      port: 443,
+      path: '/v3/smtp/email',
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload)
+      }
     };
     
-    const transport = nodemailer.createTransport(transportConfig);
-    console.log('[SMTP] Using SMTP transport for production:', {
-      host,
-      port,
-      secure: false,
+    const req = https.request(options, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const response = JSON.parse(data);
+            resolve({ success: true, messageId: response.messageId });
+          } catch (e) {
+            resolve({ success: true, messageId: 'brevo-sent' });
+          }
+        } else {
+          reject(new Error(`Brevo API error: ${res.statusCode} - ${data}`));
+        }
+      });
     });
     
-    return transport;
-  } catch (error) {
-    console.error('[SMTP] Failed to initialize transport:', error.message);
-    throw error;
-  }
+    req.on('error', (error) => {
+      reject(new Error(`Failed to send email via Brevo: ${error.message}`));
+    });
+    
+    req.write(payload);
+    req.end();
+  });
 };
 
-// Initialize transport
-// Note: This runs after dotenv.config() in server.js loads environment variables
-transporter = initializeTransport();
-
 /**
- * Send email via SMTP or log to console
- * Production: Always use real SMTP
+ * Send email via Brevo API or log to console
+ * Production: Use Brevo Transactional Email API
  * Development: Log to console only
  * @param {Object} mailOptions - Email options (to, subject, html, text)
  * @returns {Promise<Object>} Result object with success status and messageId
  */
 const sendEmail = async (mailOptions) => {
-  const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@localhost';
   const maskedEmail = maskEmail(mailOptions.to);
   
   if (isProduction) {
-    // Production: Always use SMTP transport
-    if (!transporter) {
-      const error = 'Email service not configured';
-      console.error(`[EMAIL] ${error}`);
-      throw new Error(error);
-    }
-    
+    // Production: Use Brevo API
     try {
-      console.log(`[EMAIL] Sending email to ${maskedEmail} via SMTP`);
+      console.log(`[EMAIL] Sending email via Brevo API to ${maskedEmail}`);
       
-      const info = await transporter.sendMail({
-        from: fromAddress,
-        ...mailOptions,
+      const result = await sendTransactionalEmail({
+        to: mailOptions.to,
+        subject: mailOptions.subject,
+        html: mailOptions.html,
+        text: mailOptions.text
       });
       
-      console.log(`[EMAIL] Email sent successfully: ${info.messageId}`);
-      return { success: true, messageId: info.messageId };
+      console.log(`[EMAIL] Email sent successfully via Brevo: ${result.messageId || 'sent'}`);
+      return result;
     } catch (error) {
-      console.error(`[EMAIL] Failed to send email: ${error.message}`);
-      console.error(`[EMAIL] Full error:`, error);
-      // Don't expose SMTP details in the thrown error
+      console.error(`[EMAIL] Failed to send email via Brevo: ${error.message}`);
       throw new Error('Failed to send email. Please check server logs for details.');
     }
   } else {
@@ -133,7 +142,7 @@ const sendEmail = async (mailOptions) => {
     console.log(`Subject: ${mailOptions.subject}`);
     console.log('');
     console.log('Note: Development mode active. Emails are logged to console only.');
-    console.log('Set NODE_ENV=production and configure SMTP to enable email delivery.');
+    console.log('Set NODE_ENV=production and configure Brevo API to enable email delivery.');
     console.log('========================================\n');
     return { success: true, console: true };
   }

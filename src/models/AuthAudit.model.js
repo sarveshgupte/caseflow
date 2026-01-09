@@ -26,6 +26,9 @@ const authAuditSchema = new mongoose.Schema({
       // User lifecycle events
       'UserCreated',
       'InviteEmailSent',
+      'InviteEmailFailed',
+      'InviteEmailResent',
+      'InviteEmailResendFailed',
       'ProfileUpdated',
       'AccountActivated',
       'AccountDeactivated',
