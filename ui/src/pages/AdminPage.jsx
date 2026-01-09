@@ -1118,7 +1118,7 @@ export const AdminPage = () => {
           />
           
           {selectedClient && (
-            <div className="neo-info-text" style={{ marginTop: '-10px', marginBottom: '15px', fontSize: '0.85em', color: '#666' }}>
+            <div className="client-field-hint">
               To change business name, use the "Change Legal Name" button for audit compliance
             </div>
           )}
@@ -1262,12 +1262,12 @@ export const AdminPage = () => {
               
               <div className="neo-form-group">
                 <label className="neo-label">Current Business Name</label>
-                <div className="neo-info-text" style={{ fontWeight: 'bold' }}>{selectedClient.businessName}</div>
+                <div className="neo-info-text client-current-name">{selectedClient.businessName}</div>
               </div>
             </>
           )}
           
-          <div style={{ padding: '15px', backgroundColor: '#fff3cd', border: '1px solid #ffc107', borderRadius: '4px', marginBottom: '15px' }}>
+          <div className="client-warning-box">
             <strong>⚠️ Important:</strong> Changing a client's legal name is a significant action. 
             This change will be permanently recorded in the audit trail with your user ID and the reason provided.
           </div>
@@ -1290,14 +1290,7 @@ export const AdminPage = () => {
               placeholder="Enter reason for legal name change (e.g., merger, rebranding, legal restructuring)"
               required
               rows="4"
-              style={{
-                width: '100%',
-                padding: '10px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontFamily: 'inherit',
-                fontSize: '0.95em',
-              }}
+              className="client-reason-textarea"
             />
           </div>
 

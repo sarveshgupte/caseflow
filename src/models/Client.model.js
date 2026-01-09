@@ -104,6 +104,8 @@ const clientSchema = new mongoose.Schema({
   /**
    * Legacy field - kept for backward compatibility
    * Use primaryContactNumber for new implementations
+   * Not required since primaryContactNumber is the canonical field
+   * Automatically synced with primaryContactNumber on create/update
    * @deprecated
    */
   businessPhone: {
