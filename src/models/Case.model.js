@@ -116,8 +116,15 @@ const caseSchema = new mongoose.Schema({
   
   /**
    * Current lifecycle status of the case
-   * Workflow states:
+   * 
+   * ✅ CANONICAL LIFECYCLE STATES (New System):
    * - UNASSIGNED: Newly created case in global worklist, not yet assigned
+   * - OPEN: Active case being worked on (appears in My Worklist)
+   * - PENDED: Temporarily paused, waiting for external input (does NOT appear in My Worklist)
+   * - RESOLVED: Case completed successfully
+   * - FILED: Case archived and finalized (read-only, admin-visible only)
+   * 
+   * Additional workflow states:
    * - DRAFT: Being edited by creator
    * - SUBMITTED: Locked, awaiting review
    * - UNDER_REVIEW: Being reviewed by admin/approver
@@ -126,16 +133,28 @@ const caseSchema = new mongoose.Schema({
    * - CLOSED: Completed and resolved
    * 
    * Legacy states (for backward compatibility):
-   * - Open: Active and being worked on
+   * - Open: Active and being worked on (use OPEN instead)
    * - Reviewed: Ready for Admin approval (used for client cases)
-   * - Pending: Waiting for external input/decision
-   * - Filed: Archived and finalized (read-only)
+   * - Pending: Waiting for external input/decision (use PENDED instead)
+   * - Filed: Archived and finalized (use FILED instead)
    * - Archived: Historical record (read-only)
+   * 
+   * PR: Case Lifecycle & Dashboard Logic
+   * - OPEN cases: Appear in "My Open Cases" dashboard and "My Worklist"
+   * - PENDED cases: Appear only in "My Pending Cases" dashboard (not in worklist)
+   * - FILED cases: Hidden from employees, visible only to admins
    */
   status: {
     type: String,
     enum: {
-      values: ['UNASSIGNED', 'DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'CLOSED', 'Open', 'Reviewed', 'Pending', 'Filed', 'Archived'],
+      values: [
+        // Canonical lifecycle states (NEW - use these)
+        'UNASSIGNED', 'OPEN', 'PENDED', 'RESOLVED', 'FILED',
+        // Additional workflow states
+        'DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'CLOSED',
+        // Legacy states (for backward compatibility - do NOT use for new code)
+        'Open', 'Reviewed', 'Pending', 'Filed', 'Archived'
+      ],
       message: '{VALUE} is not a valid status',
     },
     default: 'UNASSIGNED',
@@ -267,6 +286,92 @@ const caseSchema = new mongoose.Schema({
   },
   
   /**
+   * Queue Type - CANONICAL field for case visibility
+   * 
+   * Determines which worklist the case appears in:
+   * - GLOBAL: Case is in the global worklist (unassigned cases)
+   * - PERSONAL: Case is in someone's personal worklist (assigned cases)
+   * 
+   * This field is critical for the worklist/dashboard mismatch fix.
+   * 
+   * Rules:
+   * - New cases start as GLOBAL (with status UNASSIGNED)
+   * - Pulling a case sets queueType = PERSONAL and assigns to user
+   * - Filing a case removes it from all worklists
+   * 
+   * PR: Fix Dashboard/Worklist Mismatch
+   */
+  queueType: {
+    type: String,
+    enum: {
+      values: ['GLOBAL', 'PERSONAL'],
+      message: '{VALUE} is not a valid queue type',
+    },
+    default: 'GLOBAL',
+  },
+  
+  /**
+   * xID of user who pended this case
+   * 
+   * ✅ CANONICAL IDENTIFIER - MANDATORY FOR PENDED CASES ✅
+   * 
+   * Tracks who put the case into PENDED status.
+   * Used for:
+   * - "My Pending Cases" dashboard queries
+   * - Audit trail for pending actions
+   * - Auto-reopen attribution
+   * 
+   * Format: X123456
+   * Must be set when status changes to PENDED
+   * 
+   * PR: Case Lifecycle & Dashboard Logic
+   */
+  pendedByXID: {
+    type: String,
+    uppercase: true,
+    trim: true,
+  },
+  
+  /**
+   * xID of user who performed the last action
+   * 
+   * ✅ CANONICAL IDENTIFIER - AUDIT TRAIL ✅
+   * 
+   * Tracks the last person who modified the case status.
+   * Used for:
+   * - Audit logs
+   * - Case timeline
+   * - Attribution of all case actions
+   * 
+   * Format: X123456
+   * Updated on every status change action
+   * 
+   * PR: Case Lifecycle & Dashboard Logic
+   */
+  lastActionByXID: {
+    type: String,
+    uppercase: true,
+    trim: true,
+  },
+  
+  /**
+   * Timestamp of last case action
+   * 
+   * Tracks when the last action was performed on the case.
+   * Used for:
+   * - Case timeline
+   * - Audit trail
+   * - Sorting by recent activity
+   * 
+   * Updated on every status change action
+   * 
+   * PR: Case Lifecycle & Dashboard Logic
+   */
+  lastActionAt: {
+    type: Date,
+  },
+  
+  /**
    * Case locking mechanism for concurrency control
    * Prevents multiple users from modifying the same case simultaneously
    * Includes inactivity tracking for auto-unlock after 2 hours
@@ -388,23 +493,27 @@ const caseSchema = new mongoose.Schema({
 });
 
 /**
- * Custom Validator: Pending status requires pendingUntil date
- * Ensures cases in Pending status have a review date set
+ * Custom Validator: Pending/PENDED status requires pendingUntil date
+ * Ensures cases in Pending/PENDED status have a review date set
+ * 
+ * PR: Updated to support both legacy 'Pending' and new 'PENDED' status
  */
 caseSchema.path('status').validate(function(value) {
-  if (value === 'Pending' && !this.pendingUntil) {
+  if ((value === 'Pending' || value === 'PENDED') && !this.pendingUntil) {
     return false;
   }
   return true;
-}, 'pendingUntil date is required when status is Pending');
+}, 'pendingUntil date is required when status is Pending or PENDED');
 
 /**
  * Virtual Property: isReadOnly
- * Returns true if case is in a finalized state (Closed or Filed)
+ * Returns true if case is in a finalized state (Closed, Filed, or FILED)
  * Used by UI/API to prevent modifications to finalized cases
+ * 
+ * PR: Updated to support new FILED status
  */
 caseSchema.virtual('isReadOnly').get(function() {
-  return this.status === 'Closed' || this.status === 'Filed';
+  return this.status === 'Closed' || this.status === 'Filed' || this.status === 'FILED';
 });
 
 /**
@@ -479,8 +588,12 @@ caseSchema.pre('validate', async function() {
  *   - status: Filter by status for worklists
  *   - createdAt: Sort by creation date
  *   - assignedTo + status: Employee worklist queries (xID-based)
+ *   - queueType + status: Queue-based worklist queries (GLOBAL vs PERSONAL)
+ *   - pendedByXID + status: Pending cases dashboard queries (xID-based)
+ *   - pendingUntil: Auto-reopen scheduler queries
  * 
  * PR #44: Added createdByXID index for xID-based ownership queries
+ * PR: Case Lifecycle - Added queueType, pendedByXID, pendingUntil indexes
  * Note: Email-based ownership queries are not supported
  */
 caseSchema.index({ status: 1, priority: 1 });
@@ -492,5 +605,8 @@ caseSchema.index({ clientId: 1 });
 caseSchema.index({ status: 1 });
 caseSchema.index({ createdAt: -1 });
 caseSchema.index({ assignedTo: 1, status: 1 }); // CANONICAL - xID-based worklist queries
+caseSchema.index({ queueType: 1, status: 1 }); // Queue-based worklist queries
+caseSchema.index({ pendedByXID: 1, status: 1 }); // Pending cases dashboard queries
+caseSchema.index({ pendingUntil: 1 }); // Auto-reopen scheduler queries
 
 module.exports = mongoose.model('Case', caseSchema);

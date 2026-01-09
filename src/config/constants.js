@@ -26,10 +26,19 @@ const CASE_CATEGORIES = {
 /**
  * Case workflow status constants
  * New workflow states
+ * 
+ * PR: Case Lifecycle & Dashboard Logic
+ * Added OPEN, PENDED, RESOLVED, FILED as canonical statuses
  */
 const CASE_STATUS = {
-  // New workflow states
+  // Canonical lifecycle states (NEW - use these)
   UNASSIGNED: 'UNASSIGNED',
+  OPEN: 'OPEN',
+  PENDED: 'PENDED',
+  RESOLVED: 'RESOLVED',
+  FILED: 'FILED',
+  
+  // Workflow states
   DRAFT: 'DRAFT',
   SUBMITTED: 'SUBMITTED',
   UNDER_REVIEW: 'UNDER_REVIEW',
@@ -37,11 +46,11 @@ const CASE_STATUS = {
   REJECTED: 'REJECTED',
   CLOSED: 'CLOSED',
   
-  // Legacy states (for backward compatibility)
-  OPEN: 'Open',
+  // Legacy states (for backward compatibility - do NOT use for new code)
+  OPEN_LEGACY: 'Open',
   REVIEWED: 'Reviewed',
-  PENDING: 'Pending',
-  FILED: 'Filed',
+  PENDING_LEGACY: 'Pending',
+  FILED_LEGACY: 'Filed',
   ARCHIVED: 'Archived',
 };
 

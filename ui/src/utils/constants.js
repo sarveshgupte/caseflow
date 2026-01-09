@@ -5,18 +5,27 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 export const CASE_STATUS = {
+  // Canonical lifecycle states (NEW - use these)
   UNASSIGNED: 'UNASSIGNED',
+  OPEN: 'OPEN',
+  PENDED: 'PENDED',
+  RESOLVED: 'RESOLVED',
+  FILED: 'FILED',
+  
+  // Workflow states
   DRAFT: 'DRAFT',
   SUBMITTED: 'SUBMITTED',
   UNDER_REVIEW: 'UNDER_REVIEW',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
   CLOSED: 'CLOSED',
-  // Legacy statuses for backward compatibility
-  OPEN: 'Open',
+  
+  // Legacy statuses for backward compatibility (do NOT use for new code)
+  OPEN_LEGACY: 'Open',
   REVIEWED: 'Reviewed',
   PENDING: 'Pending',
-  FILED: 'Filed',
+  PENDING_LEGACY: 'Pending',
+  FILED_LEGACY: 'Filed',
   ARCHIVED: 'Archived',
 };
 

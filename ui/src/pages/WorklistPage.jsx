@@ -1,5 +1,12 @@
 /**
  * Worklist Page
+ * 
+ * Shows only OPEN cases assigned to the current user.
+ * This is the canonical "My Worklist" view.
+ * 
+ * PENDED cases do NOT appear here - they appear in "My Pending Cases" dashboard.
+ * 
+ * PR: Case Lifecycle - Fixed to show only OPEN status cases
  */
 
 import React, { useState, useEffect } from 'react';
@@ -20,16 +27,10 @@ export const WorklistPage = () => {
   
   const [loading, setLoading] = useState(true);
   const [cases, setCases] = useState([]);
-  const [filteredCases, setFilteredCases] = useState([]);
-  const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
     loadWorklist();
   }, []);
-
-  useEffect(() => {
-    filterCases();
-  }, [statusFilter, cases]);
 
   const loadWorklist = async () => {
     setLoading(true);
@@ -37,20 +38,13 @@ export const WorklistPage = () => {
       const response = await worklistService.getEmployeeWorklist(user?.email);
       
       if (response.success) {
+        // Worklist only contains OPEN cases (backend already filters)
         setCases(response.data || []);
       }
     } catch (error) {
       console.error('Failed to load worklist:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const filterCases = () => {
-    if (!statusFilter) {
-      setFilteredCases(cases);
-    } else {
-      setFilteredCases(cases.filter((c) => c.status === statusFilter));
     }
   };
 
@@ -71,46 +65,21 @@ export const WorklistPage = () => {
       <div className="worklist">
         <div className="worklist__header">
           <h1>My Worklist</h1>
-          <p className="text-secondary">Cases assigned to you</p>
+          <p className="text-secondary">
+            Your open cases (status = OPEN). Pending cases appear in the Dashboard.
+          </p>
         </div>
 
         <div className="worklist__filters">
-          <Button
-            variant={!statusFilter ? 'primary' : 'default'}
-            onClick={() => setStatusFilter('')}
-          >
-            All ({cases.length})
-          </Button>
-          <Button
-            variant={statusFilter === CASE_STATUS.OPEN ? 'primary' : 'default'}
-            onClick={() => setStatusFilter(CASE_STATUS.OPEN)}
-          >
-            Open ({cases.filter((c) => c.status === CASE_STATUS.OPEN).length})
-          </Button>
-          <Button
-            variant={statusFilter === CASE_STATUS.PENDING ? 'primary' : 'default'}
-            onClick={() => setStatusFilter(CASE_STATUS.PENDING)}
-          >
-            Pending ({cases.filter((c) => c.status === CASE_STATUS.PENDING).length})
-          </Button>
-          <Button
-            variant={statusFilter === CASE_STATUS.CLOSED ? 'primary' : 'default'}
-            onClick={() => setStatusFilter(CASE_STATUS.CLOSED)}
-          >
-            Closed ({cases.filter((c) => c.status === CASE_STATUS.CLOSED).length})
-          </Button>
-          <Button
-            variant={statusFilter === CASE_STATUS.FILED ? 'primary' : 'default'}
-            onClick={() => setStatusFilter(CASE_STATUS.FILED)}
-          >
-            Filed ({cases.filter((c) => c.status === CASE_STATUS.FILED).length})
-          </Button>
+          <span className="worklist__count">
+            Total: {cases.length} case{cases.length !== 1 ? 's' : ''}
+          </span>
         </div>
 
         <Card>
-          {filteredCases.length === 0 ? (
+          {cases.length === 0 ? (
             <div className="worklist__empty">
-              <p className="text-secondary">No cases found</p>
+              <p className="text-secondary">No open cases assigned to you</p>
             </div>
           ) : (
             <table className="neo-table">
@@ -125,7 +94,7 @@ export const WorklistPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredCases.map((caseItem) => (
+                {cases.map((caseItem) => (
                   <tr key={caseItem._id} onClick={() => handleCaseClick(caseItem.caseName)}>
                     <td>{caseItem.caseName}</td>
                     <td>{caseItem.category}</td>

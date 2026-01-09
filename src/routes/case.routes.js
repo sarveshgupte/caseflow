@@ -115,4 +115,29 @@ router.post('/:caseId/close', closeCase);
 // POST /api/cases/:caseId/reopen - Reopen a case
 router.post('/:caseId/reopen', reopenCase);
 
+// Case action routes (RESOLVE, PEND, FILE) - PR: Case Lifecycle
+const {
+  resolveCase,
+  pendCase,
+  fileCase,
+  getMyPendingCases,
+  triggerAutoReopen,
+} = require('../controllers/caseActions.controller');
+
+// GET /api/cases/my-pending - Get my pending cases
+// IMPORTANT: Must come BEFORE /:caseId routes to avoid matching "my-pending" as a caseId
+router.get('/my-pending', getMyPendingCases);
+
+// POST /api/cases/auto-reopen-pended - Trigger auto-reopen for pended cases (Admin/System)
+router.post('/auto-reopen-pended', triggerAutoReopen);
+
+// POST /api/cases/:caseId/resolve - Resolve a case with mandatory comment
+router.post('/:caseId/resolve', resolveCase);
+
+// POST /api/cases/:caseId/pend - Pend a case with mandatory comment and pendingUntil
+router.post('/:caseId/pend', pendCase);
+
+// POST /api/cases/:caseId/file - File a case with mandatory comment
+router.post('/:caseId/file', fileCase);
+
 module.exports = router;

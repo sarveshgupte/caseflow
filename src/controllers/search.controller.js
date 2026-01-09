@@ -277,10 +277,24 @@ const categoryWorklist = async (req, res) => {
  * Employee Worklist
  * GET /api/worklists/employee/me
  * 
- * Shows all cases assigned to the current user
- * Excludes Pending cases
- * Does NOT show caseId in the list
+ * Shows all OPEN cases assigned to the current user.
+ * This is the CANONICAL "My Worklist" query.
+ * 
+ * Query: assignedTo = user.xID AND status = OPEN
+ * 
+ * Cases shown:
+ * - Assigned to this user's xID
+ * - Status is OPEN (not PENDED, not FILED, not anything else)
+ * 
+ * Cases NOT shown:
+ * - PENDED cases (these appear only in "My Pending Cases" dashboard)
+ * - FILED cases (these are hidden from employees)
+ * - UNASSIGNED cases (these are in global worklist)
+ * 
+ * Dashboard "My Open Cases" count MUST use the exact same query.
+ * 
  * PR #42: Updated to query by xID instead of email
+ * PR: Case Lifecycle - Fixed to use status = OPEN (not != Pending)
  */
 const employeeWorklist = async (req, res) => {
   try {
@@ -302,11 +316,12 @@ const employeeWorklist = async (req, res) => {
       });
     }
     
-    // Build query: assigned to this user's xID and status is NOT Pending
-    // PR #42: Query by xID (canonical identifier) instead of email
+    // CANONICAL QUERY: assignedTo = xID AND status = OPEN
+    // This is the ONLY correct query for "My Worklist"
+    // Dashboard counts MUST use the same query
     const query = {
       assignedTo: user.xID, // CANONICAL: Query by xID
-      status: { $ne: 'Pending' },
+      status: CASE_STATUS.OPEN, // Only OPEN cases, not PENDED, not legacy 'Open'
     };
     
     const cases = await Case.find(query)
