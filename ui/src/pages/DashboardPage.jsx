@@ -44,8 +44,9 @@ export const DashboardPage = () => {
     setLoading(true);
     try {
       // Get My Open Cases count - CANONICAL QUERY (matches My Worklist exactly)
-      // Query: assignedTo = userXID AND status = OPEN
-      const worklistResponse = await worklistService.getEmployeeWorklist(user?.email);
+      // Query: assignedToXID = userXID AND status = OPEN
+      // PR: Hard Cutover to xID - Removed email parameter, uses auth token
+      const worklistResponse = await worklistService.getEmployeeWorklist();
       
       if (worklistResponse.success) {
         const openCases = worklistResponse.data || [];

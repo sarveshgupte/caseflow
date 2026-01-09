@@ -7,10 +7,10 @@ import api from './api';
 export const worklistService = {
   /**
    * Get employee worklist (my cases)
+   * PR: Hard Cutover to xID - Removed email parameter, relies on auth middleware
    */
-  getEmployeeWorklist: async (email) => {
-    const params = email ? `?email=${encodeURIComponent(email)}` : '';
-    const response = await api.get(`/worklists/employee/me${params}`);
+  getEmployeeWorklist: async () => {
+    const response = await api.get('/worklists/employee/me');
     return response.data;
   },
 
@@ -37,20 +37,15 @@ export const worklistService = {
   },
 
   /**
-   * Pull a case from global worklist
+   * Pull one or multiple cases from global worklist
    * User identity is obtained from authentication token, not passed in body
+   * 
+   * PR: Hard Cutover to xID - Unified pull endpoint
    */
-  pullCase: async (caseId) => {
-    const response = await api.post(`/cases/${caseId}/pull`);
-    return response.data;
-  },
-
-  /**
-   * Pull multiple cases from global worklist (PR #39)
-   * User identity is obtained from authentication token, not passed in body
-   */
-  bulkPullCases: async (caseIds) => {
-    const response = await api.post('/cases/bulk-pull', { caseIds });
+  pullCases: async (caseIds) => {
+    // Ensure caseIds is an array
+    const ids = Array.isArray(caseIds) ? caseIds : [caseIds];
+    const response = await api.post('/cases/pull', { caseIds: ids });
     return response.data;
   },
 

@@ -15,8 +15,7 @@ const {
   lockCaseEndpoint,
   unlockCaseEndpoint,
   updateCaseActivity,
-  pullCase,
-  bulkPullCases,
+  pullCases,
 } = require('../controllers/case.controller');
 
 // PR #44: Import xID ownership validation middleware
@@ -60,9 +59,12 @@ router.get('/', getCases);
 // PR #44: Apply xID ownership validation guardrails
 router.post('/', validateCaseCreation, createCase);
 
-// POST /api/cases/bulk-pull - Pull multiple cases from global worklist (PR #39)
-// IMPORTANT: Must come BEFORE /:caseId routes to avoid matching "bulk-pull" as a caseId
-router.post('/bulk-pull', bulkPullCases);
+// POST /api/cases/pull - Unified pull endpoint for single or multiple cases
+// IMPORTANT: Must come BEFORE /:caseId routes to avoid matching "pull" as a caseId
+// Accepts: { caseIds: ["CASE-20260109-00001"] } or { caseIds: ["CASE-...", "CASE-..."] }
+// User identity obtained from req.user (auth middleware), NOT from request body
+// PR: Hard Cutover to xID - Removed legacy /cases/:caseId/pull endpoint
+router.post('/pull', pullCases);
 
 // GET /api/cases/:caseId - Get case by caseId with comments, attachments, and history
 router.get('/:caseId', getCaseByCaseId);
@@ -79,9 +81,6 @@ router.post('/:caseId/clone', validateCaseAssignment, cloneCase);
 
 // POST /api/cases/:caseId/unpend - Unpend a case
 router.post('/:caseId/unpend', unpendCase);
-
-// POST /api/cases/:caseId/pull - Pull case from global worklist (assign to self)
-router.post('/:caseId/pull', pullCase);
 
 // PUT /api/cases/:caseId/status - Update case status
 router.put('/:caseId/status', updateCaseStatus);

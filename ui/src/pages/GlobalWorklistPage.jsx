@@ -89,7 +89,8 @@ export const GlobalWorklistPage = () => {
 
     setBulkPulling(true);
     try {
-      const response = await worklistService.bulkPullCases(selectedCases);
+      // Use unified pullCases endpoint for bulk operations
+      const response = await worklistService.pullCases(selectedCases);
       
       if (response.success) {
         const message = response.pulled < response.requested
@@ -118,7 +119,8 @@ export const GlobalWorklistPage = () => {
 
     setPullingCase(caseId);
     try {
-      const response = await worklistService.pullCase(caseId);
+      // Use unified pullCases endpoint for single case (pass as array)
+      const response = await worklistService.pullCases([caseId]);
       
       if (response.success) {
         alert('Case pulled successfully!');

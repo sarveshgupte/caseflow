@@ -1225,106 +1225,35 @@ const updateCaseActivity = async (req, res) => {
 };
 
 /**
- * Pull a case from global worklist
- * POST /api/cases/:caseId/pull
+ * Unified Pull Endpoint - Pull one or multiple cases from global worklist
+ * POST /api/cases/pull
  * 
- * Atomically assigns the case to the authenticated user using the assignment service.
+ * Atomically assigns cases to the authenticated user using the assignment service.
  * User identity is obtained from authentication token (req.user), not from request body.
  * 
- * - Checks if case is UNASSIGNED
- * - Sets assignedToXID to user xID (canonical identifier)
- * - Sets queueType to PERSONAL
- * - Changes status from UNASSIGNED to OPEN
- * - Sets assignedAt to current timestamp
- * - Creates audit trail
- * 
- * After this operation:
- * - Case disappears from Global Worklist
- * - Case appears in user's My Worklist
- * - Case is counted in "My Open Cases" dashboard
- * 
- * PR #42: Updated to use xID for assignment
- * PR: Case Lifecycle - Uses assignment service with queueType
- * PR: Unified Pull Logic - User identity comes from auth middleware only
- * 
- * Request payload: None (empty body)
- * Authentication: User identity is obtained from req.user (set by auth middleware)
- * Authorization: Case is assigned to the authenticated user's xID
- */
-const pullCase = async (req, res) => {
-  try {
-    const { caseId } = req.params;
-    
-    // Get authenticated user from req.user (set by auth middleware)
-    const user = req.user;
-    
-    if (!user || !user.xID) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required - user identity not found',
-      });
-    }
-    
-    // Use assignment service for canonical assignment logic
-    const caseAssignmentService = require('../services/caseAssignment.service');
-    const result = await caseAssignmentService.assignCaseToUser(caseId, user);
-    
-    if (!result.success) {
-      return res.status(409).json({
-        success: false,
-        message: result.message,
-        currentStatus: result.currentStatus,
-        assignedToXID: result.assignedToXID,
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: result.data,
-      message: 'Case pulled successfully',
-    });
-  } catch (error) {
-    // Handle specific errors
-    if (error.message === 'Case not found') {
-      return res.status(404).json({
-        success: false,
-        message: 'Case not found',
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'Error pulling case',
-      error: error.message,
-    });
-  }
-};
-
-/**
- * Bulk pull cases from global worklist (PR #39)
- * POST /api/cases/bulk-pull
- * 
- * Atomically assigns multiple cases to the authenticated user with race safety.
- * User identity is obtained from authentication token (req.user), not from request body.
- * 
- * - Sets assignedToXID to user xID
- * - Sets queueType to PERSONAL
- * - Changes status to OPEN
- * - Creates audit trails
- * 
- * PR #42: Updated to use xID for assignment
- * PR: Case Lifecycle - Uses assignment service with queueType
- * PR: Unified Pull Logic - User identity comes from auth middleware only
+ * Replaces the legacy endpoints:
+ * - POST /api/cases/:caseId/pull (removed)
+ * - POST /api/cases/bulk-pull (removed)
  * 
  * Required payload:
  * {
- *   "caseIds": ["CASE-20260109-00001", "CASE-20260109-00002"]
+ *   "caseIds": ["CASE-20260109-00001"] // single case
  * }
+ * OR
+ * {
+ *   "caseIds": ["CASE-20260109-00001", "CASE-20260109-00002"] // multiple cases
+ * }
+ * 
+ * 🚫 REJECTED payloads:
+ * - Contains userEmail
+ * - Contains userXID (must come from req.user only)
  * 
  * Authentication: User identity is obtained from req.user (set by auth middleware)
  * Authorization: Cases are assigned to the authenticated user's xID
+ * 
+ * PR: Hard Cutover to xID - Unified single and bulk pull into one endpoint
  */
-const bulkPullCases = async (req, res) => {
+const pullCases = async (req, res) => {
   try {
     const { caseIds } = req.body;
     
@@ -1335,6 +1264,14 @@ const bulkPullCases = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Authentication required - user identity not found',
+      });
+    }
+    
+    // Reject if userEmail or userXID is in the payload
+    if (req.body.userEmail || req.body.userXID) {
+      return res.status(400).json({
+        success: false,
+        message: 'userEmail and userXID must not be provided in request body. User identity is obtained from authentication token.',
       });
     }
     
@@ -1354,40 +1291,71 @@ const bulkPullCases = async (req, res) => {
       });
     }
     
-    // Use assignment service for canonical bulk assignment logic
+    // Use assignment service for canonical assignment logic
     const caseAssignmentService = require('../services/caseAssignment.service');
-    const result = await caseAssignmentService.bulkAssignCasesToUser(caseIds, user);
     
-    const successCount = result.assigned;
-    const requestedCount = result.requested;
-    
-    if (successCount === 0) {
-      return res.status(409).json({
-        success: false,
-        message: 'No cases were pulled. All cases were already assigned to other users.',
-        pulled: 0,
-        requested: requestedCount,
-      });
-    }
-    
-    if (successCount < requestedCount) {
-      return res.status(200).json({
+    // Handle single case pull vs bulk pull
+    if (caseIds.length === 1) {
+      // Single case pull
+      const result = await caseAssignmentService.assignCaseToUser(caseIds[0], user);
+      
+      if (!result.success) {
+        return res.status(409).json({
+          success: false,
+          message: result.message,
+          currentStatus: result.currentStatus,
+          assignedToXID: result.assignedToXID,
+        });
+      }
+      
+      return res.json({
         success: true,
-        message: `Partial success: ${successCount} of ${requestedCount} cases pulled. Some cases were already assigned to other users.`,
+        data: result.data,
+        message: 'Case pulled successfully',
+      });
+    } else {
+      // Bulk case pull
+      const result = await caseAssignmentService.bulkAssignCasesToUser(caseIds, user);
+      
+      const successCount = result.assigned;
+      const requestedCount = result.requested;
+      
+      if (successCount === 0) {
+        return res.status(409).json({
+          success: false,
+          message: 'No cases were pulled. All cases were already assigned to other users.',
+          pulled: 0,
+          requested: requestedCount,
+        });
+      }
+      
+      if (successCount < requestedCount) {
+        return res.status(200).json({
+          success: true,
+          message: `Partial success: ${successCount} of ${requestedCount} cases pulled. Some cases were already assigned to other users.`,
+          pulled: successCount,
+          requested: requestedCount,
+          data: result.cases,
+        });
+      }
+      
+      return res.json({
+        success: true,
+        message: `All ${successCount} cases pulled successfully`,
         pulled: successCount,
         requested: requestedCount,
         data: result.cases,
       });
     }
-    
-    res.json({
-      success: true,
-      message: `All ${successCount} cases pulled successfully`,
-      pulled: successCount,
-      requested: requestedCount,
-      data: result.cases,
-    });
   } catch (error) {
+    // Handle specific errors
+    if (error.message === 'Case not found') {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Error pulling cases',
@@ -1395,6 +1363,7 @@ const bulkPullCases = async (req, res) => {
     });
   }
 };
+
 
 module.exports = {
   createCase,
@@ -1408,6 +1377,5 @@ module.exports = {
   lockCaseEndpoint,
   unlockCaseEndpoint,
   updateCaseActivity,
-  pullCase,
-  bulkPullCases,
+  pullCases,
 };

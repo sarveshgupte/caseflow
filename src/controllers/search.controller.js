@@ -1,11 +1,14 @@
 const Case = require('../models/Case.model');
 const Comment = require('../models/Comment.model');
 const Attachment = require('../models/Attachment.model');
-const User = require('../models/User.model');
+const { CASE_STATUS } = require('../config/constants');
 
 /**
  * Search Controller for Global Search and Worklists
  * PART A - READ-ONLY operations for finding cases and viewing worklists
+ * 
+ * PR: Hard Cutover to xID - Removed User model import (no longer needed),
+ * added CASE_STATUS import for canonical status constants
  */
 
 /**
@@ -18,36 +21,30 @@ const User = require('../models/User.model');
  * Visibility Rules:
  * - Admin: Can see ALL cases
  * - Employee: Can see only cases where:
- *   - They are assigned (assignedTo matches their xID), OR
+ *   - They are assigned (assignedToXID matches their xID), OR
  *   - The case category is in their allowedCategories
  * 
  * PR #42: Updated to use xID for assignment matching
+ * PR: Hard Cutover to xID - Removed email parameter, use req.user only
  */
 const globalSearch = async (req, res) => {
   try {
     const { q } = req.query;
-    const userEmail = req.body.email || req.query.email || req.headers['x-user-email'];
+    
+    // Get authenticated user from req.user (set by auth middleware)
+    const user = req.user;
+    
+    if (!user || !user.xID) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required - user identity not found',
+      });
+    }
     
     if (!q || q.trim() === '') {
       return res.status(400).json({
         success: false,
         message: 'Search query parameter "q" is required',
-      });
-    }
-    
-    if (!userEmail) {
-      return res.status(401).json({
-        success: false,
-        message: 'User email is required for authentication',
-      });
-    }
-    
-    // Get user to check role and permissions
-    const user = await User.findOne({ email: userEmail.toLowerCase() });
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not found',
       });
     }
     
@@ -205,32 +202,27 @@ const globalSearch = async (req, res) => {
  * Shows all cases in a specific category
  * Excludes Pending cases
  * Apply visibility rules (Admin sees all, Employee sees only allowed categories)
+ * 
+ * PR: Hard Cutover to xID - Removed email parameter, use req.user only
  */
 const categoryWorklist = async (req, res) => {
   try {
     const { categoryId } = req.params;
-    const userEmail = req.body.email || req.query.email || req.headers['x-user-email'];
+    
+    // Get authenticated user from req.user (set by auth middleware)
+    const user = req.user;
+    
+    if (!user || !user.xID) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required - user identity not found',
+      });
+    }
     
     if (!categoryId) {
       return res.status(400).json({
         success: false,
         message: 'Category ID is required',
-      });
-    }
-    
-    if (!userEmail) {
-      return res.status(401).json({
-        success: false,
-        message: 'User email is required for authentication',
-      });
-    }
-    
-    // Get user to check role and permissions
-    const user = await User.findOne({ email: userEmail.toLowerCase() });
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not found',
       });
     }
     
@@ -282,7 +274,7 @@ const categoryWorklist = async (req, res) => {
  * Shows all OPEN cases assigned to the current user.
  * This is the CANONICAL "My Worklist" query.
  * 
- * Query: assignedTo = user.xID AND status = OPEN
+ * Query: assignedToXID = user.xID AND status = OPEN
  * 
  * Cases shown:
  * - Assigned to this user's xID
@@ -297,24 +289,17 @@ const categoryWorklist = async (req, res) => {
  * 
  * PR #42: Updated to query by xID instead of email
  * PR: Case Lifecycle - Fixed to use status = OPEN (not != Pending)
+ * PR: Hard Cutover to xID - Removed email parameter, use req.user only
  */
 const employeeWorklist = async (req, res) => {
   try {
-    const userEmail = req.body.email || req.query.email || req.headers['x-user-email'];
+    // Get authenticated user from req.user (set by auth middleware)
+    const user = req.user;
     
-    if (!userEmail) {
+    if (!user || !user.xID) {
       return res.status(401).json({
         success: false,
-        message: 'User email is required for authentication',
-      });
-    }
-    
-    // Get user to verify they exist
-    const user = await User.findOne({ email: userEmail.toLowerCase() });
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not found',
+        message: 'Authentication required - user identity not found',
       });
     }
     

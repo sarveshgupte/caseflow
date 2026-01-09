@@ -35,7 +35,8 @@ export const WorklistPage = () => {
   const loadWorklist = async () => {
     setLoading(true);
     try {
-      const response = await worklistService.getEmployeeWorklist(user?.email);
+      // PR: Hard Cutover to xID - Removed email parameter, uses auth token
+      const response = await worklistService.getEmployeeWorklist();
       
       if (response.success) {
         // Worklist only contains OPEN cases (backend already filters)
