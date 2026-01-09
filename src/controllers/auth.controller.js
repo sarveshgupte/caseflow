@@ -213,9 +213,13 @@ const login = async (req, res) => {
       // Send password reset email
       let emailSent = false;
       try {
-        await emailService.sendPasswordResetEmail(user.email, user.name, token);
-        emailSent = true;
-        console.log(`[AUTH] Password reset email sent successfully`);
+        const emailResult = await emailService.sendPasswordResetEmail(user.email, user.name, token);
+        emailSent = emailResult.success;
+        if (emailSent) {
+          console.log(`[AUTH] Password reset email sent successfully`);
+        } else {
+          console.error(`[AUTH] Password reset email failed:`, emailResult.error);
+        }
       } catch (emailError) {
         console.error('[AUTH] Failed to send password reset email:', emailError.message);
         // Continue even if email fails - user can still use the system
@@ -449,18 +453,21 @@ const resetPassword = async (req, res) => {
     
     // Send password setup email with xID
     try {
-      await emailService.sendPasswordSetupEmail(user.email, user.name, token, user.xID);
+      const emailResult = await emailService.sendPasswordSetupEmail(user.email, user.name, token, user.xID);
       
       // Log password setup email sent
       await AuthAudit.create({
         xID: user.xID,
         actionType: 'PasswordSetupEmailSent',
-        description: `Password reset email sent to ${user.email}`,
+        description: emailResult.success 
+          ? `Password reset email sent to ${emailService.maskEmail(user.email)}` 
+          : `Password reset email failed to send to ${emailService.maskEmail(user.email)}: ${emailResult.error}`,
         performedBy: admin.xID,
         ipAddress: req.ip,
       });
     } catch (emailError) {
-      console.error('Failed to send password setup email:', emailError);
+      console.error('[AUTH] Failed to send password setup email:', emailError.message);
+      // Continue even if email fails
     }
     
     // Log password reset
@@ -753,19 +760,32 @@ const createUser = async (req, res) => {
     
     // Send invite email with xID included (per PR 32 requirements)
     try {
-      await emailService.sendPasswordSetupEmail(newUser.email, newUser.name, token, newUser.xID);
+      const emailResult = await emailService.sendPasswordSetupEmail(newUser.email, newUser.name, token, newUser.xID);
       
       // Log invite email sent
       await AuthAudit.create({
         xID: newUser.xID,
         actionType: 'InviteEmailSent',
-        description: `Invite email sent to ${newUser.email}`,
+        description: emailResult.success 
+          ? `Invite email sent to ${emailService.maskEmail(newUser.email)}` 
+          : `Invite email failed to send to ${emailService.maskEmail(newUser.email)}: ${emailResult.error}`,
         performedBy: admin.xID,
         ipAddress: req.ip,
       });
     } catch (emailError) {
-      console.error('Failed to send invite email:', emailError);
-      // Don't fail user creation if email fails
+      console.error('[AUTH] Failed to send invite email:', emailError.message);
+      // Don't fail user creation if email fails - log and continue
+      try {
+        await AuthAudit.create({
+          xID: newUser.xID,
+          actionType: 'InviteEmailFailed',
+          description: `Failed to send invite email to ${emailService.maskEmail(newUser.email)}: ${emailError.message}`,
+          performedBy: admin.xID,
+          ipAddress: req.ip,
+        });
+      } catch (auditError) {
+        console.error('[AUTH] Failed to log email error:', auditError.message);
+      }
     }
     
     // Log user creation
@@ -1182,21 +1202,31 @@ const resendSetupEmail = async (req, res) => {
     
     // Send invite reminder email with xID
     try {
-      await emailService.sendPasswordSetupReminderEmail(user.email, user.name, token, user.xID);
+      const emailResult = await emailService.sendPasswordSetupReminderEmail(user.email, user.name, token, user.xID);
+      
+      if (!emailResult.success) {
+        console.error('[AUTH] Failed to send invite reminder email:', emailResult.error);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to send email',
+          error: emailResult.error,
+        });
+      }
       
       // Log invite email sent
       await AuthAudit.create({
         xID: user.xID,
         actionType: 'InviteEmailResent',
-        description: `Invite reminder email sent to ${user.email}`,
+        description: `Invite reminder email sent to ${emailService.maskEmail(user.email)}`,
         performedBy: admin.xID,
         ipAddress: req.ip,
       });
     } catch (emailError) {
-      console.error('Failed to send invite email:', emailError);
+      console.error('[AUTH] Failed to send invite email:', emailError.message);
       return res.status(500).json({
         success: false,
         message: 'Failed to send email',
+        error: emailError.message,
       });
     }
     
@@ -1386,18 +1416,20 @@ const forgotPassword = async (req, res) => {
     
     // Send password reset email
     try {
-      await emailService.sendForgotPasswordEmail(user.email, user.name, token);
+      const emailResult = await emailService.sendForgotPasswordEmail(user.email, user.name, token);
       
       // Log password reset request
       await AuthAudit.create({
         xID: user.xID,
         actionType: 'ForgotPasswordRequested',
-        description: `Password reset link sent to ${user.email}`,
+        description: emailResult.success 
+          ? `Password reset link sent to ${emailService.maskEmail(user.email)}` 
+          : `Password reset link failed to send to ${emailService.maskEmail(user.email)}: ${emailResult.error}`,
         performedBy: user.xID,
         ipAddress: req.ip,
       });
     } catch (emailError) {
-      console.error('[AUTH] Failed to send forgot password email:', emailError);
+      console.error('[AUTH] Failed to send forgot password email:', emailError.message);
       // Continue even if email fails - we don't want to reveal if email exists
     }
     

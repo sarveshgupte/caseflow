@@ -3,73 +3,167 @@
  * 
  * Sends transactional emails for authentication and user management
  * Uses SMTP in production when configured, falls back to console logging in development
+ * 
+ * PR #43: Hardened Gmail SMTP configuration with startup verification
  */
 
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
-// Initialize SMTP transporter if SMTP is configured
-let transporter = null;
-const isSmtpConfigured = process.env.SMTP_HOST && process.env.SMTP_PORT;
+/**
+ * Mask email address for secure logging
+ * Example: user@example.com -> us***@example.com
+ */
+const maskEmail = (email) => {
+  if (!email || typeof email !== 'string') return 'unknown';
+  
+  const parts = email.split('@');
+  if (parts.length !== 2) return 'invalid-email';
+  
+  const localPart = parts[0];
+  const domain = parts[1];
+  
+  // Show first 2 characters, mask the rest
+  const masked = localPart.length > 2 
+    ? localPart.substring(0, 2) + '***' 
+    : '***';
+  
+  return `${masked}@${domain}`;
+};
 
-if (isSmtpConfigured) {
+// Centralized SMTP transporter (single instance)
+let transporter = null;
+let smtpVerified = false;
+
+/**
+ * Initialize SMTP transport with explicit Gmail configuration
+ * PR #43: Hardened configuration for Gmail with App Passwords
+ */
+const initializeTransport = () => {
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  
+  // Check if SMTP is configured
+  if (!host || !port) {
+    console.log('[SMTP] SMTP not configured. Emails will be logged to console only.');
+    console.log('[SMTP] To enable email delivery, configure SMTP_HOST and SMTP_PORT.');
+    return null;
+  }
+  
   try {
+    // PR #43: Explicit Gmail SMTP configuration
     const transportConfig = {
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT, 10),
-      secure: parseInt(process.env.SMTP_PORT, 10) === 465, // true for 465, false for other ports
+      host,
+      port: parseInt(port, 10),
+      secure: false, // PR #43: Required for Gmail port 587 (STARTTLS)
     };
     
-    // Only add auth if credentials are provided
-    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    // Add authentication if credentials provided
+    if (user && pass) {
       transportConfig.auth = {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user,
+        pass,
       };
     }
     
-    transporter = nodemailer.createTransport(transportConfig);
-    console.log('[EMAIL] SMTP transport initialized successfully');
+    const transport = nodemailer.createTransport(transportConfig);
+    console.log('[SMTP] Transport initialized with configuration:', {
+      host: host,
+      port: port,
+      secure: false,
+      auth: user ? 'configured' : 'not configured',
+    });
+    
+    return transport;
   } catch (error) {
-    console.error('[EMAIL] Failed to initialize SMTP transport:', error.message);
-    transporter = null;
+    console.error('[SMTP] Failed to initialize transport:', error.message);
+    return null;
   }
-}
+};
+
+/**
+ * Verify SMTP connection on startup
+ * PR #43: Explicit startup verification with clear logging
+ */
+const verifySmtpConnection = async () => {
+  if (!transporter) {
+    return false;
+  }
+  
+  try {
+    await transporter.verify();
+    console.log('[SMTP] Gmail SMTP ready');
+    smtpVerified = true;
+    return true;
+  } catch (error) {
+    console.error('[SMTP] Verification failed:', error.message);
+    console.error('[SMTP] Full error:', error);
+    smtpVerified = false;
+    return false;
+  }
+};
+
+// Initialize transport
+transporter = initializeTransport();
 
 /**
  * Send email via SMTP or log to console
+ * PR #43: Enhanced with structured logging and email masking
  * @param {Object} mailOptions - Email options (to, subject, html, text)
- * @returns {Promise<boolean>} Success status
+ * @returns {Promise<Object>} Result object with success status and messageId
  */
 const sendEmail = async (mailOptions) => {
   const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || `noreply@${process.env.SMTP_HOST || 'localhost'}`;
+  const maskedEmail = maskEmail(mailOptions.to);
   
-  if (transporter) {
+  if (transporter && smtpVerified) {
     // Send via SMTP
     try {
-      await transporter.sendMail({
+      console.log(`[EMAIL] Attempting invite send to ${maskedEmail}`);
+      
+      const info = await transporter.sendMail({
         from: fromAddress,
         ...mailOptions,
       });
-      console.log(`[EMAIL] Email sent successfully to ${mailOptions.to}`);
-      return true;
+      
+      console.log(`[EMAIL] Invite email sent: ${info.messageId}`);
+      return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error(`[EMAIL] Failed to send email: ${error.message}`);
-      return false;
+      console.error(`[EMAIL] Invite email failed: ${error.message}`);
+      console.error(`[EMAIL] Full error:`, error);
+      return { success: false, error: error.message };
+    }
+  } else if (transporter && !smtpVerified) {
+    // SMTP configured but not verified - try anyway but log warning
+    console.warn(`[EMAIL] SMTP not verified, attempting send to ${maskedEmail}`);
+    try {
+      const info = await transporter.sendMail({
+        from: fromAddress,
+        ...mailOptions,
+      });
+      
+      console.log(`[EMAIL] Invite email sent: ${info.messageId}`);
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      console.error(`[EMAIL] Invite email failed: ${error.message}`);
+      console.error(`[EMAIL] Full error:`, error);
+      return { success: false, error: error.message };
     }
   } else {
     // Fallback to console logging (development mode)
     console.log('\n========================================');
     console.log('📧 EMAIL (Console Mode - Development)');
     console.log('========================================');
-    console.log(`To: ${mailOptions.to}`);
+    console.log(`To: ${maskedEmail}`);
     console.log(`Subject: ${mailOptions.subject}`);
     console.log('');
     console.log('Note: SMTP not configured. Email logged to console only.');
     console.log('Configure SMTP_HOST and SMTP_PORT to enable email delivery.');
     console.log('Optionally configure SMTP_USER and SMTP_PASS for authenticated SMTP.');
     console.log('========================================\n');
-    return true;
+    return { success: true, console: true };
   }
 };
 
@@ -92,11 +186,13 @@ const hashToken = (token) => {
 
 /**
  * Send password setup email (Invite email for new users)
+ * PR #43: Enhanced error handling and logging
  * @param {string} email - Recipient email
  * @param {string} name - User's name
  * @param {string} token - Password setup token (plain text)
  * @param {string} xID - User's xID (for reference)
  * @param {string} frontendUrl - Base URL of frontend application
+ * @returns {Promise<Object>} Result object with success status
  */
 const sendPasswordSetupEmail = async (email, name, token, xID, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
   const setupLink = `${frontendUrl}/set-password?token=${token}`;
@@ -157,11 +253,13 @@ Docketra Team
 
 /**
  * Send password setup reminder email (for resend functionality)
+ * PR #43: Enhanced error handling and logging
  * @param {string} email - Recipient email
  * @param {string} name - User's name
  * @param {string} token - Password setup token (plain text)
  * @param {string} xID - User's xID (for reference)
  * @param {string} frontendUrl - Base URL of frontend application
+ * @returns {Promise<Object>} Result object with success status
  */
 const sendPasswordSetupReminderEmail = async (email, name, token, xID, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
   const setupLink = `${frontendUrl}/set-password?token=${token}`;
@@ -208,10 +306,12 @@ Docketra Team
 
 /**
  * Send password reset email (for first login flow)
+ * PR #43: Enhanced error handling and logging
  * @param {string} email - Recipient email
  * @param {string} name - User's name
  * @param {string} token - Password reset token (plain text)
  * @param {string} frontendUrl - Base URL of frontend application
+ * @returns {Promise<Object>} Result object with success status
  */
 const sendPasswordResetEmail = async (email, name, token, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
   const resetLink = `${frontendUrl}/reset-password?token=${token}`;
@@ -260,10 +360,12 @@ Docketra Team
 
 /**
  * Send forgot password email
+ * PR #43: Enhanced error handling and logging
  * @param {string} email - Recipient email
  * @param {string} name - User's name
  * @param {string} token - Password reset token (plain text)
  * @param {string} frontendUrl - Base URL of frontend application
+ * @returns {Promise<Object>} Result object with success status
  */
 const sendForgotPasswordEmail = async (email, name, token, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
   const resetLink = `${frontendUrl}/reset-password?token=${token}`;
@@ -308,6 +410,57 @@ Docketra Team
   });
 };
 
+/**
+ * Send test email (for debugging and validation)
+ * PR #43: Admin-only test email functionality
+ * @param {string} email - Recipient email
+ * @returns {Promise<Object>} Result object with success status
+ */
+const sendTestEmail = async (email) => {
+  const subject = 'Docketra SMTP Test Email';
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>SMTP Configuration Test</h2>
+      <p>This is a test email from your Docketra application.</p>
+      <p>If you received this email, your SMTP configuration is working correctly!</p>
+      <p><strong>Configuration Details:</strong></p>
+      <ul>
+        <li>SMTP Host: ${process.env.SMTP_HOST || 'Not configured'}</li>
+        <li>SMTP Port: ${process.env.SMTP_PORT || 'Not configured'}</li>
+        <li>SMTP User: ${process.env.SMTP_USER ? 'Configured' : 'Not configured'}</li>
+        <li>From Address: ${process.env.SMTP_FROM || process.env.SMTP_USER || 'Not configured'}</li>
+      </ul>
+      <p>Timestamp: ${new Date().toISOString()}</p>
+      <p>Best regards,<br>Docketra Team</p>
+    </div>
+  `;
+  
+  const textContent = `
+SMTP Configuration Test
+
+This is a test email from your Docketra application.
+If you received this email, your SMTP configuration is working correctly!
+
+Configuration Details:
+- SMTP Host: ${process.env.SMTP_HOST || 'Not configured'}
+- SMTP Port: ${process.env.SMTP_PORT || 'Not configured'}
+- SMTP User: ${process.env.SMTP_USER ? 'Configured' : 'Not configured'}
+- From Address: ${process.env.SMTP_FROM || process.env.SMTP_USER || 'Not configured'}
+
+Timestamp: ${new Date().toISOString()}
+
+Best regards,
+Docketra Team
+  `.trim();
+  
+  return await sendEmail({
+    to: email,
+    subject,
+    html: htmlContent,
+    text: textContent,
+  });
+};
+
 module.exports = {
   generateSecureToken,
   hashToken,
@@ -315,4 +468,7 @@ module.exports = {
   sendPasswordSetupReminderEmail,
   sendPasswordResetEmail,
   sendForgotPasswordEmail,
+  sendTestEmail,
+  verifySmtpConnection,
+  maskEmail,
 };

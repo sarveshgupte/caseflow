@@ -8,6 +8,7 @@ const path = require('path');
 const connectDB = require('./config/database');
 const config = require('./config/config');
 const { runBootstrap } = require('./services/bootstrap.service');
+const { verifySmtpConnection } = require('./services/email.service');
 
 // Middleware
 const requestLogger = require('./middleware/requestLogger');
@@ -27,6 +28,7 @@ const clientRoutes = require('./routes/client.routes');  // Client management ro
 const reportsRoutes = require('./routes/reports.routes');  // Reports routes
 const categoryRoutes = require('./routes/category.routes');  // Category routes
 const adminRoutes = require('./routes/admin.routes');  // Admin routes (PR #41)
+const debugRoutes = require('./routes/debug.routes');  // Debug routes (PR #43)
 
 /**
  * Docketra - Task & Case Management System
@@ -42,6 +44,21 @@ if (missingEnvVars.length > 0) {
   process.exit(1);
 }
 
+// PR #43: SMTP environment variable validation
+const smtpEnvVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'];
+const missingSmtpVars = smtpEnvVars.filter(key => !process.env[key]);
+
+if (missingSmtpVars.length > 0) {
+  console.warn('⚠️  [SMTP] Warning: Missing SMTP environment variables:', missingSmtpVars.join(', '));
+  console.warn('[SMTP] Email delivery will not be available. Configure these variables to enable emails:');
+  missingSmtpVars.forEach(varName => {
+    console.warn(`[SMTP]   - ${varName}`);
+  });
+  console.warn('[SMTP] Emails will be logged to console only (development mode).');
+} else {
+  console.log('[SMTP] All SMTP environment variables configured.');
+}
+
 // Initialize Express app
 const app = express();
 
@@ -51,6 +68,13 @@ const isProduction = process.env.NODE_ENV === 'production';
 // Connect to MongoDB and run bootstrap
 connectDB()
   .then(() => runBootstrap())
+  .then(() => {
+    // PR #43: Verify SMTP connection after bootstrap
+    if (process.env.SMTP_HOST && process.env.SMTP_PORT) {
+      return verifySmtpConnection();
+    }
+    return Promise.resolve(false);
+  })
   .catch((error) => {
     console.error('Failed to start server:', error);
     process.exit(1);
@@ -106,6 +130,7 @@ app.get('/api', (req, res) => {
       reports: '/api/reports',
       categories: '/api/categories',
       admin: '/api/admin',
+      debug: '/api/debug',
     },
   });
 });
@@ -118,6 +143,9 @@ app.use('/api/categories', categoryRoutes);
 
 // Admin routes (PR #41) - require authentication and admin role
 app.use('/api/admin', adminRoutes);
+
+// Debug routes (PR #43) - require authentication and admin role
+app.use('/api/debug', debugRoutes);
 
 // Protected routes - require authentication
 app.use('/api/users', authenticate, userRoutes);
