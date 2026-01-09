@@ -1,6 +1,6 @@
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
-}
+// Load environment variables FIRST (before any other imports)
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -8,7 +8,6 @@ const path = require('path');
 const connectDB = require('./config/database');
 const config = require('./config/config');
 const { runBootstrap } = require('./services/bootstrap.service');
-const { verifySmtpConnection } = require('./services/email.service');
 
 // Middleware
 const requestLogger = require('./middleware/requestLogger');
@@ -35,6 +34,12 @@ const debugRoutes = require('./routes/debug.routes');  // Debug routes (PR #43)
  * Backend API Server
  */
 
+// Log NODE_ENV for debugging
+console.log(`[ENV] NODE_ENV = ${process.env.NODE_ENV || 'undefined'}`);
+
+// Detect production mode
+const isProduction = process.env.NODE_ENV === 'production';
+
 // Environment variable validation
 const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
 const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
@@ -44,37 +49,31 @@ if (missingEnvVars.length > 0) {
   process.exit(1);
 }
 
-// PR #43: SMTP environment variable validation
-const smtpEnvVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'];
-const missingSmtpVars = smtpEnvVars.filter(key => !process.env[key]);
-
-if (missingSmtpVars.length > 0) {
-  console.warn('⚠️  [SMTP] Warning: Missing SMTP environment variables:', missingSmtpVars.join(', '));
-  console.warn('[SMTP] Email delivery will not be available. Configure these variables to enable emails:');
-  missingSmtpVars.forEach(varName => {
-    console.warn(`[SMTP]   - ${varName}`);
-  });
-  console.warn('[SMTP] Emails will be logged to console only (development mode).');
+// SMTP environment variable validation (production only)
+if (isProduction) {
+  const requiredSmtpVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'];
+  const missingSmtpVars = requiredSmtpVars.filter(key => !process.env[key]);
+  
+  if (missingSmtpVars.length > 0) {
+    console.error('❌ Error: Production requires all SMTP environment variables to be configured.');
+    console.error('Missing SMTP variables:', missingSmtpVars.join(', '));
+    console.error('Please configure these variables in your production environment:');
+    missingSmtpVars.forEach(varName => {
+      console.error(`  - ${varName}`);
+    });
+    process.exit(1);
+  }
+  console.log('[SMTP] All required SMTP environment variables configured for production.');
 } else {
-  console.log('[SMTP] All SMTP environment variables configured.');
+  console.log('[SMTP] Development mode – emails will be logged to console only.');
 }
 
 // Initialize Express app
 const app = express();
 
-// Detect production mode
-const isProduction = process.env.NODE_ENV === 'production';
-
 // Connect to MongoDB and run bootstrap
 connectDB()
   .then(() => runBootstrap())
-  .then(() => {
-    // PR #43: Verify SMTP connection after bootstrap
-    if (process.env.SMTP_HOST && process.env.SMTP_PORT) {
-      return verifySmtpConnection();
-    }
-    return Promise.resolve(false);
-  })
   .catch((error) => {
     console.error('Failed to start server:', error);
     process.exit(1);
