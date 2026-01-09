@@ -101,6 +101,16 @@ const approveNewClient = async (req, res) => {
       });
     }
     
+    // Get approver xID from middleware-provided user object
+    const approverXid = req.approverUser?.xID;
+    
+    if (!approverXid) {
+      return res.status(500).json({
+        success: false,
+        message: 'Approver xID not found in request context',
+      });
+    }
+    
     // Create the new client
     const newClient = new Client({
       businessName: clientData.businessName,
@@ -114,7 +124,8 @@ const approveNewClient = async (req, res) => {
       longitude: clientData.longitude !== undefined ? clientData.longitude : null,
       isSystemClient: false,
       isActive: true,
-      createdBy: approverEmail.toLowerCase(),
+      createdByXid: approverXid, // CANONICAL - set from approver's xID
+      createdBy: approverEmail.toLowerCase(), // DEPRECATED - backward compatibility only
     });
     
     await newClient.save();
