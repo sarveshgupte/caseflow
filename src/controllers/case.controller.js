@@ -1191,14 +1191,21 @@ const updateCaseActivity = async (req, res) => {
  * Pull a case from global worklist
  * POST /api/cases/:caseId/pull
  * 
- * Atomically assigns the case to the logged-in user
+ * Atomically assigns the case to the logged-in user using the assignment service.
  * - Checks if case is UNASSIGNED
  * - Sets assignedTo to user xID (canonical identifier)
+ * - Sets queueType to PERSONAL
+ * - Changes status from UNASSIGNED to OPEN
  * - Sets assignedAt to current timestamp
- * - Changes status from UNASSIGNED to Open
- * - Creates history entry
+ * - Creates audit trail
+ * 
+ * After this operation:
+ * - Case disappears from Global Worklist
+ * - Case appears in user's My Worklist
+ * - Case is counted in "My Open Cases" dashboard
  * 
  * PR #42: Updated to use xID for assignment
+ * PR: Case Lifecycle - Uses assignment service with queueType
  */
 const pullCase = async (req, res) => {
   try {
@@ -1212,69 +1219,43 @@ const pullCase = async (req, res) => {
       });
     }
     
-    // Get authenticated user's xID from req.user (set by auth middleware)
-    const userXID = req.user?.xID;
+    // Get authenticated user from req.user (set by auth middleware)
+    const user = req.user;
     
-    if (!userXID) {
+    if (!user || !user.xID) {
       return res.status(401).json({
         success: false,
         message: 'Authentication required - user identity not found',
       });
     }
     
-    // Use findOneAndUpdate for atomic operation to prevent double assignment
-    const caseData = await Case.findOneAndUpdate(
-      {
-        caseId,
-        status: 'UNASSIGNED', // Only pull if still unassigned
-      },
-      {
-        $set: {
-          assignedTo: userXID, // CANONICAL: Store xID, not email
-          assignedAt: new Date(),
-          status: 'Open',
-        },
-      },
-      {
-        new: true, // Return updated document
-      }
-    );
+    // Use assignment service for canonical assignment logic
+    const caseAssignmentService = require('../services/caseAssignment.service');
+    const result = await caseAssignmentService.assignCaseToUser(caseId, user);
     
-    if (!caseData) {
-      // Either case doesn't exist or is not UNASSIGNED anymore
-      const existingCase = await Case.findOne({ caseId });
-      
-      if (!existingCase) {
-        return res.status(404).json({
-          success: false,
-          message: 'Case not found',
-        });
-      }
-      
-      if (existingCase.status !== 'UNASSIGNED') {
-        return res.status(409).json({
-          success: false,
-          message: 'Case is no longer available (already assigned)',
-          currentStatus: existingCase.status,
-          assignedTo: existingCase.assignedTo,
-        });
-      }
+    if (!result.success) {
+      return res.status(409).json({
+        success: false,
+        message: result.message,
+        currentStatus: result.currentStatus,
+        assignedTo: result.assignedTo,
+      });
     }
-    
-    // Create history entry
-    await CaseHistory.create({
-      caseId,
-      actionType: 'CASE_PULLED',
-      description: `Case pulled from global worklist and assigned to ${userXID}`,
-      performedBy: userEmail.toLowerCase(),
-    });
     
     res.json({
       success: true,
-      data: caseData,
+      data: result.data,
       message: 'Case pulled successfully',
     });
   } catch (error) {
+    // Handle specific errors
+    if (error.message === 'Case not found') {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Error pulling case',
@@ -1287,9 +1268,14 @@ const pullCase = async (req, res) => {
  * Bulk pull cases from global worklist (PR #39)
  * POST /api/cases/bulk-pull
  * 
- * Atomically assigns multiple cases to user with race safety
- * Uses updateMany with atomic filter to prevent double assignment
+ * Atomically assigns multiple cases to user with race safety using assignment service.
+ * - Sets assignedTo to user xID
+ * - Sets queueType to PERSONAL
+ * - Changes status to OPEN
+ * - Creates audit trails
+ * 
  * PR #42: Updated to use xID for assignment
+ * PR: Case Lifecycle - Uses assignment service with queueType
  */
 const bulkPullCases = async (req, res) => {
   try {
@@ -1309,55 +1295,22 @@ const bulkPullCases = async (req, res) => {
       });
     }
     
-    // Get authenticated user's xID from req.user (set by auth middleware)
-    const userXID = req.user?.xID;
+    // Get authenticated user from req.user (set by auth middleware)
+    const user = req.user;
     
-    if (!userXID) {
+    if (!user || !user.xID) {
       return res.status(401).json({
         success: false,
         message: 'Authentication required - user identity not found',
       });
     }
     
-    const normalizedEmail = userEmail.trim().toLowerCase();
+    // Use assignment service for canonical bulk assignment logic
+    const caseAssignmentService = require('../services/caseAssignment.service');
+    const result = await caseAssignmentService.bulkAssignCasesToUser(caseIds, user);
     
-    // Atomic bulk update - only updates cases that are still UNASSIGNED
-    // This prevents race conditions when multiple users try to pull the same cases
-    const result = await Case.updateMany(
-      {
-        caseId: { $in: caseIds },
-        status: 'UNASSIGNED', // Only pull if still unassigned
-      },
-      {
-        $set: {
-          assignedTo: userXID, // CANONICAL: Store xID, not email
-          assignedAt: new Date(),
-          status: 'Open',
-        },
-      }
-    );
-    
-    // Get the actual cases that were updated
-    const updatedCases = await Case.find({
-      caseId: { $in: caseIds },
-      assignedTo: userXID, // Query by xID
-    });
-    
-    // Create history entries for successfully pulled cases
-    const historyEntries = updatedCases.map(caseData => ({
-      caseId: caseData.caseId,
-      actionType: 'CASE_PULLED',
-      description: `Case pulled from global worklist and assigned to ${userXID}`,
-      performedBy: normalizedEmail,
-    }));
-    
-    if (historyEntries.length > 0) {
-      await CaseHistory.insertMany(historyEntries);
-    }
-    
-    // Determine success/partial success message
-    const successCount = result.modifiedCount;
-    const requestedCount = caseIds.length;
+    const successCount = result.assigned;
+    const requestedCount = result.requested;
     
     if (successCount === 0) {
       return res.status(409).json({
@@ -1374,7 +1327,7 @@ const bulkPullCases = async (req, res) => {
         message: `Partial success: ${successCount} of ${requestedCount} cases pulled. Some cases were already assigned to other users.`,
         pulled: successCount,
         requested: requestedCount,
-        data: updatedCases,
+        data: result.cases,
       });
     }
     
@@ -1383,7 +1336,7 @@ const bulkPullCases = async (req, res) => {
       message: `All ${successCount} cases pulled successfully`,
       pulled: successCount,
       requested: requestedCount,
-      data: updatedCases,
+      data: result.cases,
     });
   } catch (error) {
     res.status(500).json({
