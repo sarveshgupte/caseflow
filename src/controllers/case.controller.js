@@ -461,7 +461,7 @@ const cloneCase = async (req, res) => {
       status: 'Open',
       pendingUntil: null,
       createdBy: clonedBy.toLowerCase(),
-      assignedTo: assignedTo ? assignedTo.toLowerCase() : null,
+      assignedTo: assignedTo ? assignedTo.toUpperCase() : null, // PR #42: Treat as xID (uppercase)
     });
     
     await newCase.save();
