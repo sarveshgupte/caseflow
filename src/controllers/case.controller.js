@@ -1452,7 +1452,6 @@ const unassignCase = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error moving case to global worklist',
-      error: error.message,
     });
   }
 };

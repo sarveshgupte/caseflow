@@ -77,7 +77,11 @@ export const CaseDetailPage = () => {
       }
     } catch (error) {
       console.error('Failed to pull case:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to pull case. Please try again.';
+      // Sanitize error message: only show if it's from server response, otherwise use generic message
+      const serverMessage = error.response?.data?.message;
+      const errorMessage = serverMessage && typeof serverMessage === 'string' 
+        ? serverMessage.substring(0, 200) // Limit length
+        : 'Failed to pull case. Please try again.';
       alert(`Failed to pull case: ${errorMessage}`);
     } finally {
       setPullingCase(false);
@@ -99,7 +103,11 @@ export const CaseDetailPage = () => {
       }
     } catch (error) {
       console.error('Failed to move case to global worklist:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to move case. Please try again.';
+      // Sanitize error message: only show if it's from server response, otherwise use generic message
+      const serverMessage = error.response?.data?.message;
+      const errorMessage = serverMessage && typeof serverMessage === 'string'
+        ? serverMessage.substring(0, 200) // Limit length
+        : 'Failed to move case. Please try again.';
       alert(`Failed to move case: ${errorMessage}`);
     } finally {
       setMovingToGlobal(false);
