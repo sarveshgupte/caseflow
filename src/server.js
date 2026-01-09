@@ -58,6 +58,19 @@ if (isProduction) {
   const senderEmail = process.env.MAIL_FROM || process.env.SMTP_FROM;
   if (!senderEmail) {
     missingEmailVars.push('MAIL_FROM or SMTP_FROM');
+  } else {
+    // Validate MAIL_FROM format
+    try {
+      const { parseSender } = require('./services/email.service');
+      const sender = parseSender(senderEmail);
+      console.log(`[EMAIL] Using sender: ${sender.name} <${sender.email}>`);
+    } catch (error) {
+      console.error('❌ Error: Invalid MAIL_FROM format.');
+      console.error(error.message);
+      console.error('Expected format: "Name <email@domain>" or "email@domain"');
+      console.error(`Current value: ${senderEmail}`);
+      process.exit(1);
+    }
   }
   
   if (missingEmailVars.length > 0) {
