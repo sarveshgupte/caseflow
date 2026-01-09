@@ -108,8 +108,8 @@ export const DetailedReports = () => {
     handleApplyFilters();
   };
 
-  const handleCaseClick = (caseName) => {
-    navigate(`/cases/${caseName}`);
+  const handleCaseClick = (caseId) => {
+    navigate(`/cases/${caseId}`);
   };
 
   const handleExport = (type) => {

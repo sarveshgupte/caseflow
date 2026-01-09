@@ -156,7 +156,7 @@ export const DashboardPage = () => {
                 </thead>
                 <tbody>
                   {recentCases.map((caseItem) => (
-                    <tr key={caseItem._id} onClick={() => handleCaseClick(caseItem.caseName)}>
+                    <tr key={caseItem._id} onClick={() => handleCaseClick(caseItem.caseId)}>
                       <td>{caseItem.caseName}</td>
                       <td>{caseItem.category}</td>
                       <td>

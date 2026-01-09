@@ -56,6 +56,8 @@ const assignCaseToUser = async (caseId, user) => {
         queueType: 'PERSONAL', // Move from GLOBAL to PERSONAL queue
         status: CASE_STATUS.OPEN, // Change status to OPEN
         assignedAt: new Date(),
+        lastActionByXID: user.xID.toUpperCase(), // Track last action performer
+        lastActionAt: new Date(), // Track last action timestamp
       },
     },
     {
@@ -139,6 +141,8 @@ const bulkAssignCasesToUser = async (caseIds, user) => {
         queueType: 'PERSONAL', // Move from GLOBAL to PERSONAL queue
         status: CASE_STATUS.OPEN, // Change status to OPEN
         assignedAt: new Date(),
+        lastActionByXID: user.xID.toUpperCase(), // Track last action performer
+        lastActionAt: new Date(), // Track last action timestamp
       },
     }
   );

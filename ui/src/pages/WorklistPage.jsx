@@ -95,7 +95,7 @@ export const WorklistPage = () => {
               </thead>
               <tbody>
                 {cases.map((caseItem) => (
-                  <tr key={caseItem._id} onClick={() => handleCaseClick(caseItem.caseName)}>
+                  <tr key={caseItem._id} onClick={() => handleCaseClick(caseItem.caseId)}>
                     <td>{caseItem.caseName}</td>
                     <td>{caseItem.category}</td>
                     <td>{caseItem.clientId || 'N/A'}</td>

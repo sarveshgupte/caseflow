@@ -39,7 +39,7 @@ export const ReportsTable = ({ cases, onCaseClick, pagination, onPageChange }) =
                 {cases.map((caseItem) => (
                   <tr
                     key={caseItem.caseId}
-                    onClick={() => onCaseClick(caseItem.caseName)}
+                    onClick={() => onCaseClick(caseItem.caseId)}
                     className="reports-table__row"
                   >
                     <td>{caseItem.caseId}</td>
