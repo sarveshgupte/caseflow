@@ -33,8 +33,10 @@ export const DashboardPage = () => {
   const [stats, setStats] = useState({
     myOpenCases: 0,
     myPendingCases: 0,
+    myResolvedCases: 0,
     adminPendingApprovals: 0,
     adminFiledCases: 0,
+    adminResolvedCases: 0,
   });
   const [recentCases, setRecentCases] = useState([]);
 
@@ -79,7 +81,22 @@ export const DashboardPage = () => {
         // Non-critical, continue
       }
       
-      // If admin, get pending approvals and filed cases
+      // Get My Resolved Cases count
+      try {
+        const resolvedResponse = await caseService.getMyResolvedCases();
+        if (resolvedResponse.success) {
+          const resolvedCases = resolvedResponse.data || [];
+          setStats((prev) => ({
+            ...prev,
+            myResolvedCases: resolvedCases.length,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load resolved cases:', error);
+        // Non-critical, continue
+      }
+      
+      // If admin, get pending approvals, filed cases, and resolved cases
       if (isAdmin) {
         try {
           const approvalsResponse = await adminService.getPendingApprovals();
@@ -104,6 +121,18 @@ export const DashboardPage = () => {
         } catch (error) {
           console.error('Failed to load filed cases:', error);
         }
+        
+        try {
+          const adminResolvedResponse = await adminService.getAllResolvedCases();
+          if (adminResolvedResponse.success) {
+            setStats((prev) => ({
+              ...prev,
+              adminResolvedCases: adminResolvedResponse.pagination?.total || 0,
+            }));
+          }
+        } catch (error) {
+          console.error('Failed to load admin resolved cases:', error);
+        }
       }
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
@@ -125,12 +154,20 @@ export const DashboardPage = () => {
     navigate('/my-worklist?status=PENDED');
   };
   
+  const handleMyResolvedCasesClick = () => {
+    navigate('/my-worklist?status=RESOLVED');
+  };
+  
   const handlePendingApprovalsClick = () => {
     navigate('/cases?approvalStatus=PENDING');
   };
   
   const handleFiledCasesClick = () => {
     navigate('/cases?status=FILED');
+  };
+  
+  const handleAdminResolvedCasesClick = () => {
+    navigate('/cases?status=RESOLVED');
   };
 
   if (loading) {
@@ -172,6 +209,17 @@ export const DashboardPage = () => {
             </div>
           </Card>
 
+          <Card 
+            className="dashboard__stat-card dashboard__stat-card--clickable" 
+            onClick={handleMyResolvedCasesClick}
+          >
+            <div className="dashboard__stat-value">{stats.myResolvedCases}</div>
+            <div className="dashboard__stat-label">My Resolved Cases</div>
+            <div className="dashboard__stat-description text-secondary">
+              Successfully completed
+            </div>
+          </Card>
+
           {isAdmin && (
             <>
               <Card 
@@ -193,6 +241,17 @@ export const DashboardPage = () => {
                 <div className="dashboard__stat-label">Filed Cases</div>
                 <div className="dashboard__stat-description text-secondary">
                   Archived cases
+                </div>
+              </Card>
+              
+              <Card 
+                className="dashboard__stat-card dashboard__stat-card--admin dashboard__stat-card--clickable" 
+                onClick={handleAdminResolvedCasesClick}
+              >
+                <div className="dashboard__stat-value">{stats.adminResolvedCases}</div>
+                <div className="dashboard__stat-label">All Resolved Cases</div>
+                <div className="dashboard__stat-description text-secondary">
+                  All completed cases
                 </div>
               </Card>
             </>

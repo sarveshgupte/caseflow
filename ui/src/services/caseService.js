@@ -183,4 +183,24 @@ export const caseService = {
     });
     return response.data;
   },
+
+  /**
+   * Unpend a case with mandatory comment
+   * Changes status from PENDED back to OPEN (manual unpend)
+   */
+  unpendCase: async (caseId, comment) => {
+    const response = await api.post(`/cases/${caseId}/unpend`, {
+      comment,
+    });
+    return response.data;
+  },
+
+  /**
+   * Get my resolved cases
+   * Returns cases with status RESOLVED that were resolved by current user
+   */
+  getMyResolvedCases: async () => {
+    const response = await api.get('/cases/my-resolved');
+    return response.data;
+  },
 };
