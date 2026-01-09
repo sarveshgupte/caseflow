@@ -229,7 +229,7 @@ const createCase = async (req, res) => {
       actionType: 'Created',
       description: `Case created with status: UNASSIGNED, Client: ${finalClientId}`,
       performedBy: req.user.email || req.user.xID, // Display email or xID
-      performedByXID: createdByXID, // Canonical identifier
+      performedByXID: createdByXID.toUpperCase(), // Canonical identifier (uppercase)
     });
     
     // Add system comment if duplicate was overridden
@@ -342,7 +342,7 @@ const addComment = async (req, res) => {
       actionType: 'CASE_COMMENT_ADDED',
       description: `Comment added by ${req.user.email}: ${text.substring(0, COMMENT_PREVIEW_LENGTH)}${text.length > COMMENT_PREVIEW_LENGTH ? '...' : ''}`,
       performedBy: req.user.email.toLowerCase(),
-      performedByXID: req.user.xID, // Canonical identifier
+      performedByXID: req.user.xID.toUpperCase(), // Canonical identifier (uppercase)
     });
     
     res.status(201).json({
@@ -454,7 +454,7 @@ const addAttachment = async (req, res) => {
       actionType: 'CASE_ATTACHMENT_ADDED',
       description: `Attachment uploaded by ${req.user.email}: ${sanitizedFilename}`,
       performedBy: req.user.email.toLowerCase(),
-      performedByXID: req.user.xID, // Canonical identifier
+      performedByXID: req.user.xID.toUpperCase(), // Canonical identifier (uppercase)
     });
     
     res.status(201).json({
@@ -852,7 +852,7 @@ const getCaseByCaseId = async (req, res) => {
       actionType: 'CASE_VIEWED',
       description: `Case viewed by ${req.user.email}`,
       performedBy: req.user.email.toLowerCase(),
-      performedByXID: req.user.xID, // Canonical identifier
+      performedByXID: req.user.xID.toUpperCase(), // Canonical identifier (uppercase)
     });
     
     res.json({
@@ -1210,15 +1210,6 @@ const updateCaseActivity = async (req, res) => {
 const pullCase = async (req, res) => {
   try {
     const { caseId } = req.params;
-    const { userEmail } = req.body;
-    
-    // Reject legacy email parameter
-    if (userEmail) {
-      return res.status(400).json({
-        success: false,
-        message: 'userEmail parameter is deprecated. Authentication is handled via middleware.',
-      });
-    }
     
     // Get authenticated user from req.user (set by auth middleware)
     const user = req.user;

@@ -57,7 +57,7 @@ const recordAction = async (caseId, actionType, description, performedByXID, per
     actionType,
     description,
     performedBy: performedByEmail.toLowerCase(),
-    performedByXID, // Add xID for canonical identification
+    performedByXID: performedByXID.toUpperCase(), // Canonical identifier (uppercase)
   });
 };
 

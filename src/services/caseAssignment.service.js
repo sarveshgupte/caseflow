@@ -102,7 +102,7 @@ const assignCaseToUser = async (caseId, user) => {
     actionType: 'CASE_ASSIGNED',
     description: `Case pulled from global worklist and assigned to ${user.xID}`,
     performedBy: user.email.toLowerCase(),
-    performedByXID: user.xID, // Add xID for canonical identification
+    performedByXID: user.xID.toUpperCase(), // Canonical identifier (uppercase)
   });
   
   return {
@@ -178,7 +178,7 @@ const bulkAssignCasesToUser = async (caseIds, user) => {
     actionType: 'CASE_ASSIGNED',
     description: `Case bulk-assigned to ${user.xID}`,
     performedBy: user.email.toLowerCase(),
-    performedByXID: user.xID, // Add xID for canonical identification
+    performedByXID: user.xID.toUpperCase(), // Canonical identifier (uppercase)
   }));
   
   if (historyEntries.length > 0) {
@@ -252,7 +252,7 @@ const reassignCase = async (caseId, newUserXID, performedBy) => {
     actionType: 'CASE_REASSIGNED',
     description: `Case reassigned from ${previousAssignee || 'unassigned'} to ${newUserXID}`,
     performedBy: performedBy.email.toLowerCase(),
-    performedByXID: performedBy.xID, // Add xID for canonical identification
+    performedByXID: performedBy.xID.toUpperCase(), // Canonical identifier (uppercase)
   });
   
   return caseData;
