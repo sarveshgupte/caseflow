@@ -165,10 +165,10 @@ export const caseService = {
    * Pend a case with mandatory comment and reopen date
    * Changes status to PENDED (temporarily paused)
    */
-  pendCase: async (caseId, comment, pendingUntil) => {
+  pendCase: async (caseId, comment, reopenDate) => {
     const response = await api.post(`/cases/${caseId}/pend`, {
       comment,
-      pendingUntil,
+      reopenDate,
     });
     return response.data;
   },

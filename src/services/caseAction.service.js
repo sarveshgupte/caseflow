@@ -3,6 +3,7 @@ const Comment = require('../models/Comment.model');
 const CaseHistory = require('../models/CaseHistory.model');
 const CaseAudit = require('../models/CaseAudit.model');
 const { CASE_STATUS } = require('../config/constants');
+const { DateTime } = require('luxon');
 
 /**
  * Case Action Service
@@ -18,6 +19,39 @@ const { CASE_STATUS } = require('../config/constants');
  * 
  * PR: Case Lifecycle & Dashboard Logic
  */
+
+/**
+ * Central state transition map
+ * Defines which status transitions are allowed
+ * 
+ * Terminal states (FILED, RESOLVED) cannot transition to any other state
+ * PENDED/PENDING states cannot transition (must wait for auto-reopen)
+ * 
+ * Note: Both PENDING and PENDED are mapped because the codebase uses PENDED
+ * as the canonical status, but PENDING may exist for legacy compatibility
+ */
+const CASE_TRANSITIONS = {
+  OPEN: ['PENDED', 'FILED', 'RESOLVED'],
+  PENDING: [], // Legacy status - no transitions allowed
+  PENDED: [], // Canonical status - no transitions allowed  
+  FILED: [], // Terminal state
+  RESOLVED: [], // Terminal state
+  UNASSIGNED: ['OPEN', 'PENDED', 'FILED', 'RESOLVED'], // Allow actions from unassigned state
+};
+
+/**
+ * Assert that a case state transition is valid
+ * @param {string} currentStatus - Current case status
+ * @param {string} targetStatus - Desired target status
+ * @throws {Error} If transition is not allowed
+ */
+const assertCaseTransition = (currentStatus, targetStatus) => {
+  const allowedTransitions = CASE_TRANSITIONS[currentStatus];
+  
+  if (!allowedTransitions || !allowedTransitions.includes(targetStatus)) {
+    throw new Error(`Cannot change case from ${currentStatus} to ${targetStatus}`);
+  }
+};
 
 /**
  * Validate that a comment is provided and not empty
@@ -81,16 +115,15 @@ const resolveCase = async (caseId, comment, user) => {
     throw new Error('Case not found');
   }
   
-  // Cannot resolve already resolved cases
-  if (caseData.status === CASE_STATUS.RESOLVED) {
-    throw new Error('Case is already resolved');
-  }
+  // Validate state transition
+  assertCaseTransition(caseData.status, CASE_STATUS.RESOLVED);
   
   // Store previous status for audit
   const previousStatus = caseData.status;
   
   // Update case status and metadata
   caseData.status = CASE_STATUS.RESOLVED;
+  caseData.pendingUntil = null; // Clear pending date
   caseData.lastActionByXID = user.xID;
   caseData.lastActionAt = new Date();
   
@@ -126,21 +159,23 @@ const resolveCase = async (caseId, comment, user) => {
 /**
  * Pend a case
  * 
- * Changes case status to PENDED with mandatory comment and pendingUntil date.
+ * Changes case status to PENDED with mandatory comment and reopenDate.
  * Case disappears from My Worklist but appears in My Pending Cases dashboard.
+ * 
+ * Backend normalizes reopenDate to 8:00 AM IST regardless of input time.
  * 
  * @param {string} caseId - Case identifier
  * @param {string} comment - Mandatory pending comment
- * @param {Date} pendingUntil - Date when case should auto-reopen
+ * @param {string} reopenDate - Date (YYYY-MM-DD format) when case should auto-reopen
  * @param {object} user - User object with xID and email
  * @returns {object} Updated case
- * @throws {Error} If comment or pendingUntil is missing, or case not found
+ * @throws {Error} If comment or reopenDate is missing, or case not found
  */
-const pendCase = async (caseId, comment, pendingUntil, user) => {
+const pendCase = async (caseId, comment, reopenDate, user) => {
   validateComment(comment);
   
-  if (!pendingUntil) {
-    throw new Error('pendingUntil date is required when pending a case');
+  if (!reopenDate) {
+    throw new Error('Reopen date is required');
   }
   
   const caseData = await Case.findOne({ caseId });
@@ -149,18 +184,23 @@ const pendCase = async (caseId, comment, pendingUntil, user) => {
     throw new Error('Case not found');
   }
   
-  // Cannot pend already pended cases
-  if (caseData.status === CASE_STATUS.PENDED) {
-    throw new Error('Case is already pended');
-  }
+  // Validate state transition
+  assertCaseTransition(caseData.status, CASE_STATUS.PENDED);
   
   // Store previous status for audit
   const previousStatus = caseData.status;
   
+  // Convert reopenDate to 8:00 AM IST and then to UTC
+  const pendingUntil = DateTime
+    .fromISO(reopenDate, { zone: 'Asia/Kolkata' })
+    .set({ hour: 8, minute: 0, second: 0, millisecond: 0 })
+    .toUTC()
+    .toJSDate();
+  
   // Update case status and metadata
   caseData.status = CASE_STATUS.PENDED;
   caseData.pendedByXID = user.xID;
-  caseData.pendingUntil = new Date(pendingUntil);
+  caseData.pendingUntil = pendingUntil;
   caseData.lastActionByXID = user.xID;
   caseData.lastActionAt = new Date();
   
@@ -216,16 +256,15 @@ const fileCase = async (caseId, comment, user) => {
     throw new Error('Case not found');
   }
   
-  // Cannot file already filed cases
-  if (caseData.status === CASE_STATUS.FILED) {
-    throw new Error('Case is already filed');
-  }
+  // Validate state transition
+  assertCaseTransition(caseData.status, CASE_STATUS.FILED);
   
   // Store previous status for audit
   const previousStatus = caseData.status;
   
   // Update case status and metadata
   caseData.status = CASE_STATUS.FILED;
+  caseData.pendingUntil = null; // Clear pending date
   caseData.lastActionByXID = user.xID;
   caseData.lastActionAt = new Date();
   
