@@ -1,6 +1,7 @@
 const Client = require('../models/Client.model');
 const Case = require('../models/Case.model');
 const { generateNextClientId } = require('../services/clientIdGenerator');
+const { CLIENT_STATUS } = require('../config/constants');
 
 /**
  * Client Controller for Direct Client Management
@@ -23,9 +24,12 @@ const getClients = async (req, res) => {
     const { activeOnly } = req.query;
     
     // Filter based on activeOnly query parameter
-    const filter = activeOnly === 'true' ? { isActive: true } : {};
+    // Use canonical status field (ACTIVE/INACTIVE) instead of deprecated isActive
+    const filter = activeOnly === 'true' ? { status: CLIENT_STATUS.ACTIVE } : {};
     
-    const clients = await Client.find(filter).sort({ createdAt: -1 });
+    const clients = await Client.find(filter)
+      .select('clientId businessName status isActive') // Include necessary fields
+      .sort({ clientId: 1 }); // Sort by clientId for consistency
     
     res.json({
       success: true,

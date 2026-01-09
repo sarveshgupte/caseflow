@@ -12,7 +12,7 @@ import { Textarea } from '../components/common/Textarea';
 import { Button } from '../components/common/Button';
 import { caseService } from '../services/caseService';
 import { categoryService } from '../services/categoryService';
-import { DEFAULT_CLIENT_ID, API_BASE_URL } from '../utils/constants';
+import { clientService } from '../services/clientService';
 import { formatClientDisplay } from '../utils/formatters';
 import './CreateCasePage.css';
 
@@ -20,7 +20,7 @@ export const CreateCasePage = () => {
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
-    clientId: DEFAULT_CLIENT_ID, // Default to system client
+    clientId: '', // Will be populated from active clients
     categoryId: '',
     subcategoryId: '',
     title: '', // MANDATORY
@@ -58,10 +58,14 @@ export const CreateCasePage = () => {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/client-approval/clients`);
-        const data = await response.json();
-        if (data.success) {
-          setClients(data.data || []);
+        const response = await clientService.getClients(true); // Get only active clients
+        if (response.success) {
+          const activeClients = response.data || [];
+          setClients(activeClients);
+          // Set first client as default if available
+          if (activeClients.length > 0 && !formData.clientId) {
+            setFormData(prev => ({ ...prev, clientId: activeClients[0].clientId }));
+          }
         }
       } catch (err) {
         console.error('Error fetching clients:', err);
@@ -107,10 +111,10 @@ export const CreateCasePage = () => {
   ];
 
   const clientOptions = [
-    { value: DEFAULT_CLIENT_ID, label: 'Organization (Default)' },
+    { value: '', label: 'Select Client *' },
     ...clients.map(client => ({
       value: client.clientId,
-      label: formatClientDisplay(client), // Use standardized format: C000002 – Business Name
+      label: formatClientDisplay(client), // Format: C000002 – Business Name
     })),
   ];
 
@@ -118,6 +122,11 @@ export const CreateCasePage = () => {
     let error = '';
     
     switch (name) {
+      case 'clientId':
+        if (!value) {
+          error = 'Client is required';
+        }
+        break;
       case 'title':
         if (!value || !value.trim()) {
           error = 'Title is required';
@@ -178,6 +187,7 @@ export const CreateCasePage = () => {
   const validateForm = () => {
     const newErrors = {};
     
+    newErrors.clientId = validateField('clientId', formData.clientId);
     newErrors.title = validateField('title', formData.title);
     newErrors.description = validateField('description', formData.description);
     newErrors.categoryId = validateField('categoryId', formData.categoryId);
@@ -186,6 +196,7 @@ export const CreateCasePage = () => {
     
     setErrors(newErrors);
     setTouched({
+      clientId: true,
       title: true,
       description: true,
       categoryId: true,
@@ -276,13 +287,15 @@ export const CreateCasePage = () => {
           ) : (
             <form onSubmit={handleSubmit}>
               <Select
-                label="Client"
+                label="Client *"
                 name="clientId"
                 value={formData.clientId}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 options={clientOptions}
                 required
                 disabled={loadingClients}
+                error={touched.clientId && errors.clientId}
               />
 
               <Select
