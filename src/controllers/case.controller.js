@@ -1202,7 +1202,9 @@ const updateCaseActivity = async (req, res) => {
  * Pull a case from global worklist
  * POST /api/cases/:caseId/pull
  * 
- * Atomically assigns the case to the logged-in user using the assignment service.
+ * Atomically assigns the case to the authenticated user using the assignment service.
+ * User identity is obtained from authentication token (req.user), not from request body.
+ * 
  * - Checks if case is UNASSIGNED
  * - Sets assignedToXID to user xID (canonical identifier)
  * - Sets queueType to PERSONAL
@@ -1217,7 +1219,11 @@ const updateCaseActivity = async (req, res) => {
  * 
  * PR #42: Updated to use xID for assignment
  * PR: Case Lifecycle - Uses assignment service with queueType
- * PR: xID Canonicalization - Removed userEmail parameter
+ * PR: Unified Pull Logic - User identity comes from auth middleware only
+ * 
+ * Request payload: None (empty body)
+ * Authentication: User identity is obtained from req.user (set by auth middleware)
+ * Authorization: Case is assigned to the authenticated user's xID
  */
 const pullCase = async (req, res) => {
   try {
@@ -1272,7 +1278,9 @@ const pullCase = async (req, res) => {
  * Bulk pull cases from global worklist (PR #39)
  * POST /api/cases/bulk-pull
  * 
- * Atomically assigns multiple cases to user with race safety using assignment service.
+ * Atomically assigns multiple cases to the authenticated user with race safety.
+ * User identity is obtained from authentication token (req.user), not from request body.
+ * 
  * - Sets assignedToXID to user xID
  * - Sets queueType to PERSONAL
  * - Changes status to OPEN
@@ -1280,60 +1288,19 @@ const pullCase = async (req, res) => {
  * 
  * PR #42: Updated to use xID for assignment
  * PR: Case Lifecycle - Uses assignment service with queueType
- * PR: xID Canonicalization - Removed userEmail parameter, accepts only userXID
+ * PR: Unified Pull Logic - User identity comes from auth middleware only
  * 
  * Required payload:
  * {
- *   "caseIds": ["CASE-20260109-00001", "CASE-20260109-00002"],
- *   "userXID": "X000001"
+ *   "caseIds": ["CASE-20260109-00001", "CASE-20260109-00002"]
  * }
  * 
- * ❌ REJECTS:
- * - userEmail parameter (use userXID instead)
- * - CASE- prefixed IDs in userXID field
+ * Authentication: User identity is obtained from req.user (set by auth middleware)
+ * Authorization: Cases are assigned to the authenticated user's xID
  */
 const bulkPullCases = async (req, res) => {
   try {
-    const { caseIds, userEmail, userXID } = req.body;
-    
-    // Reject legacy email-based payload
-    if (userEmail) {
-      return res.status(400).json({
-        success: false,
-        message: 'userEmail parameter is deprecated. Use userXID instead (format: X123456)',
-      });
-    }
-    
-    if (!userXID) {
-      return res.status(400).json({
-        success: false,
-        message: 'userXID is required (format: X123456)',
-      });
-    }
-    
-    // Validate userXID format (must be X followed by 6 digits)
-    if (!/^X\d{6}$/i.test(userXID)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid userXID format. Expected format: X123456',
-      });
-    }
-    
-    if (!Array.isArray(caseIds) || caseIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Case IDs array is required and must not be empty',
-      });
-    }
-    
-    // Validate caseIds format (reject if looks like old format)
-    const invalidCaseIds = caseIds.filter(id => !/^CASE-\d{8}-\d{5}$/i.test(id));
-    if (invalidCaseIds.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid case ID format. Expected format: CASE-YYYYMMDD-XXXXX. Invalid IDs: ${invalidCaseIds.join(', ')}`,
-      });
-    }
+    const { caseIds } = req.body;
     
     // Get authenticated user from req.user (set by auth middleware)
     const user = req.user;
@@ -1345,11 +1312,19 @@ const bulkPullCases = async (req, res) => {
       });
     }
     
-    // Verify userXID matches authenticated user
-    if (user.xID.toUpperCase() !== userXID.toUpperCase()) {
-      return res.status(403).json({
+    if (!Array.isArray(caseIds) || caseIds.length === 0) {
+      return res.status(400).json({
         success: false,
-        message: 'userXID must match authenticated user',
+        message: 'Case IDs array is required and must not be empty',
+      });
+    }
+    
+    // Validate caseIds format (expect CASE-YYYYMMDD-XXXXX format)
+    const invalidCaseIds = caseIds.filter(id => !/^CASE-\d{8}-\d{5}$/i.test(id));
+    if (invalidCaseIds.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid case ID format. Expected format: CASE-YYYYMMDD-XXXXX. Invalid IDs: ${invalidCaseIds.join(', ')}`,
       });
     }
     

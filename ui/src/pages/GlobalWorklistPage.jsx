@@ -73,8 +73,8 @@ export const GlobalWorklistPage = () => {
   };
 
   const handleBulkPull = async () => {
-    if (!user?.email) {
-      alert('User email not found. Please log in again.');
+    if (!user?.xID) {
+      alert('Authenticated userXID is required to pull cases. Please log in again.');
       return;
     }
 
@@ -89,7 +89,7 @@ export const GlobalWorklistPage = () => {
 
     setBulkPulling(true);
     try {
-      const response = await worklistService.bulkPullCases(selectedCases, user.email);
+      const response = await worklistService.bulkPullCases(selectedCases);
       
       if (response.success) {
         const message = response.pulled < response.requested
@@ -107,8 +107,8 @@ export const GlobalWorklistPage = () => {
   };
 
   const handlePullCase = async (caseId) => {
-    if (!user?.email) {
-      alert('User email not found. Please log in again.');
+    if (!user?.xID) {
+      alert('Authenticated userXID is required to pull cases. Please log in again.');
       return;
     }
 
@@ -118,7 +118,7 @@ export const GlobalWorklistPage = () => {
 
     setPullingCase(caseId);
     try {
-      const response = await worklistService.pullCase(caseId, user.email);
+      const response = await worklistService.pullCase(caseId);
       
       if (response.success) {
         alert('Case pulled successfully!');

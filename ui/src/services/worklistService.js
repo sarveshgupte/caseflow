@@ -38,17 +38,19 @@ export const worklistService = {
 
   /**
    * Pull a case from global worklist
+   * User identity is obtained from authentication token, not passed in body
    */
-  pullCase: async (caseId, userEmail) => {
-    const response = await api.post(`/cases/${caseId}/pull`, { userEmail });
+  pullCase: async (caseId) => {
+    const response = await api.post(`/cases/${caseId}/pull`);
     return response.data;
   },
 
   /**
    * Pull multiple cases from global worklist (PR #39)
+   * User identity is obtained from authentication token, not passed in body
    */
-  bulkPullCases: async (caseIds, userEmail) => {
-    const response = await api.post('/cases/bulk-pull', { caseIds, userEmail });
+  bulkPullCases: async (caseIds) => {
+    const response = await api.post('/cases/bulk-pull', { caseIds });
     return response.data;
   },
 
