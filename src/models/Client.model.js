@@ -43,6 +43,14 @@ const clientSchema = new mongoose.Schema({
     index: true, // Explicit index for uniqueness enforcement
   },
   
+  // Firm/Organization ID for multi-tenancy
+  firmId: {
+    type: String,
+    required: [true, 'Firm ID is required'],
+    default: 'FIRM001',
+    index: true,
+  },
+  
   /**
    * Business/Client name
    * Required field for client identification
@@ -300,10 +308,13 @@ clientSchema.pre('save', async function() {
  * - isActive: For filtering active vs inactive clients
  * - isSystemClient: For identifying system clients
  * - createdByXid: For ownership queries (canonical identifier)
+ * - firmId: For multi-tenancy queries
  */
 clientSchema.index({ isActive: 1 });
 clientSchema.index({ isSystemClient: 1 });
 clientSchema.index({ businessName: 1 });
 clientSchema.index({ createdByXid: 1 }); // CANONICAL - xID-based creator queries
+clientSchema.index({ firmId: 1 }); // Multi-tenancy queries
+clientSchema.index({ firmId: 1, status: 1 }); // Firm-scoped status queries
 
 module.exports = mongoose.model('Client', clientSchema);

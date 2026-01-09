@@ -18,6 +18,20 @@ const authAuditSchema = new mongoose.Schema({
     index: true,
   },
   
+  // Firm/Organization ID for multi-tenancy
+  firmId: {
+    type: String,
+    required: true,
+    index: true,
+  },
+  
+  // MongoDB ObjectId of user (for JWT-based queries)
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    index: true,
+  },
+  
   // Type of action performed
   actionType: {
     type: String,
@@ -49,6 +63,10 @@ const authAuditSchema = new mongoose.Schema({
       'PasswordReset',
       'PasswordResetEmailSent',
       'ForgotPasswordRequested',
+      
+      // Token management events
+      'TokenRefreshed',
+      'RefreshTokenRevoked',
     ],
   },
   
@@ -66,6 +84,9 @@ const authAuditSchema = new mongoose.Schema({
   
   // IP address of the request (optional)
   ipAddress: String,
+  
+  // User agent string for device/browser tracking
+  userAgent: String,
   
   // When the action was performed
   timestamp: {
@@ -123,5 +144,7 @@ authAuditSchema.pre('findOneAndDelete', function(next) {
 // Index for performance - query by xID and timestamp
 authAuditSchema.index({ xID: 1, timestamp: -1 });
 authAuditSchema.index({ actionType: 1 });
+authAuditSchema.index({ firmId: 1, timestamp: -1 }); // Firm-scoped audit queries
+authAuditSchema.index({ userId: 1, timestamp: -1 }); // User-scoped audit queries
 
 module.exports = mongoose.model('AuthAudit', authAuditSchema);

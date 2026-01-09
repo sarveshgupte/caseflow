@@ -36,6 +36,14 @@ const caseHistorySchema = new mongoose.Schema({
     index: true,
   },
   
+  // Firm/Organization ID for multi-tenancy
+  firmId: {
+    type: String,
+    required: [true, 'Firm ID is required'],
+    default: 'FIRM001',
+    index: true,
+  },
+  
   /**
    * Type of action performed on the case
    * Categorizes the change for filtering and reporting
@@ -171,10 +179,13 @@ caseHistorySchema.pre('findOneAndDelete', function(next) {
  * - performedBy: Secondary index for user activity tracking (email-based, legacy)
  * - performedByXID: Secondary index for user activity tracking (xID-based, canonical)
  *   Used for queries like "show all actions by user X"
+ * - firmId: Multi-tenancy queries
  */
 caseHistorySchema.index({ caseId: 1, timestamp: -1 });
 caseHistorySchema.index({ performedBy: 1 }); // Legacy
 caseHistorySchema.index({ performedByXID: 1 }); // Canonical
+caseHistorySchema.index({ firmId: 1, timestamp: -1 }); // Firm-scoped audit queries
+caseHistorySchema.index({ firmId: 1, caseId: 1 }); // Firm-scoped case history
 
 /**
  * Export the CaseHistory model

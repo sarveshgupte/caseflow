@@ -40,6 +40,14 @@ const caseSchema = new mongoose.Schema({
     immutable: true,
   },
   
+  // Firm/Organization ID for multi-tenancy
+  firmId: {
+    type: String,
+    required: [true, 'Firm ID is required'],
+    default: 'FIRM001',
+    index: true,
+  },
+  
   /**
    * Deterministic case name - DISPLAY ONLY
    * Format: caseYYYYMMDDxxxxx (e.g., case2026010700001)
@@ -641,5 +649,8 @@ caseSchema.index({ assignedToXID: 1, status: 1 }); // CANONICAL - xID-based work
 caseSchema.index({ queueType: 1, status: 1 }); // Queue-based worklist queries
 caseSchema.index({ pendedByXID: 1, status: 1 }); // Pending cases dashboard queries
 caseSchema.index({ pendingUntil: 1 }); // Auto-reopen scheduler queries
+caseSchema.index({ firmId: 1 }); // Multi-tenancy queries
+caseSchema.index({ firmId: 1, status: 1 }); // Firm-scoped status queries
+caseSchema.index({ firmId: 1, assignedToXID: 1 }); // Firm-scoped assignment queries
 
 module.exports = mongoose.model('Case', caseSchema);
