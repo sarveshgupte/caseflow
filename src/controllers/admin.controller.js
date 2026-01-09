@@ -40,8 +40,10 @@ const safeAuditLog = async (auditData) => {
  * - All open cases (across all users)
  * - All pending cases (across all users)
  * - Filed cases
+ * - Resolved cases
  * 
  * PR: Case Lifecycle - Added comprehensive case counts
+ * PR: Fix Case Lifecycle - Added resolved cases count
  */
 const getAdminStats = async (req, res) => {
   try {
@@ -54,6 +56,7 @@ const getAdminStats = async (req, res) => {
       allOpenCases,
       allPendingCases,
       filedCases,
+      resolvedCases,
     ] = await Promise.all([
       // Total users (all, regardless of status)
       User.countDocuments({}),
@@ -77,6 +80,9 @@ const getAdminStats = async (req, res) => {
       
       // All filed cases (for admin visibility)
       Case.countDocuments({ status: CASE_STATUS.FILED }),
+      
+      // All resolved cases (for admin visibility)
+      Case.countDocuments({ status: CASE_STATUS.RESOLVED }),
     ]);
     
     res.json({
@@ -89,6 +95,7 @@ const getAdminStats = async (req, res) => {
         allOpenCases,
         allPendingCases,
         filedCases,
+        resolvedCases,
       },
     });
   } catch (error) {
@@ -371,10 +378,64 @@ const getAllFiledCases = async (req, res) => {
   }
 };
 
+/**
+ * Get all resolved cases (Admin view)
+ * GET /api/admin/cases/resolved
+ * 
+ * Returns all cases with status RESOLVED.
+ * Admins can see all resolved cases regardless of who resolved them.
+ * 
+ * PR: Fix Case Lifecycle - Admin visibility for resolved cases
+ */
+const getAllResolvedCases = async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    
+    const cases = await Case.find({ status: CASE_STATUS.RESOLVED })
+      .select('caseId caseName category createdAt updatedAt status clientId assignedTo lastActionByXID lastActionAt')
+      .sort({ lastActionAt: -1 }) // Sort by last action (most recently resolved first)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .lean();
+    
+    const total = await Case.countDocuments({ status: CASE_STATUS.RESOLVED });
+    
+    // Log admin action for audit
+    await logAdminAction({
+      adminXID: req.user.xID,
+      actionType: 'ADMIN_RESOLVED_CASES_VIEWED',
+      metadata: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        resultCount: cases.length,
+        total,
+      },
+    });
+    
+    res.json({
+      success: true,
+      data: cases,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching resolved cases',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getAdminStats,
   resendInviteEmail,
   getAllOpenCases,
   getAllPendingCases,
   getAllFiledCases,
+  getAllResolvedCases,
 };

@@ -8,6 +8,7 @@ const {
   getAllOpenCases,
   getAllPendingCases,
   getAllFiledCases,
+  getAllResolvedCases,
 } = require('../controllers/admin.controller');
 
 /**
@@ -15,6 +16,7 @@ const {
  * PR #41 - Admin panel statistics and management
  * PR #48 - Admin resend invite email
  * PR: Case Lifecycle - Admin case visibility endpoints
+ * PR: Fix Case Lifecycle - Added resolved cases endpoint
  * All routes require authentication and admin role
  */
 
@@ -33,5 +35,8 @@ router.get('/cases/pending', authenticate, requireAdmin, getAllPendingCases);
 
 // GET /api/admin/cases/filed - Get all filed cases (admin view)
 router.get('/cases/filed', authenticate, requireAdmin, getAllFiledCases);
+
+// GET /api/admin/cases/resolved - Get all resolved cases (admin view)
+router.get('/cases/resolved', authenticate, requireAdmin, getAllResolvedCases);
 
 module.exports = router;

@@ -51,6 +51,11 @@ const caseAuditSchema = new mongoose.Schema({
    * - ADMIN_FILED_CASES_VIEWED: Admin viewed filed cases list
    * - ADMIN_APPROVAL_QUEUE_VIEWED: Admin viewed pending approvals
    * - CASE_ATTACHMENT_ADDED: File attached to case (alias for CASE_FILE_ATTACHED)
+   * - CASE_PENDED: Case pended (status changed to PENDED)
+   * - CASE_UNPENDED: Case unpended (status changed from PENDED to OPEN)
+   * - CASE_RESOLVED: Case resolved (status changed to RESOLVED)
+   * - CASE_FILED: Case filed (status changed to FILED)
+   * - CASE_AUTO_REOPENED: Case automatically reopened after pending period expired
    */
   actionType: {
     type: String,
@@ -68,6 +73,11 @@ const caseAuditSchema = new mongoose.Schema({
       'ADMIN_FILED_CASES_VIEWED',
       'ADMIN_APPROVAL_QUEUE_VIEWED',
       'CASE_ATTACHMENT_ADDED',
+      'CASE_PENDED',
+      'CASE_UNPENDED',
+      'CASE_RESOLVED',
+      'CASE_FILED',
+      'CASE_AUTO_REOPENED',
     ],
   },
   

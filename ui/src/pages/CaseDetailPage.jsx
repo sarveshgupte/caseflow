@@ -62,6 +62,11 @@ export const CaseDetailPage = () => {
   const [resolveComment, setResolveComment] = useState('');
   const [resolvingCase, setResolvingCase] = useState(false);
 
+  // State for Unpend action modal
+  const [showUnpendModal, setShowUnpendModal] = useState(false);
+  const [unpendComment, setUnpendComment] = useState('');
+  const [unpendingCase, setUnpendingCase] = useState(false);
+
   useEffect(() => {
     loadCase();
   }, [caseId]);
@@ -281,6 +286,34 @@ export const CaseDetailPage = () => {
     }
   };
 
+  const handleUnpendCase = async () => {
+    if (!unpendComment.trim()) {
+      showWarning('Comment is mandatory for unpending a case');
+      return;
+    }
+
+    setUnpendingCase(true);
+    try {
+      const response = await caseService.unpendCase(caseId, unpendComment);
+      
+      if (response.success) {
+        showSuccess('Case unpended successfully');
+        setShowUnpendModal(false);
+        setUnpendComment('');
+        await loadCase(); // Reload to update UI
+      }
+    } catch (error) {
+      console.error('Failed to unpend case:', error);
+      const serverMessage = error.response?.data?.message;
+      const errorMessage = serverMessage && typeof serverMessage === 'string'
+        ? serverMessage.substring(0, 200)
+        : 'Failed to unpend case. Please try again.';
+      showError(errorMessage);
+    } finally {
+      setUnpendingCase(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -321,11 +354,13 @@ export const CaseDetailPage = () => {
   // Move to Workbasket button: show only for admin users AND case is currently assigned
   const showMoveToWorkbasketButton = isAdmin && caseInfo.assignedToXID;
 
-  // Case action buttons (File, Pend, Resolve)
-  // According to requirements: Only OPEN cases can perform these actions
-  // PENDING, FILED, RESOLVED are terminal/locked states
-  const canPerformActions = caseInfo.status === 'OPEN';
-  const showActionButtons = !isViewOnlyMode && canPerformActions;
+  // Case action buttons (File, Pend, Resolve) - PR: Fix Case Lifecycle
+  // Action Visibility Rules:
+  // - OPEN: Show File, Pend, Resolve (no Unpend)
+  // - PENDING/PENDED: Show ONLY Unpend (no File, Pend, Resolve)
+  // - FILED or RESOLVED: Show nothing (terminal states, read-only)
+  const canPerformLifecycleActions = caseInfo.status === 'OPEN' && !isViewOnlyMode;
+  const canUnpend = (caseInfo.status === 'PENDED' || caseInfo.status === 'PENDING') && !isViewOnlyMode;
 
   return (
     <Layout>
@@ -359,8 +394,8 @@ export const CaseDetailPage = () => {
                 {movingToGlobal ? 'Moving...' : 'Move to Workbasket'}
               </Button>
             )}
-            {/* Case Action Buttons: File, Pend, Resolve */}
-            {showActionButtons && (
+            {/* Case Action Buttons: File, Pend, Resolve (for OPEN status only) */}
+            {canPerformLifecycleActions && (
               <>
                 <Button
                   variant="default"
@@ -389,6 +424,15 @@ export const CaseDetailPage = () => {
                   Resolve
                 </Button>
               </>
+            )}
+            {/* Unpend Button (for PENDING/PENDED status only) */}
+            {canUnpend && (
+              <Button
+                variant="primary"
+                onClick={() => setShowUnpendModal(true)}
+              >
+                Unpend
+              </Button>
             )}
             {/* PR #45: View-Only Mode Indicator */}
             {isViewOnlyMode && (
@@ -781,6 +825,53 @@ export const CaseDetailPage = () => {
               rows={4}
               required
               disabled={resolvingCase}
+            />
+          </div>
+        </Modal>
+
+        {/* Unpend Case Modal */}
+        <Modal
+          isOpen={showUnpendModal}
+          onClose={() => {
+            setShowUnpendModal(false);
+            setUnpendComment('');
+          }}
+          title="Unpend Case"
+          actions={
+            <>
+              <Button
+                variant="default"
+                onClick={() => {
+                  setShowUnpendModal(false);
+                  setUnpendComment('');
+                }}
+                disabled={unpendingCase}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleUnpendCase}
+                disabled={!unpendComment.trim() || unpendingCase}
+              >
+                {unpendingCase ? 'Unpending...' : 'Unpend Case'}
+              </Button>
+            </>
+          }
+        >
+          <div style={{ padding: 'var(--spacing-md)' }}>
+            <p style={{ marginBottom: 'var(--spacing-md)', color: 'var(--text-secondary)' }}>
+              Unpending a case will move it back to OPEN status and return it to your worklist.
+              Use this when you no longer need to wait for external input.
+            </p>
+            <Textarea
+              label="Comment (Required)"
+              value={unpendComment}
+              onChange={(e) => setUnpendComment(e.target.value)}
+              placeholder="Explain why this case is being unpended..."
+              rows={4}
+              required
+              disabled={unpendingCase}
             />
           </div>
         </Modal>

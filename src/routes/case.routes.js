@@ -121,12 +121,17 @@ const {
   pendCase,
   fileCase,
   getMyPendingCases,
+  getMyResolvedCases,
   triggerAutoReopen,
 } = require('../controllers/caseActions.controller');
 
 // GET /api/cases/my-pending - Get my pending cases
 // IMPORTANT: Must come BEFORE /:caseId routes to avoid matching "my-pending" as a caseId
 router.get('/my-pending', getMyPendingCases);
+
+// GET /api/cases/my-resolved - Get my resolved cases
+// IMPORTANT: Must come BEFORE /:caseId routes to avoid matching "my-resolved" as a caseId
+router.get('/my-resolved', getMyResolvedCases);
 
 // POST /api/cases/auto-reopen-pended - Trigger auto-reopen for pended cases (Admin/System)
 router.post('/auto-reopen-pended', triggerAutoReopen);

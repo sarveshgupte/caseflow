@@ -9,6 +9,7 @@ const { detectDuplicates, generateDuplicateOverrideComment } = require('../servi
 const { CASE_CATEGORIES, CASE_LOCK_CONFIG, CASE_STATUS, COMMENT_PREVIEW_LENGTH, CLIENT_STATUS } = require('../config/constants');
 const { isProduction } = require('../config/config');
 const { logCaseListViewed, logAdminAction } = require('../services/auditLog.service');
+const caseActionService = require('../services/caseAction.service');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -637,75 +638,30 @@ const cloneCase = async (req, res) => {
  * Unpend a case
  * POST /api/cases/:caseId/unpend
  */
+/**
+ * Unpend a case (manual unpend)
+ * POST /api/cases/:caseId/unpend
+ * 
+ * Changes case status from PENDED/PENDING back to OPEN with mandatory comment.
+ * Allows users to manually unpend a case before the auto-reopen date.
+ * 
+ * PR: Fix Case Lifecycle - Updated to use centralized service
+ */
 const unpendCase = async (req, res) => {
   try {
     const { caseId } = req.params;
-    const { comment, performedBy } = req.body;
+    const { comment } = req.body;
     
-    // Validate authentication
-    if (!req.user?.email || !req.user?.xID) {
+    // Validate user authentication
+    if (!req.user || !req.user.xID) {
       return res.status(401).json({
         success: false,
         message: 'Authentication required',
       });
     }
     
-    // Validate required fields
-    if (!comment) {
-      return res.status(400).json({
-        success: false,
-        message: 'Comment is required',
-      });
-    }
-    
-    if (!performedBy) {
-      return res.status(400).json({
-        success: false,
-        message: 'Performed by email is required',
-      });
-    }
-    
-    // Find case
-    const caseData = await Case.findOne({ caseId });
-    
-    if (!caseData) {
-      return res.status(404).json({
-        success: false,
-        message: 'Case not found',
-      });
-    }
-    
-    // Check if case is in Pending status
-    if (caseData.status !== 'Pending') {
-      return res.status(400).json({
-        success: false,
-        message: 'Only Pending cases can be unpended',
-      });
-    }
-    
-    // Update case status
-    caseData.status = 'Open';
-    caseData.assignedToXID = null;
-    caseData.pendingUntil = null;
-    
-    await caseData.save();
-    
-    // Create comment
-    await Comment.create({
-      caseId,
-      text: comment,
-      createdBy: performedBy.toLowerCase(),
-      createdByXID: req.user.xID,
-      createdByName: req.user.name,
-    });
-    
-    // Create history entry
-    await CaseHistory.create({
-      caseId,
-      actionType: 'Unpended',
-      description: `Case unpended with comment: ${comment}`,
-      performedBy: performedBy.toLowerCase(),
-    });
+    // Call service to unpend case
+    const caseData = await caseActionService.unpendCase(caseId, comment, req.user);
     
     res.json({
       success: true,
@@ -713,7 +669,29 @@ const unpendCase = async (req, res) => {
       message: 'Case unpended successfully',
     });
   } catch (error) {
-    res.status(400).json({
+    // Handle specific errors
+    if (error.message === 'Comment is mandatory for this action') {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    
+    if (error.message === 'Case not found') {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    
+    if (error.message.startsWith('Cannot change case from')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    
+    res.status(500).json({
       success: false,
       message: 'Error unpending case',
       error: error.message,

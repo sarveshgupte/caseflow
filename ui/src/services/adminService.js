@@ -132,4 +132,14 @@ export const adminService = {
     const response = await api.get(`/client-approval/clients/${clientId}`);
     return response.data;
   },
+
+  /**
+   * Get all resolved cases (Admin view)
+   * Returns all cases with status RESOLVED
+   */
+  getAllResolvedCases: async (params = {}) => {
+    const queryParams = new URLSearchParams(params).toString();
+    const response = await api.get(`/admin/cases/resolved${queryParams ? '?' + queryParams : ''}`);
+    return response.data;
+  },
 };

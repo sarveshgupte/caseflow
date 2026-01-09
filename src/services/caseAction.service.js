@@ -20,20 +20,27 @@ const { DateTime } = require('luxon');
  * PR: Case Lifecycle & Dashboard Logic
  */
 
-/**
- * Central state transition map
- * Defines which status transitions are allowed
- * 
- * Terminal states (FILED, RESOLVED) cannot transition to any other state
- * PENDED/PENDING states cannot transition (must wait for auto-reopen)
- * 
- * Note: Both PENDING and PENDED are mapped because the codebase uses PENDED
- * as the canonical status, but PENDING may exist for legacy compatibility
- */
-const CASE_TRANSITIONS = {
+  /**
+   * Central state transition map
+   * Defines which status transitions are allowed
+   * 
+   * CANONICAL CASE LIFECYCLE (PR: Fix Case Lifecycle Errors)
+   * 
+   * Allowed Transitions:
+   * - OPEN → PENDED, RESOLVED, FILED
+   * - PENDING → OPEN (manual unpend), RESOLVED, FILED
+   * - PENDED → OPEN (manual unpend), RESOLVED, FILED
+   * - UNASSIGNED → OPEN, PENDED, RESOLVED, FILED
+   * - FILED → (none - terminal)
+   * - RESOLVED → (none - terminal)
+   * 
+   * Note: Both PENDING and PENDED are mapped because the codebase uses PENDED
+   * as the canonical status, but PENDING may exist for legacy compatibility
+   */
+  const CASE_TRANSITIONS = {
   OPEN: ['PENDED', 'FILED', 'RESOLVED'],
-  PENDING: [], // Legacy status - no transitions allowed
-  PENDED: [], // Canonical status - no transitions allowed  
+  PENDING: ['OPEN', 'RESOLVED', 'FILED'], // Can unpend to OPEN, or directly resolve/file
+  PENDED: ['OPEN', 'RESOLVED', 'FILED'], // Can unpend to OPEN, or directly resolve/file  
   FILED: [], // Terminal state
   RESOLVED: [], // Terminal state
   UNASSIGNED: ['OPEN', 'PENDED', 'FILED', 'RESOLVED'], // Allow actions from unassigned state
@@ -298,6 +305,72 @@ const fileCase = async (caseId, comment, user) => {
 };
 
 /**
+ * Unpend a case (manual unpend)
+ * 
+ * Changes case status from PENDED/PENDING back to OPEN with mandatory comment.
+ * Allows users to manually unpend a case before the auto-reopen date.
+ * 
+ * @param {string} caseId - Case identifier
+ * @param {string} comment - Mandatory unpend comment
+ * @param {object} user - User object with xID and email
+ * @returns {object} Updated case
+ * @throws {Error} If comment is missing or case not found
+ */
+const unpendCase = async (caseId, comment, user) => {
+  validateComment(comment);
+  
+  const caseData = await Case.findOne({ caseId });
+  
+  if (!caseData) {
+    throw new Error('Case not found');
+  }
+  
+  // Validate state transition (from PENDED or PENDING to OPEN)
+  assertCaseTransition(caseData.status, CASE_STATUS.OPEN);
+  
+  // Store previous status for audit
+  const previousStatus = caseData.status;
+  const previousPendingUntil = caseData.pendingUntil;
+  
+  // Update case status and metadata
+  caseData.status = CASE_STATUS.OPEN;
+  caseData.pendingUntil = null; // Clear pending date
+  caseData.pendedByXID = null; // Clear who pended it
+  caseData.lastActionByXID = user.xID;
+  caseData.lastActionAt = new Date();
+  
+  await caseData.save();
+  
+  // Add comment
+  await Comment.create({
+    caseId,
+    text: comment,
+    createdBy: user.email.toLowerCase(),
+    createdByXID: user.xID,
+    createdByName: user.name,
+    note: 'Case unpend comment',
+  });
+  
+  // Record action in audit trail
+  await recordAction(
+    caseId,
+    'CASE_UNPENDED',
+    `Case manually unpended by ${user.xID}. Previous status: ${previousStatus}. Was pended until: ${previousPendingUntil || 'N/A'}`,
+    user.xID,
+    user.email,
+    {
+      previousStatus,
+      newStatus: CASE_STATUS.OPEN,
+      previousPendingUntil,
+      manualUnpend: true,
+      commentLength: comment.length,
+    }
+  );
+  
+  return caseData;
+};
+
+/**
  * Auto-reopen pended cases
  * 
  * Finds all cases with status PENDED where pendingUntil <= now
@@ -365,6 +438,7 @@ module.exports = {
   resolveCase,
   pendCase,
   fileCase,
+  unpendCase,
   autoReopenPendedCases,
   validateComment,
   recordAction,

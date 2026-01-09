@@ -1,3 +1,4 @@
+const Case = require('../models/Case.model');
 const caseActionService = require('../services/caseAction.service');
 const { CASE_STATUS } = require('../config/constants');
 const { logCaseListViewed } = require('../services/auditLog.service');
@@ -236,8 +237,6 @@ const getMyPendingCases = async (req, res) => {
       });
     }
     
-    const Case = require('../models/Case.model');
-    
     // CANONICAL QUERY for "My Pending Cases"
     const query = {
       assignedToXID: req.user.xID,
@@ -277,6 +276,73 @@ const getMyPendingCases = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching pending cases',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Get resolved cases for current user
+ * GET /api/cases/my-resolved
+ * 
+ * Returns all cases that:
+ * - Were resolved by current user (lastActionByXID = userXID)
+ * - Have status = RESOLVED
+ * 
+ * This is the "My Resolved Cases" dashboard query.
+ * 
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ */
+const getMyResolvedCases = async (req, res) => {
+  try {
+    // Validate user authentication
+    if (!req.user || !req.user.xID) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+    
+    // CANONICAL QUERY for "My Resolved Cases"
+    // Cases that were resolved by this user
+    const query = {
+      status: CASE_STATUS.RESOLVED,
+      lastActionByXID: req.user.xID,
+    };
+    
+    const cases = await Case.find(query)
+      .select('caseId caseName category createdAt updatedAt status clientId clientName lastActionAt')
+      .sort({ lastActionAt: -1 }) // Sort by resolution date (most recent first)
+      .lean();
+    
+    // Log case list view for audit
+    await logCaseListViewed({
+      viewerXID: req.user.xID,
+      filters: { status: CASE_STATUS.RESOLVED, lastActionByXID: req.user.xID },
+      listType: 'MY_RESOLVED_CASES',
+      resultCount: cases.length,
+    });
+    
+    res.json({
+      success: true,
+      data: cases.map(c => ({
+        _id: c._id,
+        caseId: c.caseId,
+        caseName: c.caseName,
+        category: c.category,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        status: c.status,
+        clientId: c.clientId || null,
+        clientName: c.clientName,
+        lastActionAt: c.lastActionAt,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching resolved cases',
       error: error.message,
     });
   }
@@ -323,5 +389,6 @@ module.exports = {
   pendCase,
   fileCase,
   getMyPendingCases,
+  getMyResolvedCases,
   triggerAutoReopen,
 };
