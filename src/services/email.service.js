@@ -86,6 +86,7 @@ const initializeTransport = () => {
 };
 
 // Initialize transport
+// Note: This runs after dotenv.config() in server.js loads environment variables
 transporter = initializeTransport();
 
 /**
@@ -102,7 +103,7 @@ const sendEmail = async (mailOptions) => {
   if (isProduction) {
     // Production: Always use SMTP transport
     if (!transporter) {
-      const error = 'SMTP transport not initialized in production mode';
+      const error = 'Email service not configured';
       console.error(`[EMAIL] ${error}`);
       throw new Error(error);
     }
@@ -120,7 +121,8 @@ const sendEmail = async (mailOptions) => {
     } catch (error) {
       console.error(`[EMAIL] Failed to send email: ${error.message}`);
       console.error(`[EMAIL] Full error:`, error);
-      throw error;
+      // Don't expose SMTP details in the thrown error
+      throw new Error('Failed to send email. Please check server logs for details.');
     }
   } else {
     // Development: Log to console only
