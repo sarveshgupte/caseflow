@@ -2,6 +2,7 @@ const Case = require('../models/Case.model');
 const Comment = require('../models/Comment.model');
 const Attachment = require('../models/Attachment.model');
 const CaseHistory = require('../models/CaseHistory.model');
+const CaseAudit = require('../models/CaseAudit.model');
 const Client = require('../models/Client.model');
 const { detectDuplicates, generateDuplicateOverrideComment } = require('../services/clientDuplicateDetector');
 const { CASE_CATEGORIES, CASE_LOCK_CONFIG, CASE_STATUS, COMMENT_PREVIEW_LENGTH } = require('../config/constants');
@@ -14,7 +15,22 @@ const path = require('path');
  * Handles case creation, comments, attachments, cloning, unpending, and status updates
  * PART F - Duplicate client detection for "Client – New" cases
  * PR #44 - xID ownership guardrails
+ * PR #45 - View-only mode with audit logging
  */
+
+/**
+ * Sanitize text for logging
+ * Removes control characters, newlines, and limits length
+ * PR #45: Security - prevent log injection
+ */
+const sanitizeForLog = (text, maxLength = 100) => {
+  if (!text) return '';
+  return text
+    .replace(/[\r\n\t]/g, ' ')  // Replace newlines and tabs with spaces
+    .replace(/[^\x20-\x7E]/g, '') // Remove non-printable characters
+    .substring(0, maxLength)
+    .trim();
+};
 
 /**
  * Create a new case
@@ -238,14 +254,15 @@ const createCase = async (req, res) => {
  * Add a comment to a case
  * POST /api/cases/:caseId/comments
  * PR #41: Allow comments in view mode (no assignment check)
+ * PR #45: Add CaseAudit logging with xID attribution
  */
 const addComment = async (req, res) => {
   try {
     const { caseId } = req.params;
     const { text, createdBy, note } = req.body;
     
-    // PR #41: Require authenticated user for security
-    if (!req.user?.email) {
+    // PR #45: Require authenticated user with xID for security and audit
+    if (!req.user?.email || !req.user?.xID) {
       return res.status(401).json({
         success: false,
         message: 'Authentication required',
@@ -277,7 +294,7 @@ const addComment = async (req, res) => {
       });
     }
     
-    // PR #41: Allow comments even if case is not assigned (view mode)
+    // PR #45: Allow comments in view mode - no assignment/ownership check
     // Only check if case is locked by someone else - use authenticated user for security
     if (caseData.lockStatus?.isLocked && 
         caseData.lockStatus.activeUserEmail !== req.user.email.toLowerCase()) {
@@ -295,7 +312,21 @@ const addComment = async (req, res) => {
       note,
     });
     
-    // PR #41: Add audit log entry for comment - use authenticated user for security
+    // PR #45: Add CaseAudit entry with xID attribution
+    // Sanitize comment text for logging to prevent log injection
+    const sanitizedText = sanitizeForLog(text, COMMENT_PREVIEW_LENGTH);
+    await CaseAudit.create({
+      caseId,
+      actionType: 'CASE_COMMENT_ADDED',
+      description: `Comment added by ${req.user.xID}: ${sanitizedText}${text.length > COMMENT_PREVIEW_LENGTH ? '...' : ''}`,
+      performedByXID: req.user.xID,
+      metadata: {
+        commentLength: text.length,
+        hasNote: !!note,
+      },
+    });
+    
+    // Also add to CaseHistory for backward compatibility
     await CaseHistory.create({
       caseId,
       actionType: 'CASE_COMMENT_ADDED',
@@ -322,14 +353,15 @@ const addComment = async (req, res) => {
  * POST /api/cases/:caseId/attachments
  * Uses multer middleware for file upload
  * PR #41: Allow attachments in view mode (no assignment check)
+ * PR #45: Add CaseAudit logging with xID attribution
  */
 const addAttachment = async (req, res) => {
   try {
     const { caseId } = req.params;
     const { description, createdBy, note } = req.body;
     
-    // PR #41: Require authenticated user for security
-    if (!req.user?.email) {
+    // PR #45: Require authenticated user with xID for security and audit
+    if (!req.user?.email || !req.user?.xID) {
       return res.status(401).json({
         success: false,
         message: 'Authentication required',
@@ -369,7 +401,7 @@ const addAttachment = async (req, res) => {
       });
     }
     
-    // PR #41: Allow attachments even if case is not assigned (view mode)
+    // PR #45: Allow attachments in view mode - no assignment/ownership check
     // Only check if case is locked by someone else - use authenticated user for security
     if (caseData.lockStatus?.isLocked && 
         caseData.lockStatus.activeUserEmail !== req.user.email.toLowerCase()) {
@@ -389,11 +421,27 @@ const addAttachment = async (req, res) => {
       note,
     });
     
-    // PR #41: Add audit log entry for attachment - use authenticated user for security
+    // PR #45: Add CaseAudit entry with xID attribution
+    // Sanitize filename for logging to prevent log injection
+    const sanitizedFilename = sanitizeForLog(req.file.originalname, 100);
+    await CaseAudit.create({
+      caseId,
+      actionType: 'CASE_FILE_ATTACHED',
+      description: `File attached by ${req.user.xID}: ${sanitizedFilename}`,
+      performedByXID: req.user.xID,
+      metadata: {
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
+        description: description,
+      },
+    });
+    
+    // Also add to CaseHistory for backward compatibility
     await CaseHistory.create({
       caseId,
       actionType: 'CASE_ATTACHMENT_ADDED',
-      description: `Attachment uploaded by ${req.user.email}: ${req.file.originalname}`,
+      description: `Attachment uploaded by ${req.user.email}: ${sanitizedFilename}`,
       performedBy: req.user.email.toLowerCase(),
     });
     
@@ -707,6 +755,7 @@ const updateCaseStatus = async (req, res) => {
  * GET /api/cases/:caseId
  * PR #41: Add CASE_VIEWED audit log
  * PR #44: Runtime assertion for xID context
+ * PR #45: Enhanced audit logging with CaseAudit and view mode detection
  */
 const getCaseByCaseId = async (req, res) => {
   try {
@@ -726,13 +775,15 @@ const getCaseByCaseId = async (req, res) => {
     const attachments = await Attachment.find({ caseId }).sort({ createdAt: 1 });
     const history = await CaseHistory.find({ caseId }).sort({ timestamp: -1 });
     
+    // PR #45: Also fetch CaseAudit entries for view-mode tracking
+    const auditLog = await CaseAudit.find({ caseId }).sort({ timestamp: -1 }).limit(50);
+    
     // Fetch current client details
     // TODO: Consider using aggregation pipeline with $lookup for better performance
     const client = await Client.findOne({ clientId: caseData.clientId, isActive: true });
     
-    // PR #41: Add CASE_VIEWED audit log
-    // PR #44: Require authenticated user with xID for audit logging
-    if (!req.user?.email) {
+    // PR #45: Require authenticated user with xID for audit logging
+    if (!req.user?.email || !req.user?.xID) {
       return res.status(401).json({
         success: false,
         message: 'Authentication required',
@@ -746,6 +797,25 @@ const getCaseByCaseId = async (req, res) => {
       console.warn(`[xID Guardrail] This should not happen - auth middleware should always provide xID`);
     }
     
+    // PR #45: Determine if user is viewing in view-only mode
+    // View-only mode: case is not assigned to the current user
+    const isViewOnlyMode = caseData.assignedTo !== req.user.xID;
+    const isOwner = caseData.createdByXID === req.user.xID;
+    
+    // PR #45: Add CaseAudit entry with xID attribution
+    await CaseAudit.create({
+      caseId,
+      actionType: 'CASE_VIEWED',
+      description: `Case viewed by ${req.user.xID}${isViewOnlyMode ? ' (view-only mode)' : ' (assigned mode)'}`,
+      performedByXID: req.user.xID,
+      metadata: {
+        isViewOnlyMode,
+        isOwner,
+        isAssigned: !isViewOnlyMode,
+      },
+    });
+    
+    // Also add to CaseHistory for backward compatibility
     await CaseHistory.create({
       caseId,
       actionType: 'CASE_VIEWED',
@@ -766,6 +836,16 @@ const getCaseByCaseId = async (req, res) => {
         comments,
         attachments,
         history,
+        auditLog, // PR #45: Include audit log for UI
+        // PR #45: Include access mode information for UI
+        accessMode: {
+          isViewOnlyMode,
+          isOwner,
+          isAssigned: !isViewOnlyMode,
+          canEdit: !isViewOnlyMode,
+          canComment: true, // Always allowed
+          canAttach: true, // Always allowed
+        },
       },
     });
   } catch (error) {

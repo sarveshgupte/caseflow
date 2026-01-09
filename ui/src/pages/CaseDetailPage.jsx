@@ -1,5 +1,6 @@
 /**
  * Case Detail Page
+ * PR #45: Added view-only mode indicator and audit log display
  */
 
 import React, { useState, useEffect } from 'react';
@@ -16,6 +17,15 @@ import { usePermissions } from '../hooks/usePermissions';
 import { caseService } from '../services/caseService';
 import { formatDateTime } from '../utils/formatters';
 import './CaseDetailPage.css';
+
+/**
+ * Helper function to normalize case data structure
+ * Handles both old and new API response formats
+ * PR #45: Utility to avoid repeated fallback patterns
+ */
+const normalizeCase = (data) => {
+  return data.case || data;
+};
 
 export const CaseDetailPage = () => {
   const { caseId } = useParams();
@@ -81,25 +91,51 @@ export const CaseDetailPage = () => {
     );
   }
 
+  // PR #45: Extract access mode information from API response
+  const accessMode = caseData.accessMode || {};
+  const isViewOnlyMode = accessMode.isViewOnlyMode;
+  
+  // PR #45: Normalize case data structure
+  const caseInfo = normalizeCase(caseData);
+
   return (
     <Layout>
       <div className="case-detail">
         <div className="case-detail__header">
           <div>
-            <h1>{caseData.caseName}</h1>
-            <p className="text-secondary">{caseData.category}</p>
+            <h1>{caseInfo.caseName}</h1>
+            <p className="text-secondary">{caseInfo.category}</p>
           </div>
-          <Badge status={caseData.status}>{caseData.status}</Badge>
+          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+            {/* PR #45: View-Only Mode Indicator */}
+            {isViewOnlyMode && (
+              <Badge variant="warning">View-Only Mode</Badge>
+            )}
+            <Badge status={caseInfo.status}>
+              {caseInfo.status}
+            </Badge>
+          </div>
         </div>
 
+        {/* PR #45: View-Only Mode Alert */}
+        {isViewOnlyMode && (
+          <div className="neo-alert neo-alert--info" style={{ marginBottom: 'var(--spacing-lg)' }}>
+            <h3>🔍 Viewing Case in Read-Only Mode</h3>
+            <p>
+              This case is not assigned to you. You can view all details, add comments, and attach files,
+              but you cannot edit case details, change status, or reassign the case.
+            </p>
+          </div>
+        )}
+
         {/* Lock Status Warning */}
-        {caseData.lockStatus?.isLocked && 
-         caseData.lockStatus.activeUserEmail !== user?.email?.toLowerCase() && (
+        {caseInfo.lockStatus?.isLocked && 
+         caseInfo.lockStatus.activeUserEmail !== user?.email?.toLowerCase() && (
           <div className="neo-alert neo-alert--warning" style={{ marginBottom: 'var(--spacing-lg)' }}>
             <h3>Case is Currently Locked</h3>
             <p>
-              This case is currently being worked on by <strong>{caseData.lockStatus.activeUserEmail}</strong> since{' '}
-              {formatDateTime(caseData.lockStatus.lastActivityAt || caseData.lockStatus.lockedAt)}.
+              This case is currently being worked on by <strong>{caseInfo.lockStatus.activeUserEmail}</strong> since{' '}
+              {formatDateTime(caseInfo.lockStatus.lastActivityAt || caseInfo.lockStatus.lockedAt)}.
             </p>
             <p>You can view the case in read-only mode.</p>
           </div>
@@ -110,34 +146,46 @@ export const CaseDetailPage = () => {
             <h2 className="neo-section__header">Case Information</h2>
             <div className="case-detail__field">
               <span className="case-detail__label">Case Name:</span>
-              <span>{caseData.caseName}</span>
+              <span>{caseInfo.caseName}</span>
             </div>
             <div className="case-detail__field">
               <span className="case-detail__label">Client ID:</span>
-              <span>{caseData.clientId || 'N/A'}</span>
+              <span>{caseInfo.clientId || 'N/A'}</span>
             </div>
+            {caseData.client && (
+              <div className="case-detail__field">
+                <span className="case-detail__label">Client Name:</span>
+                <span>{caseData.client.businessName}</span>
+              </div>
+            )}
             <div className="case-detail__field">
               <span className="case-detail__label">Category:</span>
-              <span>{caseData.category}</span>
+              <span>{caseInfo.category}</span>
             </div>
             <div className="case-detail__field">
               <span className="case-detail__label">Status:</span>
-              <Badge status={caseData.status}>{caseData.status}</Badge>
+              <Badge status={caseInfo.status}>
+                {caseInfo.status}
+              </Badge>
+            </div>
+            <div className="case-detail__field">
+              <span className="case-detail__label">Assigned To:</span>
+              <span>{caseInfo.assignedTo || 'Unassigned'}</span>
             </div>
             <div className="case-detail__field">
               <span className="case-detail__label">Created:</span>
-              <span>{formatDateTime(caseData.createdAt)}</span>
+              <span>{formatDateTime(caseInfo.createdAt)}</span>
             </div>
             <div className="case-detail__field">
               <span className="case-detail__label">Last Updated:</span>
-              <span>{formatDateTime(caseData.updatedAt)}</span>
+              <span>{formatDateTime(caseInfo.updatedAt)}</span>
             </div>
           </Card>
 
-          {caseData.description && (
+          {caseInfo.description && (
             <Card className="case-detail__section">
               <h2 className="neo-section__header">Description</h2>
-              <p>{caseData.description}</p>
+              <p>{caseInfo.description}</p>
             </Card>
           )}
         </div>
@@ -160,7 +208,8 @@ export const CaseDetailPage = () => {
             )}
           </div>
 
-          {permissions.canAddComment(caseData) && (
+          {/* PR #45: Always allow comments (in both view-only and assigned modes) */}
+          {(accessMode.canComment || permissions.canAddComment(caseData)) && (
             <div className="case-detail__add-comment">
               <Textarea
                 label="Add Comment"
@@ -187,7 +236,7 @@ export const CaseDetailPage = () => {
               {caseData.attachments.map((attachment, index) => (
                 <div key={index} className="neo-inset" style={{ marginBottom: 'var(--spacing-sm)' }}>
                   <div className="case-detail__attachment">
-                    <span>{attachment.filename}</span>
+                    <span>{attachment.fileName || attachment.filename}</span>
                     <span className="text-secondary text-sm">{attachment.description}</span>
                   </div>
                 </div>
@@ -196,15 +245,38 @@ export const CaseDetailPage = () => {
           </Card>
         )}
 
-        {caseData.auditHistory && caseData.auditHistory.length > 0 && (
+        {/* PR #45: Display audit log from CaseAudit collection */}
+        {caseData.auditLog && caseData.auditLog.length > 0 && (
           <Card className="case-detail__section">
-            <h2 className="neo-section__header">Audit History</h2>
+            <h2 className="neo-section__header">Activity Timeline</h2>
             <div className="case-detail__audit">
-              {caseData.auditHistory.map((entry, index) => (
+              {caseData.auditLog.map((entry, index) => (
                 <div key={index} className="neo-inset" style={{ marginBottom: 'var(--spacing-sm)' }}>
                   <div className="case-detail__audit-entry">
                     <span className="text-sm">{formatDateTime(entry.timestamp)}</span>
-                    <span>{entry.action}</span>
+                    <span>{entry.actionType}</span>
+                    <span className="text-secondary text-sm">{entry.performedByXID}</span>
+                  </div>
+                  <p className="text-sm text-secondary" style={{ marginTop: 'var(--spacing-xs)' }}>
+                    {entry.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Fallback to old audit history if new audit log not available */}
+        {(!caseData.auditLog || caseData.auditLog.length === 0) && 
+         caseData.history && caseData.history.length > 0 && (
+          <Card className="case-detail__section">
+            <h2 className="neo-section__header">Audit History</h2>
+            <div className="case-detail__audit">
+              {caseData.history.map((entry, index) => (
+                <div key={index} className="neo-inset" style={{ marginBottom: 'var(--spacing-sm)' }}>
+                  <div className="case-detail__audit-entry">
+                    <span className="text-sm">{formatDateTime(entry.timestamp)}</span>
+                    <span>{entry.actionType}</span>
                     <span className="text-secondary text-sm">{entry.performedBy}</span>
                   </div>
                 </div>
