@@ -228,7 +228,8 @@ const createCase = async (req, res) => {
       caseId: newCase.caseId,
       actionType: 'Created',
       description: `Case created with status: UNASSIGNED, Client: ${finalClientId}`,
-      performedBy: createdByXID,
+      performedBy: req.user.email || req.user.xID, // Display email or xID
+      performedByXID: createdByXID, // Canonical identifier
     });
     
     // Add system comment if duplicate was overridden
@@ -341,6 +342,7 @@ const addComment = async (req, res) => {
       actionType: 'CASE_COMMENT_ADDED',
       description: `Comment added by ${req.user.email}: ${text.substring(0, COMMENT_PREVIEW_LENGTH)}${text.length > COMMENT_PREVIEW_LENGTH ? '...' : ''}`,
       performedBy: req.user.email.toLowerCase(),
+      performedByXID: req.user.xID, // Canonical identifier
     });
     
     res.status(201).json({
@@ -452,6 +454,7 @@ const addAttachment = async (req, res) => {
       actionType: 'CASE_ATTACHMENT_ADDED',
       description: `Attachment uploaded by ${req.user.email}: ${sanitizedFilename}`,
       performedBy: req.user.email.toLowerCase(),
+      performedByXID: req.user.xID, // Canonical identifier
     });
     
     res.status(201).json({
@@ -849,6 +852,7 @@ const getCaseByCaseId = async (req, res) => {
       actionType: 'CASE_VIEWED',
       description: `Case viewed by ${req.user.email}`,
       performedBy: req.user.email.toLowerCase(),
+      performedByXID: req.user.xID, // Canonical identifier
     });
     
     res.json({

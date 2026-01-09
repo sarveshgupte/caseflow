@@ -40,7 +40,7 @@ const getCaseMetrics = async (req, res) => {
     if (status) matchStage.status = status;
     if (category) matchStage.category = category;
     if (clientId) matchStage.clientId = clientId;
-    if (assignedTo) matchStage.assignedTo = assignedTo;
+    if (assignedTo) matchStage.assignedToXID = assignedTo; // Use assignedToXID for canonical queries
     
     // Get total count
     const totalCases = await Case.countDocuments(matchStage);
@@ -89,25 +89,21 @@ const getCaseMetrics = async (req, res) => {
     }
     
     // Aggregate by employee
-    // PR #42: assignedTo now stores xID, need to resolve to user info for display
+    // PR: xID Canonicalization - Use assignedToXID for queries
     const byEmployeeResult = await Case.aggregate([
-      { $match: { ...matchStage, assignedTo: { $ne: null, $ne: '' } } },
-      { $group: { _id: '$assignedTo', count: { $sum: 1 } } },
+      { $match: { ...matchStage, assignedToXID: { $ne: null, $ne: '' } } },
+      { $group: { _id: '$assignedToXID', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
       { $limit: 10 },
     ]);
     
     // Populate employee names
-    // PR #42: assignedTo contains xID, resolve to user
+    // assignedToXID contains xID, resolve to user for display
     const byEmployee = [];
     for (const item of byEmployeeResult) {
-      // Try to find user by xID first, fallback to email for backward compatibility
-      let user = await User.findOne({ xID: item._id }).lean();
-      if (!user) {
-        user = await User.findOne({ email: item._id }).lean();
-      }
+      const user = await User.findOne({ xID: item._id }).lean();
       byEmployee.push({
-        xID: user ? user.xID : item._id,
+        xID: item._id,
         email: user ? user.email : 'Unknown',
         name: user ? user.name : 'Unknown',
         count: item.count,
@@ -148,7 +144,7 @@ const getPendingCasesReport = async (req, res) => {
     const matchStage = { status: 'Pending' };
     
     if (category) matchStage.category = category;
-    if (assignedTo) matchStage.assignedTo = assignedTo;
+    if (assignedTo) matchStage.assignedToXID = assignedTo; // Use assignedToXID for canonical queries
     
     // Fetch all pending cases
     const cases = await Case.find(matchStage).lean();
@@ -186,15 +182,11 @@ const getPendingCasesReport = async (req, res) => {
     for (const caseItem of filteredCases) {
       const client = await Client.findOne({ clientId: caseItem.clientId }).lean();
       
-      // PR #42: Resolve assignedTo xID to user info for display
-      let assignedToDisplay = caseItem.assignedTo || '';
-      if (caseItem.assignedTo) {
-        // Try to find user by xID first, fallback to email for backward compatibility
-        let assignedUser = await User.findOne({ xID: caseItem.assignedTo }).lean();
-        if (!assignedUser) {
-          assignedUser = await User.findOne({ email: caseItem.assignedTo }).lean();
-        }
-        assignedToDisplay = assignedUser ? assignedUser.email : caseItem.assignedTo;
+      // PR: xID Canonicalization - Resolve assignedToXID to user info for display
+      let assignedToDisplay = caseItem.assignedToXID || '';
+      if (caseItem.assignedToXID) {
+        const assignedUser = await User.findOne({ xID: caseItem.assignedToXID }).lean();
+        assignedToDisplay = assignedUser ? assignedUser.email : caseItem.assignedToXID;
       }
       
       casesWithClientNames.push({
@@ -317,14 +309,11 @@ const getCasesByDateRange = async (req, res) => {
       const client = await Client.findOne({ clientId: caseItem.clientId }).lean();
       
       // PR #42: Resolve assignedTo xID to user info for display
-      let assignedToDisplay = caseItem.assignedTo || '';
-      if (caseItem.assignedTo) {
+      let assignedToDisplay = caseItem.assignedToXID || '';
+      if (caseItem.assignedToXID) {
         // Try to find user by xID first, fallback to email for backward compatibility
-        let assignedUser = await User.findOne({ xID: caseItem.assignedTo }).lean();
-        if (!assignedUser) {
-          assignedUser = await User.findOne({ email: caseItem.assignedTo }).lean();
-        }
-        assignedToDisplay = assignedUser ? assignedUser.email : caseItem.assignedTo;
+        let assignedUser = await User.findOne({ xID: caseItem.assignedToXID }).lean();
+        assignedToDisplay = assignedUser ? assignedUser.email : caseItem.assignedToXID;
       }
       
       casesWithClientNames.push({
@@ -402,14 +391,11 @@ const exportCasesCSV = async (req, res) => {
       const client = await Client.findOne({ clientId: caseItem.clientId }).lean();
       
       // PR #42: Resolve assignedTo xID to user info for display
-      let assignedToDisplay = caseItem.assignedTo || '';
-      if (caseItem.assignedTo) {
+      let assignedToDisplay = caseItem.assignedToXID || '';
+      if (caseItem.assignedToXID) {
         // Try to find user by xID first, fallback to email for backward compatibility
-        let assignedUser = await User.findOne({ xID: caseItem.assignedTo }).lean();
-        if (!assignedUser) {
-          assignedUser = await User.findOne({ email: caseItem.assignedTo }).lean();
-        }
-        assignedToDisplay = assignedUser ? assignedUser.email : caseItem.assignedTo;
+        let assignedUser = await User.findOne({ xID: caseItem.assignedToXID }).lean();
+        assignedToDisplay = assignedUser ? assignedUser.email : caseItem.assignedToXID;
       }
       
       casesWithClientNames.push({
@@ -489,14 +475,11 @@ const exportCasesExcel = async (req, res) => {
       const client = await Client.findOne({ clientId: caseItem.clientId }).lean();
       
       // PR #42: Resolve assignedTo xID to user info for display
-      let assignedToDisplay = caseItem.assignedTo || '';
-      if (caseItem.assignedTo) {
+      let assignedToDisplay = caseItem.assignedToXID || '';
+      if (caseItem.assignedToXID) {
         // Try to find user by xID first, fallback to email for backward compatibility
-        let assignedUser = await User.findOne({ xID: caseItem.assignedTo }).lean();
-        if (!assignedUser) {
-          assignedUser = await User.findOne({ email: caseItem.assignedTo }).lean();
-        }
-        assignedToDisplay = assignedUser ? assignedUser.email : caseItem.assignedTo;
+        let assignedUser = await User.findOne({ xID: caseItem.assignedToXID }).lean();
+        assignedToDisplay = assignedUser ? assignedUser.email : caseItem.assignedToXID;
       }
       
       casesWithClientNames.push({
@@ -541,7 +524,7 @@ const exportCasesExcel = async (req, res) => {
         category: caseItem.category,
         clientId: caseItem.clientId,
         clientName: caseItem.clientName,
-        assignedTo: caseItem.assignedTo,
+        assignedTo: caseItem.assignedToXID,
         createdAt: caseItem.createdAt.toISOString().replace('T', ' ').substring(0, 19),
         createdBy: caseItem.createdBy,
       });

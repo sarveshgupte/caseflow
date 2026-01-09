@@ -51,12 +51,13 @@ const recordAction = async (caseId, actionType, description, performedByXID, per
     metadata,
   });
   
-  // Create CaseHistory entry (legacy, email-based)
+  // Create CaseHistory entry (legacy, email-based, now with xID too)
   await CaseHistory.create({
     caseId,
     actionType,
     description,
     performedBy: performedByEmail.toLowerCase(),
+    performedByXID, // Add xID for canonical identification
   });
 };
 
