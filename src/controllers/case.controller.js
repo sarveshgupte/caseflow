@@ -807,8 +807,8 @@ const getCaseByCaseId = async (req, res) => {
     
     // Fetch current client details
     // TODO: Consider using aggregation pipeline with $lookup for better performance
-    // PR: Client Lifecycle - include inactive clients to display existing cases properly
-    const client = await Client.findOne({ clientId: caseData.clientId }); // Removed isActive filter
+    // PR: Client Lifecycle - fetch client regardless of status to display existing cases with inactive clients
+    const client = await Client.findOne({ clientId: caseData.clientId });
     
     // PR #45: Require authenticated user with xID for audit logging
     if (!req.user?.email || !req.user?.xID) {
@@ -951,10 +951,10 @@ const getCases = async (req, res) => {
     // TODO: Optimize N+1 query - consider pre-fetching unique clientIds or using aggregation
     // TODO: Use MongoDB aggregation with $lookup to join client data in a single query
     // Example: Case.aggregate([{ $lookup: { from: 'clients', localField: 'clientId', foreignField: 'clientId', as: 'client' }}])
-    // PR: Client Lifecycle - include inactive clients to display existing cases properly
+    // PR: Client Lifecycle - fetch clients regardless of status to display existing cases with inactive clients
     const casesWithClients = await Promise.all(
       cases.map(async (caseItem) => {
-        const client = await Client.findOne({ clientId: caseItem.clientId }); // Removed isActive filter
+        const client = await Client.findOne({ clientId: caseItem.clientId });
         return {
           ...caseItem.toObject(),
           client: client ? {

@@ -2,6 +2,8 @@
  * Formatting Utilities
  */
 
+import { CLIENT_STATUS } from './constants';
+
 export const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
@@ -77,8 +79,7 @@ export const formatClientDisplay = (client, showInactiveLabel = false) => {
   
   // Append inactive label if client is not active
   // Use status field as the canonical field (per Client model)
-  // Import CLIENT_STATUS constant for consistency
-  if (showInactiveLabel && client.status !== 'ACTIVE') {
+  if (showInactiveLabel && client.status !== CLIENT_STATUS.ACTIVE) {
     display += ' (Inactive)';
   }
   
