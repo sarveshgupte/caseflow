@@ -45,8 +45,14 @@ const CASE_STATUS = {
   ARCHIVED: 'Archived',
 };
 
+/**
+ * Comment preview length for audit logs
+ */
+const COMMENT_PREVIEW_LENGTH = 50;
+
 module.exports = {
   CASE_LOCK_CONFIG,
   CASE_CATEGORIES,
   CASE_STATUS,
+  COMMENT_PREVIEW_LENGTH,
 };

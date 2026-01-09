@@ -6,6 +6,14 @@ import api from './api';
 
 export const adminService = {
   /**
+   * Get admin dashboard statistics (PR #41)
+   */
+  getAdminStats: async () => {
+    const response = await api.get('/admin/stats');
+    return response.data;
+  },
+
+  /**
    * Create new user (Admin only)
    */
   createUser: async (userData) => {

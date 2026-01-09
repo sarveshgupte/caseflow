@@ -4,7 +4,7 @@ const Attachment = require('../models/Attachment.model');
 const CaseHistory = require('../models/CaseHistory.model');
 const Client = require('../models/Client.model');
 const { detectDuplicates, generateDuplicateOverrideComment } = require('../services/clientDuplicateDetector');
-const { CASE_CATEGORIES, CASE_LOCK_CONFIG } = require('../config/constants');
+const { CASE_CATEGORIES, CASE_LOCK_CONFIG, CASE_STATUS, COMMENT_PREVIEW_LENGTH } = require('../config/constants');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -235,11 +235,20 @@ const createCase = async (req, res) => {
 /**
  * Add a comment to a case
  * POST /api/cases/:caseId/comments
+ * PR #41: Allow comments in view mode (no assignment check)
  */
 const addComment = async (req, res) => {
   try {
     const { caseId } = req.params;
     const { text, createdBy, note } = req.body;
+    
+    // PR #41: Require authenticated user for security
+    if (!req.user?.email) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
     
     // Validate required fields
     if (!text) {
@@ -266,12 +275,13 @@ const addComment = async (req, res) => {
       });
     }
     
-    // Check if case status allows comments
-    const allowedStatuses = ['Open', 'Pending', 'Closed', 'Filed'];
-    if (!allowedStatuses.includes(caseData.status)) {
-      return res.status(400).json({
+    // PR #41: Allow comments even if case is not assigned (view mode)
+    // Only check if case is locked by someone else - use authenticated user for security
+    if (caseData.lockStatus?.isLocked && 
+        caseData.lockStatus.activeUserEmail !== req.user.email.toLowerCase()) {
+      return res.status(423).json({
         success: false,
-        message: `Comments cannot be added to cases with status: ${caseData.status}`,
+        message: `Case is currently locked by ${caseData.lockStatus.activeUserEmail}`,
       });
     }
     
@@ -281,6 +291,14 @@ const addComment = async (req, res) => {
       text,
       createdBy: createdBy.toLowerCase(),
       note,
+    });
+    
+    // PR #41: Add audit log entry for comment - use authenticated user for security
+    await CaseHistory.create({
+      caseId,
+      actionType: 'CASE_COMMENT_ADDED',
+      description: `Comment added by ${req.user.email}: ${text.substring(0, COMMENT_PREVIEW_LENGTH)}${text.length > COMMENT_PREVIEW_LENGTH ? '...' : ''}`,
+      performedBy: req.user.email.toLowerCase(),
     });
     
     res.status(201).json({
@@ -301,11 +319,20 @@ const addComment = async (req, res) => {
  * Upload an attachment to a case
  * POST /api/cases/:caseId/attachments
  * Uses multer middleware for file upload
+ * PR #41: Allow attachments in view mode (no assignment check)
  */
 const addAttachment = async (req, res) => {
   try {
     const { caseId } = req.params;
     const { description, createdBy, note } = req.body;
+    
+    // PR #41: Require authenticated user for security
+    if (!req.user?.email) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
     
     // Validate file upload
     if (!req.file) {
@@ -340,19 +367,13 @@ const addAttachment = async (req, res) => {
       });
     }
     
-    // Check if case status allows attachments
-    if (caseData.status === 'Filed') {
-      return res.status(400).json({
+    // PR #41: Allow attachments even if case is not assigned (view mode)
+    // Only check if case is locked by someone else - use authenticated user for security
+    if (caseData.lockStatus?.isLocked && 
+        caseData.lockStatus.activeUserEmail !== req.user.email.toLowerCase()) {
+      return res.status(423).json({
         success: false,
-        message: 'Attachments cannot be added to Filed cases',
-      });
-    }
-    
-    const allowedStatuses = ['Open', 'Pending', 'Closed'];
-    if (!allowedStatuses.includes(caseData.status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Attachments cannot be added to cases with status: ${caseData.status}`,
+        message: `Case is currently locked by ${caseData.lockStatus.activeUserEmail}`,
       });
     }
     
@@ -364,6 +385,14 @@ const addAttachment = async (req, res) => {
       description,
       createdBy: createdBy.toLowerCase(),
       note,
+    });
+    
+    // PR #41: Add audit log entry for attachment - use authenticated user for security
+    await CaseHistory.create({
+      caseId,
+      actionType: 'CASE_ATTACHMENT_ADDED',
+      description: `Attachment uploaded by ${req.user.email}: ${req.file.originalname}`,
+      performedBy: req.user.email.toLowerCase(),
     });
     
     res.status(201).json({
@@ -674,6 +703,7 @@ const updateCaseStatus = async (req, res) => {
 /**
  * Get case by caseId
  * GET /api/cases/:caseId
+ * PR #41: Add CASE_VIEWED audit log
  */
 const getCaseByCaseId = async (req, res) => {
   try {
@@ -696,6 +726,22 @@ const getCaseByCaseId = async (req, res) => {
     // Fetch current client details
     // TODO: Consider using aggregation pipeline with $lookup for better performance
     const client = await Client.findOne({ clientId: caseData.clientId, isActive: true });
+    
+    // PR #41: Add CASE_VIEWED audit log
+    // Require authenticated user for audit logging
+    if (!req.user?.email) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+    
+    await CaseHistory.create({
+      caseId,
+      actionType: 'CASE_VIEWED',
+      description: `Case viewed by ${req.user.email}`,
+      performedBy: req.user.email.toLowerCase(),
+    });
     
     res.json({
       success: true,
@@ -1051,7 +1097,7 @@ const pullCase = async (req, res) => {
     // Create history entry
     await CaseHistory.create({
       caseId,
-      actionType: 'Pulled',
+      actionType: 'CASE_PULLED',
       description: `Case pulled from global worklist and assigned to ${userEmail.toLowerCase()}`,
       performedBy: userEmail.toLowerCase(),
     });
@@ -1122,7 +1168,7 @@ const bulkPullCases = async (req, res) => {
     // Create history entries for successfully pulled cases
     const historyEntries = updatedCases.map(caseData => ({
       caseId: caseData.caseId,
-      actionType: 'Pulled',
+      actionType: 'CASE_PULLED',
       description: `Case pulled from global worklist and assigned to ${normalizedEmail}`,
       performedBy: normalizedEmail,
     }));

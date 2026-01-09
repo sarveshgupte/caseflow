@@ -346,14 +346,23 @@ export const GlobalWorklistPage = () => {
                       </td>
                       <td>{formatDate(caseItem.createdAt)}</td>
                       <td>
-                        <Button
-                          variant="primary"
-                          size="small"
-                          onClick={() => handlePullCase(caseItem.caseId)}
-                          disabled={pullingCase === caseItem.caseId}
-                        >
-                          {pullingCase === caseItem.caseId ? 'Pulling...' : 'Pull Case'}
-                        </Button>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <Button
+                            variant="default"
+                            size="small"
+                            onClick={() => navigate(`/cases/${caseItem.caseId}`)}
+                          >
+                            View
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="small"
+                            onClick={() => handlePullCase(caseItem.caseId)}
+                            disabled={pullingCase === caseItem.caseId}
+                          >
+                            {pullingCase === caseItem.caseId ? 'Pulling...' : 'Pull'}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))

@@ -3,6 +3,22 @@
  */
 
 import api from './api';
+import { STORAGE_KEYS } from '../utils/constants';
+
+/**
+ * Get authenticated user from localStorage
+ * Throws error if not authenticated
+ */
+const getAuthenticatedUser = () => {
+  const userStr = localStorage.getItem(STORAGE_KEYS.USER);
+  const user = userStr ? JSON.parse(userStr) : null;
+  
+  if (!user?.email) {
+    throw new Error('User not authenticated. Please log in again.');
+  }
+  
+  return user;
+};
 
 export const caseService = {
   /**
@@ -40,21 +56,29 @@ export const caseService = {
 
   /**
    * Add comment to case
+   * PR #41: Fixed to send text and createdBy as expected by backend
    */
-  addComment: async (caseId, comment) => {
+  addComment: async (caseId, commentText) => {
+    const user = getAuthenticatedUser();
+    
     const response = await api.post(`/cases/${caseId}/comments`, {
-      comment,
+      text: commentText,
+      createdBy: user.email,
     });
     return response.data;
   },
 
   /**
    * Add attachment to case
+   * PR #41: Fixed to send createdBy as expected by backend
    */
   addAttachment: async (caseId, file, description) => {
+    const user = getAuthenticatedUser();
+    
     const formData = new FormData();
     formData.append('file', file);
     formData.append('description', description);
+    formData.append('createdBy', user.email);
     
     const response = await api.post(`/cases/${caseId}/attachments`, formData, {
       headers: {
