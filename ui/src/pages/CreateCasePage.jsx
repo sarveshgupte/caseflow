@@ -59,13 +59,19 @@ export const CreateCasePage = () => {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await clientService.getClients(true); // Get only active clients
+        // Use forCreateCase=true to always get Default Client (C000001) + active clients
+        const response = await clientService.getClients(false, true);
         if (response.success) {
-          const activeClients = response.data || [];
-          setClients(activeClients);
-          // Set first client as default if available and no client is selected
-          if (activeClients.length > 0 && formData.clientId === '') {
-            setFormData(prev => ({ ...prev, clientId: activeClients[0].clientId }));
+          const clientList = response.data || [];
+          setClients(clientList);
+          
+          // Always default to C000001 (Default Client) if available
+          const defaultClient = clientList.find(c => c.clientId === 'C000001');
+          if (defaultClient && formData.clientId === '') {
+            setFormData(prev => ({ ...prev, clientId: 'C000001' }));
+          } else if (clientList.length > 0 && formData.clientId === '') {
+            // Fallback to first client if Default Client not found (shouldn't happen)
+            setFormData(prev => ({ ...prev, clientId: clientList[0].clientId }));
           }
         }
       } catch (err) {
