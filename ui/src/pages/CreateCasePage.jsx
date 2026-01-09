@@ -62,8 +62,8 @@ export const CreateCasePage = () => {
         if (response.success) {
           const activeClients = response.data || [];
           setClients(activeClients);
-          // Set first client as default if available
-          if (activeClients.length > 0 && !formData.clientId) {
+          // Set first client as default if available and no client is selected
+          if (activeClients.length > 0 && formData.clientId === '') {
             setFormData(prev => ({ ...prev, clientId: activeClients[0].clientId }));
           }
         }
@@ -74,6 +74,8 @@ export const CreateCasePage = () => {
       }
     };
     fetchClients();
+    // Only run once on mount - formData.clientId is intentionally not in deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   // Update subcategories when category changes
