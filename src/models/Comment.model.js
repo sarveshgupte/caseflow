@@ -48,6 +48,9 @@ const commentSchema = new mongoose.Schema({
    * ✅ CANONICAL IDENTIFIER ✅
    * Format: X123456
    * Used for attribution and audit trails
+   * 
+   * Optional for backward compatibility with existing comments.
+   * All new comments should include this field.
    */
   createdByXID: {
     type: String,
@@ -58,6 +61,9 @@ const commentSchema = new mongoose.Schema({
   /**
    * Name of user who created the comment
    * Used for display in UI
+   * 
+   * Optional for backward compatibility with existing comments.
+   * All new comments should include this field.
    */
   createdByName: {
     type: String,

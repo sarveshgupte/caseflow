@@ -23,7 +23,7 @@ export const Select = ({
         </label>
       )}
       <select className="neo-select" disabled={disabled} required={required} {...props}>
-        {children || options.map((option) => (
+        {children ? children : options.map((option) => (
           <option key={option.value} value={option.value} disabled={option.disabled}>
             {option.label}
           </option>
