@@ -38,8 +38,6 @@ const generateNextClientId = async () => {
     const paddedNumber = String(counter.value).padStart(6, '0');
     const clientId = `C${paddedNumber}`;
     
-    console.log(`[Client ID Generator] Generated clientId: ${clientId}`);
-    
     return clientId;
   } catch (error) {
     console.error('[Client ID Generator] Error generating clientId:', error);
@@ -68,7 +66,7 @@ const validateClientIdFormat = (clientId) => {
  */
 const clientIdExists = async (clientId) => {
   try {
-    const client = await Client.findOne({ clientId: clientId.toUpperCase() }).lean();
+    const client = await Client.findOne({ clientId }).lean();
     return !!client;
   } catch (error) {
     console.error('[Client ID Generator] Error checking clientId existence:', error);
