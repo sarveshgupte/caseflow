@@ -319,6 +319,8 @@ const addComment = async (req, res) => {
       caseId,
       text,
       createdBy: createdBy.toLowerCase(),
+      createdByXID: req.user.xID,
+      createdByName: req.user.name,
       note,
     });
     
@@ -636,6 +638,14 @@ const unpendCase = async (req, res) => {
     const { caseId } = req.params;
     const { comment, performedBy } = req.body;
     
+    // Validate authentication
+    if (!req.user?.email || !req.user?.xID) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+    
     // Validate required fields
     if (!comment) {
       return res.status(400).json({
@@ -681,6 +691,8 @@ const unpendCase = async (req, res) => {
       caseId,
       text: comment,
       createdBy: performedBy.toLowerCase(),
+      createdByXID: req.user.xID,
+      createdByName: req.user.name,
     });
     
     // Create history entry

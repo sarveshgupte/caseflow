@@ -104,7 +104,7 @@ export const CreateCasePage = () => {
   }, [formData.categoryId, categories]);
 
   const categoryOptions = [
-    { value: '', label: 'Select Category *' },
+    { value: '', label: 'Select Category *', disabled: true },
     ...categories.map(cat => ({
       value: cat._id,
       label: cat.name,
@@ -112,7 +112,7 @@ export const CreateCasePage = () => {
   ];
   
   const subcategoryOptions = [
-    { value: '', label: 'Select Subcategory *' },
+    { value: '', label: 'Select Subcategory *', disabled: true },
     ...subcategories.map(sub => ({
       value: sub.id,
       label: sub.name,
@@ -120,7 +120,7 @@ export const CreateCasePage = () => {
   ];
 
   const clientOptions = [
-    { value: '', label: 'Select Client *' },
+    { value: '', label: 'Select Client *', disabled: true },
     ...clients.map(client => ({
       value: client.clientId,
       label: formatClientDisplay(client), // Format: C000002 – Business Name

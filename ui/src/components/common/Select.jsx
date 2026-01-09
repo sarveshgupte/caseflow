@@ -11,6 +11,7 @@ export const Select = ({
   disabled = false,
   required = false,
   className = '',
+  children,
   ...props
 }) => {
   return (
@@ -21,10 +22,9 @@ export const Select = ({
           {required && <span style={{ color: 'var(--accent-danger)' }}> *</span>}
         </label>
       )}
-      <select className="neo-select" disabled={disabled} {...props}>
-        <option value="">Select...</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
+      <select className="neo-select" disabled={disabled} required={required} {...props}>
+        {children ? children : options.map((option) => (
+          <option key={option.value} value={option.value} disabled={option.disabled}>
             {option.label}
           </option>
         ))}

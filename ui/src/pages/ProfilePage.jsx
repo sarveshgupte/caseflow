@@ -175,7 +175,7 @@ export const ProfilePage = () => {
                 disabled={!editing}
                 className="neo-select"
               >
-                <option value="">Select Gender</option>
+                <option value="" disabled>Select Gender</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
                 <option value="Other">Other</option>

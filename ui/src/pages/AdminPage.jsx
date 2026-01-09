@@ -50,7 +50,7 @@ export const AdminPage = () => {
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
-    role: 'Employee',
+    role: '',
   });
   
   // Category form state
@@ -144,7 +144,7 @@ export const AdminPage = () => {
     e.preventDefault();
     
     // PR 32: Only name and email are required (xID is auto-generated)
-    if (!newUser.name || !newUser.email) {
+    if (!newUser.name || !newUser.email || !newUser.role) {
       showToast('Please fill in all required fields', 'error');
       return;
     }
@@ -157,7 +157,7 @@ export const AdminPage = () => {
       if (response.success) {
         showToast(`User created successfully! xID: ${response.data?.xID}. Invite email sent.`, 'success');
         setShowCreateModal(false);
-        setNewUser({ name: '', email: '', role: 'Employee' });
+        setNewUser({ name: '', email: '', role: '' });
         loadAdminData();
       } else {
         showToast(response.message || 'Failed to create user', 'error');
@@ -998,9 +998,11 @@ export const AdminPage = () => {
             value={newUser.role}
             onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
             options={[
+              { value: '', label: 'Select Role *', disabled: true },
               { value: 'Employee', label: 'Employee' },
               { value: 'Admin', label: 'Admin' },
             ]}
+            required
           />
 
           <div className="admin__form-actions">

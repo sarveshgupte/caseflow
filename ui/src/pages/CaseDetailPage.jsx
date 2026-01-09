@@ -193,7 +193,11 @@ export const CaseDetailPage = () => {
               caseData.comments.map((comment, index) => (
                 <div key={index} className="neo-inset" style={{ marginBottom: 'var(--spacing-md)' }}>
                   <div className="case-detail__comment-header">
-                    <span className="case-detail__comment-author">{comment.createdBy || 'System'}</span>
+                    <span className="case-detail__comment-author">
+                      {comment.createdByName && comment.createdByXID 
+                        ? `${comment.createdByName} (${comment.createdByXID})`
+                        : comment.createdBy || 'System'}
+                    </span>
                     <span className="text-secondary text-sm">{formatDateTime(comment.createdAt)}</span>
                   </div>
                   <p className="case-detail__comment-text">{comment.text}</p>
