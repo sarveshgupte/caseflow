@@ -52,7 +52,7 @@ const assignCaseToUser = async (caseId, user) => {
     },
     {
       $set: {
-        assignedTo: user.xID.toUpperCase(), // CANONICAL: Store xID
+        assignedToXID: user.xID.toUpperCase(), // CANONICAL: Store xID in assignedToXID
         queueType: 'PERSONAL', // Move from GLOBAL to PERSONAL queue
         status: CASE_STATUS.OPEN, // Change status to OPEN
         assignedAt: new Date(),
@@ -78,7 +78,7 @@ const assignCaseToUser = async (caseId, user) => {
         success: false,
         message: 'Case is no longer available (already assigned)',
         currentStatus: existingCase.status,
-        assignedTo: existingCase.assignedTo,
+        assignedToXID: existingCase.assignedToXID,
       };
     }
   }
@@ -137,7 +137,7 @@ const bulkAssignCasesToUser = async (caseIds, user) => {
     },
     {
       $set: {
-        assignedTo: user.xID.toUpperCase(), // CANONICAL: Store xID
+        assignedToXID: user.xID.toUpperCase(), // CANONICAL: Store xID in assignedToXID
         queueType: 'PERSONAL', // Move from GLOBAL to PERSONAL queue
         status: CASE_STATUS.OPEN, // Change status to OPEN
         assignedAt: new Date(),
@@ -150,7 +150,7 @@ const bulkAssignCasesToUser = async (caseIds, user) => {
   // Get the actual cases that were updated
   const updatedCases = await Case.find({
     caseId: { $in: caseIds },
-    assignedTo: user.xID.toUpperCase(),
+    assignedToXID: user.xID.toUpperCase(),
     queueType: 'PERSONAL',
   });
   
@@ -224,10 +224,10 @@ const reassignCase = async (caseId, newUserXID, performedBy) => {
     throw new Error('Cannot reassign filed cases');
   }
   
-  const previousAssignee = caseData.assignedTo;
+  const previousAssignee = caseData.assignedToXID;
   
   // Update assignment
-  caseData.assignedTo = newUserXID.toUpperCase();
+  caseData.assignedToXID = newUserXID.toUpperCase();
   caseData.assignedAt = new Date();
   
   await caseData.save();

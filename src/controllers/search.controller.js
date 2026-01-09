@@ -75,12 +75,13 @@ const globalSearch = async (req, res) => {
     } else {
       // Employee: Only see assigned or allowed category cases
       // PR #42: Use xID for assignment matching
+      // PR: xID Canonicalization - Use assignedToXID field
       caseQuery = {
         $and: [
           { $or: caseSearchConditions },
           {
             $or: [
-              { assignedTo: user.xID }, // CANONICAL: Match by xID
+              { assignedToXID: user.xID }, // CANONICAL: Match by xID in assignedToXID field
               { category: { $in: user.allowedCategories } },
             ],
           },
@@ -141,12 +142,13 @@ const globalSearch = async (req, res) => {
       if (!isAdmin) {
         // Apply employee visibility rules
         // PR #42: Use xID for assignment matching
+        // PR: xID Canonicalization - Use assignedToXID field
         relatedQuery = {
           $and: [
             { caseId: { $in: caseIdsFromRelated } },
             {
               $or: [
-                { assignedTo: user.xID }, // CANONICAL: Match by xID
+                { assignedToXID: user.xID }, // CANONICAL: Match by xID in assignedToXID field
                 { category: { $in: user.allowedCategories } },
               ],
             },
@@ -316,11 +318,11 @@ const employeeWorklist = async (req, res) => {
       });
     }
     
-    // CANONICAL QUERY: assignedTo = xID AND status = OPEN
+    // CANONICAL QUERY: assignedToXID = xID AND status = OPEN
     // This is the ONLY correct query for "My Worklist"
     // Dashboard counts MUST use the same query
     const query = {
-      assignedTo: user.xID, // CANONICAL: Query by xID
+      assignedToXID: user.xID, // CANONICAL: Query by xID in assignedToXID field
       status: CASE_STATUS.OPEN, // Only OPEN cases, not PENDED, not legacy 'Open'
     };
     

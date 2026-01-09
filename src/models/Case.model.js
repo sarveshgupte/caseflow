@@ -279,12 +279,27 @@ const caseSchema = new mongoose.Schema({
    * 
    * PR #42: Standardized to use xID as the canonical identifier
    * PR #44: Enforced with guardrails - email-based assignment is blocked
+   * PR: xID Canonicalization - Renamed to assignedToXID, assignedTo deprecated
    * 
    * - Assignment operations MUST store xID
    * - Query operations MUST filter by xID
    * - Display operations MUST resolve xID → user info
    * 
    * NEVER use email for assignment or ownership logic.
+   */
+  assignedToXID: {
+    type: String,
+    uppercase: true,
+    trim: true,
+  },
+  
+  /**
+   * ⚠️ DEPRECATED - DO NOT USE ⚠️
+   * 
+   * Legacy field kept for backward compatibility during migration.
+   * Use assignedToXID instead for all ownership operations.
+   * 
+   * This field will be removed in a future release.
    */
   assignedTo: {
     type: String,
@@ -597,29 +612,32 @@ caseSchema.pre('validate', async function() {
  * - category: Access control and filtering by case type
  * - createdBy: DEPRECATED - kept for backward compatibility only
  * - createdByXID: CANONICAL - find cases created by specific user (xID)
- * - assignedTo: CANONICAL - find cases assigned to specific user (xID)
+ * - assignedToXID: CANONICAL - find cases assigned to specific user (xID)
+ * - assignedTo: DEPRECATED - kept for backward compatibility during migration
  * - clientId: Find cases associated with a specific client
  * - Additional indexes for global search and worklists:
  *   - status: Filter by status for worklists
  *   - createdAt: Sort by creation date
- *   - assignedTo + status: Employee worklist queries (xID-based)
+ *   - assignedToXID + status: Employee worklist queries (xID-based)
  *   - queueType + status: Queue-based worklist queries (GLOBAL vs PERSONAL)
  *   - pendedByXID + status: Pending cases dashboard queries (xID-based)
  *   - pendingUntil: Auto-reopen scheduler queries
  * 
  * PR #44: Added createdByXID index for xID-based ownership queries
  * PR: Case Lifecycle - Added queueType, pendedByXID, pendingUntil indexes
+ * PR: xID Canonicalization - Migrated from assignedTo to assignedToXID
  * Note: Email-based ownership queries are not supported
  */
 caseSchema.index({ status: 1, priority: 1 });
 caseSchema.index({ category: 1 });
 caseSchema.index({ createdBy: 1 }); // DEPRECATED - kept for backward compatibility
 caseSchema.index({ createdByXID: 1 }); // CANONICAL - xID-based creator queries
-caseSchema.index({ assignedTo: 1 }); // CANONICAL - xID-based assignment queries
+caseSchema.index({ assignedToXID: 1 }); // CANONICAL - xID-based assignment queries
+caseSchema.index({ assignedTo: 1 }); // DEPRECATED - kept for migration
 caseSchema.index({ clientId: 1 });
 caseSchema.index({ status: 1 });
 caseSchema.index({ createdAt: -1 });
-caseSchema.index({ assignedTo: 1, status: 1 }); // CANONICAL - xID-based worklist queries
+caseSchema.index({ assignedToXID: 1, status: 1 }); // CANONICAL - xID-based worklist queries
 caseSchema.index({ queueType: 1, status: 1 }); // Queue-based worklist queries
 caseSchema.index({ pendedByXID: 1, status: 1 }); // Pending cases dashboard queries
 caseSchema.index({ pendingUntil: 1 }); // Auto-reopen scheduler queries

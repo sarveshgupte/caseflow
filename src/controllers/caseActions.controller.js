@@ -239,7 +239,7 @@ const getMyPendingCases = async (req, res) => {
     
     // CANONICAL QUERY for "My Pending Cases"
     const query = {
-      assignedTo: req.user.xID,
+      assignedToXID: req.user.xID,
       status: CASE_STATUS.PENDED,
       pendedByXID: req.user.xID,
     };

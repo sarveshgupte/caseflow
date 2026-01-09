@@ -72,8 +72,28 @@ const caseHistorySchema = new mongoose.Schema({
   },
   
   /**
+   * xID of user who performed the action
+   * 
+   * ✅ CANONICAL IDENTIFIER - MANDATORY ✅
+   * 
+   * Format: X123456
+   * Used for canonical attribution in audit trails
+   * 
+   * PR: xID Canonicalization - Added for canonical user identification
+   */
+  performedByXID: {
+    type: String,
+    uppercase: true,
+    trim: true,
+  },
+  
+  /**
    * Email of user who performed the action
-   * Required for accountability and audit trail
+   * 
+   * ⚠️ DISPLAY ONLY ⚠️
+   * 
+   * Required for backward compatibility and display purposes
+   * Use performedByXID for all logic and queries
    */
   performedBy: {
     type: String,
@@ -148,11 +168,13 @@ caseHistorySchema.pre('findOneAndDelete', function(next) {
  * - Compound Index (caseId + timestamp): Primary query pattern
  *   Used for retrieving history entries for a specific case in chronological order
  *   
- * - performedBy: Secondary index for user activity tracking
+ * - performedBy: Secondary index for user activity tracking (email-based, legacy)
+ * - performedByXID: Secondary index for user activity tracking (xID-based, canonical)
  *   Used for queries like "show all actions by user X"
  */
 caseHistorySchema.index({ caseId: 1, timestamp: -1 });
-caseHistorySchema.index({ performedBy: 1 });
+caseHistorySchema.index({ performedBy: 1 }); // Legacy
+caseHistorySchema.index({ performedByXID: 1 }); // Canonical
 
 /**
  * Export the CaseHistory model
