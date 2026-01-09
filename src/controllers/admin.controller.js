@@ -129,13 +129,13 @@ const resendInviteEmail = async (req, res) => {
       );
       
       if (!emailResult.success) {
-        console.error('[ADMIN] Failed to send invite reminder email:', emailResult.error);
+        console.error('[ADMIN] Failed to send invite reminder email');
         
         // Log failure but continue - token was updated
         await AuthAudit.create({
           xID: user.xID,
           actionType: 'InviteEmailResendFailed',
-          description: `Admin attempted to resend invite email but delivery failed: ${emailResult.error}`,
+          description: `Admin attempted to resend invite email but delivery failed`,
           performedBy: admin.xID,
           ipAddress: req.ip,
         });
@@ -143,7 +143,6 @@ const resendInviteEmail = async (req, res) => {
         return res.status(500).json({
           success: false,
           message: 'Failed to send email. Please check SMTP configuration.',
-          error: emailResult.error,
         });
       }
       
@@ -161,13 +160,13 @@ const resendInviteEmail = async (req, res) => {
         message: 'Invite email sent successfully',
       });
     } catch (emailError) {
-      console.error('[ADMIN] Failed to send invite email:', emailError.message);
+      console.error('[ADMIN] Failed to send invite email');
       
       // Log failure
       await AuthAudit.create({
         xID: user.xID,
         actionType: 'InviteEmailResendFailed',
-        description: `Admin attempted to resend invite email but delivery failed: ${emailError.message}`,
+        description: `Admin attempted to resend invite email but delivery failed`,
         performedBy: admin.xID,
         ipAddress: req.ip,
       });
@@ -175,7 +174,6 @@ const resendInviteEmail = async (req, res) => {
       return res.status(500).json({
         success: false,
         message: 'Failed to send email. Please check SMTP configuration.',
-        error: emailError.message,
       });
     }
   } catch (error) {
