@@ -136,22 +136,22 @@ const createCase = async (req, res) => {
     // Default clientId to C000001 if not provided
     const finalClientId = clientId || 'C000001';
     
-    // Verify client exists and is ACTIVE (combined validation)
+    // Verify client exists and validate status
     // PR: Client Lifecycle Enforcement - only ACTIVE clients can be used for new cases
-    const client = await Client.findOne({ clientId: finalClientId, status: 'ACTIVE' });
+    const client = await Client.findOne({ clientId: finalClientId });
     
     if (!client) {
-      // Check if client exists but is inactive to provide specific error message
-      const inactiveClient = await Client.findOne({ clientId: finalClientId });
-      if (inactiveClient) {
-        return res.status(400).json({
-          success: false,
-          message: 'This client is no longer active. Please contact your administrator to proceed.',
-        });
-      }
       return res.status(404).json({
         success: false,
         message: `Client ${finalClientId} not found`,
+      });
+    }
+    
+    // Check client status
+    if (client.status !== 'ACTIVE') {
+      return res.status(400).json({
+        success: false,
+        message: 'This client is no longer active. Please contact your administrator to proceed.',
       });
     }
     
@@ -510,21 +510,21 @@ const cloneCase = async (req, res) => {
       });
     }
     
-    // PR: Client Lifecycle Enforcement - validate client is ACTIVE before cloning (combined query)
-    const client = await Client.findOne({ clientId: originalCase.clientId, status: 'ACTIVE' });
+    // PR: Client Lifecycle Enforcement - validate client is ACTIVE before cloning
+    const client = await Client.findOne({ clientId: originalCase.clientId });
     
     if (!client) {
-      // Check if client exists but is inactive to provide specific error message
-      const inactiveClient = await Client.findOne({ clientId: originalCase.clientId });
-      if (inactiveClient) {
-        return res.status(400).json({
-          success: false,
-          message: 'This client is no longer active. Please contact your administrator to proceed.',
-        });
-      }
       return res.status(404).json({
         success: false,
         message: `Client ${originalCase.clientId} not found`,
+      });
+    }
+    
+    // Check client status
+    if (client.status !== 'ACTIVE') {
+      return res.status(400).json({
+        success: false,
+        message: 'This client is no longer active. Please contact your administrator to proceed.',
       });
     }
     
