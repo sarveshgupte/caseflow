@@ -335,7 +335,7 @@ const caseSchema = new mongoose.Schema({
    * {
    *   action: "EDIT",
    *   clientId: "C123457",
-   *   updates: { businessPhone: "...", ... }
+   *   updates: { primaryContactNumber: "...", businessEmail: "...", ... }
    * }
    * 
    * Structure for "Client - Delete":

@@ -95,6 +95,9 @@ const createClient = async (req, res) => {
     );
     
     // STEP 2: Unconditionally strip forbidden/deprecated fields
+    // NOTE: These fields are also not in the allowedFields whitelist (STEP 3),
+    // but we explicitly delete them here as a defensive measure and to make
+    // the intent clear that these fields must NEVER be accepted.
     ['latitude', 'longitude', 'businessPhone'].forEach(field => {
       delete sanitizedBody[field];
     });
