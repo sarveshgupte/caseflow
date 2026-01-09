@@ -136,22 +136,22 @@ const createCase = async (req, res) => {
     // Default clientId to C000001 if not provided
     const finalClientId = clientId || 'C000001';
     
-    // Verify client exists and is ACTIVE
+    // Verify client exists and is ACTIVE (combined validation)
     // PR: Client Lifecycle Enforcement - only ACTIVE clients can be used for new cases
-    const client = await Client.findOne({ clientId: finalClientId });
+    const client = await Client.findOne({ clientId: finalClientId, status: 'ACTIVE' });
     
     if (!client) {
+      // Check if client exists but is inactive to provide specific error message
+      const inactiveClient = await Client.findOne({ clientId: finalClientId });
+      if (inactiveClient) {
+        return res.status(400).json({
+          success: false,
+          message: 'This client is no longer active. Please contact your administrator to proceed.',
+        });
+      }
       return res.status(404).json({
         success: false,
         message: `Client ${finalClientId} not found`,
-      });
-    }
-    
-    // Validate client status is ACTIVE
-    if (client.status !== 'ACTIVE') {
-      return res.status(400).json({
-        success: false,
-        message: 'This client is no longer active. Please contact your administrator to proceed.',
       });
     }
     
@@ -510,22 +510,21 @@ const cloneCase = async (req, res) => {
       });
     }
     
-    // PR: Client Lifecycle Enforcement - validate client is ACTIVE before cloning
-    // Fetch the client associated with the original case
-    const client = await Client.findOne({ clientId: originalCase.clientId });
+    // PR: Client Lifecycle Enforcement - validate client is ACTIVE before cloning (combined query)
+    const client = await Client.findOne({ clientId: originalCase.clientId, status: 'ACTIVE' });
     
     if (!client) {
+      // Check if client exists but is inactive to provide specific error message
+      const inactiveClient = await Client.findOne({ clientId: originalCase.clientId });
+      if (inactiveClient) {
+        return res.status(400).json({
+          success: false,
+          message: 'This client is no longer active. Please contact your administrator to proceed.',
+        });
+      }
       return res.status(404).json({
         success: false,
         message: `Client ${originalCase.clientId} not found`,
-      });
-    }
-    
-    // Validate client status is ACTIVE - block cloning if client is deactivated
-    if (client.status !== 'ACTIVE') {
-      return res.status(400).json({
-        success: false,
-        message: 'This client is no longer active. Please contact your administrator to proceed.',
       });
     }
     
@@ -950,6 +949,8 @@ const getCases = async (req, res) => {
     
     // Fetch client details for each case
     // TODO: Optimize N+1 query - consider pre-fetching unique clientIds or using aggregation
+    // TODO: Use MongoDB aggregation with $lookup to join client data in a single query
+    // Example: Case.aggregate([{ $lookup: { from: 'clients', localField: 'clientId', foreignField: 'clientId', as: 'client' }}])
     // PR: Client Lifecycle - include inactive clients to display existing cases properly
     const casesWithClients = await Promise.all(
       cases.map(async (caseItem) => {

@@ -76,7 +76,8 @@ export const formatClientDisplay = (client, showInactiveLabel = false) => {
   let display = `${clientId} – ${businessName}`;
   
   // Append inactive label if client is not active
-  if (showInactiveLabel && (client.status === 'INACTIVE' || client.isActive === false)) {
+  // Use status field as the canonical field (per Client model)
+  if (showInactiveLabel && client.status !== 'ACTIVE') {
     display += ' (Inactive)';
   }
   

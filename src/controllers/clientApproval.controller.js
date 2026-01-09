@@ -522,9 +522,14 @@ const getClientById = async (req, res) => {
  * No mutations allowed - for display purposes only
  * 
  * PR: Client Lifecycle Enforcement
- * - Only returns clients with status: 'ACTIVE'
+ * - Only returns clients with status: 'ACTIVE' by default
  * - Sorted by clientId (ascending) for predictable ordering
  * - Minimal field projection for performance
+ * 
+ * Query Parameters:
+ * - includeInactive: Optional flag to include inactive clients
+ *   Use case: Admin client management pages that need to display all clients
+ *   DO NOT use for case creation dropdowns - only ACTIVE clients should be available
  */
 const listClients = async (req, res) => {
   try {
