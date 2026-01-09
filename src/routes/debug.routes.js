@@ -59,7 +59,14 @@ const debugRateLimit = (req, res, next) => {
  * Sends a test email to verify SMTP configuration
  * Admin-only endpoint for debugging and validation
  * Rate limited to 5 requests per minute (applied before auth to prevent DB abuse)
+ * 
+ * Security: This endpoint is protected by:
+ * 1. debugRateLimit - IP-based rate limiting (5 req/min) BEFORE any DB access
+ * 2. authenticate - Validates user session (DB lookup)
+ * 3. requireAdmin - Restricts to admin users only
+ * The rate limiter is intentionally placed first to prevent DB abuse from rate-limited requests.
  */
+// lgtm [js/missing-rate-limiting]
 router.get('/email-test', debugRateLimit, authenticate, requireAdmin, async (req, res) => {
   try {
     // Use authenticated user's email or query parameter
