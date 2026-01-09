@@ -18,6 +18,15 @@ import { caseService } from '../services/caseService';
 import { formatDateTime } from '../utils/formatters';
 import './CaseDetailPage.css';
 
+/**
+ * Helper function to normalize case data structure
+ * Handles both old and new API response formats
+ * PR #45: Utility to avoid repeated fallback patterns
+ */
+const normalizeCase = (data) => {
+  return data.case || data;
+};
+
 export const CaseDetailPage = () => {
   const { caseId } = useParams();
   const { user } = useAuth();
@@ -85,22 +94,25 @@ export const CaseDetailPage = () => {
   // PR #45: Extract access mode information from API response
   const accessMode = caseData.accessMode || {};
   const isViewOnlyMode = accessMode.isViewOnlyMode;
+  
+  // PR #45: Normalize case data structure
+  const caseInfo = normalizeCase(caseData);
 
   return (
     <Layout>
       <div className="case-detail">
         <div className="case-detail__header">
           <div>
-            <h1>{caseData.case?.caseName || caseData.caseName}</h1>
-            <p className="text-secondary">{caseData.case?.category || caseData.category}</p>
+            <h1>{caseInfo.caseName}</h1>
+            <p className="text-secondary">{caseInfo.category}</p>
           </div>
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
             {/* PR #45: View-Only Mode Indicator */}
             {isViewOnlyMode && (
               <Badge variant="warning">View-Only Mode</Badge>
             )}
-            <Badge status={caseData.case?.status || caseData.status}>
-              {caseData.case?.status || caseData.status}
+            <Badge status={caseInfo.status}>
+              {caseInfo.status}
             </Badge>
           </div>
         </div>
@@ -117,13 +129,13 @@ export const CaseDetailPage = () => {
         )}
 
         {/* Lock Status Warning */}
-        {caseData.case?.lockStatus?.isLocked && 
-         caseData.case.lockStatus.activeUserEmail !== user?.email?.toLowerCase() && (
+        {caseInfo.lockStatus?.isLocked && 
+         caseInfo.lockStatus.activeUserEmail !== user?.email?.toLowerCase() && (
           <div className="neo-alert neo-alert--warning" style={{ marginBottom: 'var(--spacing-lg)' }}>
             <h3>Case is Currently Locked</h3>
             <p>
-              This case is currently being worked on by <strong>{caseData.case.lockStatus.activeUserEmail}</strong> since{' '}
-              {formatDateTime(caseData.case.lockStatus.lastActivityAt || caseData.case.lockStatus.lockedAt)}.
+              This case is currently being worked on by <strong>{caseInfo.lockStatus.activeUserEmail}</strong> since{' '}
+              {formatDateTime(caseInfo.lockStatus.lastActivityAt || caseInfo.lockStatus.lockedAt)}.
             </p>
             <p>You can view the case in read-only mode.</p>
           </div>
@@ -134,11 +146,11 @@ export const CaseDetailPage = () => {
             <h2 className="neo-section__header">Case Information</h2>
             <div className="case-detail__field">
               <span className="case-detail__label">Case Name:</span>
-              <span>{caseData.case?.caseName || caseData.caseName}</span>
+              <span>{caseInfo.caseName}</span>
             </div>
             <div className="case-detail__field">
               <span className="case-detail__label">Client ID:</span>
-              <span>{caseData.case?.clientId || caseData.clientId || 'N/A'}</span>
+              <span>{caseInfo.clientId || 'N/A'}</span>
             </div>
             {caseData.client && (
               <div className="case-detail__field">
@@ -148,32 +160,32 @@ export const CaseDetailPage = () => {
             )}
             <div className="case-detail__field">
               <span className="case-detail__label">Category:</span>
-              <span>{caseData.case?.category || caseData.category}</span>
+              <span>{caseInfo.category}</span>
             </div>
             <div className="case-detail__field">
               <span className="case-detail__label">Status:</span>
-              <Badge status={caseData.case?.status || caseData.status}>
-                {caseData.case?.status || caseData.status}
+              <Badge status={caseInfo.status}>
+                {caseInfo.status}
               </Badge>
             </div>
             <div className="case-detail__field">
               <span className="case-detail__label">Assigned To:</span>
-              <span>{caseData.case?.assignedTo || 'Unassigned'}</span>
+              <span>{caseInfo.assignedTo || 'Unassigned'}</span>
             </div>
             <div className="case-detail__field">
               <span className="case-detail__label">Created:</span>
-              <span>{formatDateTime(caseData.case?.createdAt || caseData.createdAt)}</span>
+              <span>{formatDateTime(caseInfo.createdAt)}</span>
             </div>
             <div className="case-detail__field">
               <span className="case-detail__label">Last Updated:</span>
-              <span>{formatDateTime(caseData.case?.updatedAt || caseData.updatedAt)}</span>
+              <span>{formatDateTime(caseInfo.updatedAt)}</span>
             </div>
           </Card>
 
-          {(caseData.case?.description || caseData.description) && (
+          {caseInfo.description && (
             <Card className="case-detail__section">
               <h2 className="neo-section__header">Description</h2>
-              <p>{caseData.case?.description || caseData.description}</p>
+              <p>{caseInfo.description}</p>
             </Card>
           )}
         </div>

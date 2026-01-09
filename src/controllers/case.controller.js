@@ -19,6 +19,20 @@ const path = require('path');
  */
 
 /**
+ * Sanitize text for logging
+ * Removes control characters, newlines, and limits length
+ * PR #45: Security - prevent log injection
+ */
+const sanitizeForLog = (text, maxLength = 100) => {
+  if (!text) return '';
+  return text
+    .replace(/[\r\n\t]/g, ' ')  // Replace newlines and tabs with spaces
+    .replace(/[^\x20-\x7E]/g, '') // Remove non-printable characters
+    .substring(0, maxLength)
+    .trim();
+};
+
+/**
  * Create a new case
  * POST /api/cases
  * PART F - Duplicate detection for "Client – New" category
@@ -299,10 +313,12 @@ const addComment = async (req, res) => {
     });
     
     // PR #45: Add CaseAudit entry with xID attribution
+    // Sanitize comment text for logging to prevent log injection
+    const sanitizedText = sanitizeForLog(text, COMMENT_PREVIEW_LENGTH);
     await CaseAudit.create({
       caseId,
       actionType: 'CASE_COMMENT_ADDED',
-      description: `Comment added by ${req.user.xID}: ${text.substring(0, COMMENT_PREVIEW_LENGTH)}${text.length > COMMENT_PREVIEW_LENGTH ? '...' : ''}`,
+      description: `Comment added by ${req.user.xID}: ${sanitizedText}${text.length > COMMENT_PREVIEW_LENGTH ? '...' : ''}`,
       performedByXID: req.user.xID,
       metadata: {
         commentLength: text.length,
@@ -406,10 +422,12 @@ const addAttachment = async (req, res) => {
     });
     
     // PR #45: Add CaseAudit entry with xID attribution
+    // Sanitize filename for logging to prevent log injection
+    const sanitizedFilename = sanitizeForLog(req.file.originalname, 100);
     await CaseAudit.create({
       caseId,
       actionType: 'CASE_FILE_ATTACHED',
-      description: `File attached by ${req.user.xID}: ${req.file.originalname}`,
+      description: `File attached by ${req.user.xID}: ${sanitizedFilename}`,
       performedByXID: req.user.xID,
       metadata: {
         fileName: req.file.originalname,
@@ -423,7 +441,7 @@ const addAttachment = async (req, res) => {
     await CaseHistory.create({
       caseId,
       actionType: 'CASE_ATTACHMENT_ADDED',
-      description: `Attachment uploaded by ${req.user.email}: ${req.file.originalname}`,
+      description: `Attachment uploaded by ${req.user.email}: ${sanitizedFilename}`,
       performedBy: req.user.email.toLowerCase(),
     });
     

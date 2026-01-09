@@ -129,6 +129,7 @@ caseAuditSchema.pre('updateMany', function(next) {
  * Pre-delete Hooks: Prevent Deletes
  * 
  * These hooks block any attempt to delete audit entries.
+ * Note: The 'remove' hook is deprecated in Mongoose 6+ but included for extra safety.
  */
 caseAuditSchema.pre('deleteOne', function(next) {
   next(new Error('CaseAudit entries cannot be deleted. This is an immutable audit log.'));
@@ -139,6 +140,11 @@ caseAuditSchema.pre('deleteMany', function(next) {
 });
 
 caseAuditSchema.pre('findOneAndDelete', function(next) {
+  next(new Error('CaseAudit entries cannot be deleted. This is an immutable audit log.'));
+});
+
+// Deprecated but included for extra safety
+caseAuditSchema.pre('remove', function(next) {
   next(new Error('CaseAudit entries cannot be deleted. This is an immutable audit log.'));
 });
 
