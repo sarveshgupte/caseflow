@@ -56,7 +56,7 @@ const debugRateLimit = (req, res, next) => {
  * Send test email
  * GET /api/debug/email-test
  * 
- * Sends a test email to verify SMTP configuration
+ * Sends a test email to verify email service configuration
  * Admin-only endpoint for debugging and validation
  * Rate limited to 5 requests per minute (applied before auth to prevent DB abuse)
  * 
@@ -91,11 +91,10 @@ router.get('/email-test', debugRateLimit, authenticate, requireAdmin, async (req
         recipient: testEmail,
         messageId: result.messageId,
         timestamp: new Date().toISOString(),
-        smtpConfig: {
-          host: process.env.SMTP_HOST || 'Not configured',
-          port: process.env.SMTP_PORT || 'Not configured',
-          user: process.env.SMTP_USER ? 'Configured' : 'Not configured',
-          from: process.env.SMTP_FROM || process.env.SMTP_USER || 'Not configured',
+        emailConfig: {
+          service: process.env.NODE_ENV === 'production' ? 'Brevo API' : 'Console (Development)',
+          apiKey: process.env.BREVO_API_KEY ? 'Configured' : 'Not configured',
+          from: process.env.MAIL_FROM || process.env.SMTP_FROM || 'Not configured',
         },
       });
     } else {

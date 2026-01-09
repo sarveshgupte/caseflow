@@ -393,18 +393,18 @@ Docketra Team
  * @returns {Promise<Object>} Result object with success status
  */
 const sendTestEmail = async (email) => {
-  const subject = 'Docketra SMTP Test Email';
+  const isProduction = process.env.NODE_ENV === 'production';
+  const subject = 'Docketra Email Service Test';
   const htmlContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2>SMTP Configuration Test</h2>
+      <h2>Email Configuration Test</h2>
       <p>This is a test email from your Docketra application.</p>
-      <p>If you received this email, your SMTP configuration is working correctly!</p>
+      <p>If you received this email, your email service is working correctly!</p>
       <p><strong>Configuration Details:</strong></p>
       <ul>
-        <li>SMTP Host: ${process.env.SMTP_HOST || 'Not configured'}</li>
-        <li>SMTP Port: ${process.env.SMTP_PORT || 'Not configured'}</li>
-        <li>SMTP User: ${process.env.SMTP_USER ? 'Configured' : 'Not configured'}</li>
-        <li>From Address: ${process.env.SMTP_FROM || process.env.SMTP_USER || 'Not configured'}</li>
+        <li>Service: ${isProduction ? 'Brevo Transactional Email API' : 'Console (Development Mode)'}</li>
+        <li>API Key: ${process.env.BREVO_API_KEY ? 'Configured' : 'Not configured'}</li>
+        <li>From Address: ${process.env.MAIL_FROM || process.env.SMTP_FROM || 'Not configured'}</li>
       </ul>
       <p>Timestamp: ${new Date().toISOString()}</p>
       <p>Best regards,<br>Docketra Team</p>
@@ -412,16 +412,15 @@ const sendTestEmail = async (email) => {
   `;
   
   const textContent = `
-SMTP Configuration Test
+Email Configuration Test
 
 This is a test email from your Docketra application.
-If you received this email, your SMTP configuration is working correctly!
+If you received this email, your email service is working correctly!
 
 Configuration Details:
-- SMTP Host: ${process.env.SMTP_HOST || 'Not configured'}
-- SMTP Port: ${process.env.SMTP_PORT || 'Not configured'}
-- SMTP User: ${process.env.SMTP_USER ? 'Configured' : 'Not configured'}
-- From Address: ${process.env.SMTP_FROM || process.env.SMTP_USER || 'Not configured'}
+- Service: ${isProduction ? 'Brevo Transactional Email API' : 'Console (Development Mode)'}
+- API Key: ${process.env.BREVO_API_KEY ? 'Configured' : 'Not configured'}
+- From Address: ${process.env.MAIL_FROM || process.env.SMTP_FROM || 'Not configured'}
 
 Timestamp: ${new Date().toISOString()}
 
