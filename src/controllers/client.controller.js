@@ -73,8 +73,16 @@ const getClientById = async (req, res) => {
  * Create a new client (Admin only)
  * POST /api/clients
  * 
- * clientId is auto-generated (e.g., C000002)
- * createdBy is set from authenticated user
+ * System-owned fields (auto-generated server-side):
+ * - clientId: Auto-generated (e.g., C000002)
+ * - createdByXid: Set from authenticated user (req.user.xID)
+ * - status: Defaults to ACTIVE
+ * 
+ * Business fields (required from frontend):
+ * - businessName, businessAddress, businessPhone, businessEmail
+ * 
+ * Optional fields:
+ * - PAN, GST, CIN, latitude, longitude
  */
 const createClient = async (req, res) => {
   try {
@@ -90,7 +98,7 @@ const createClient = async (req, res) => {
       longitude,
     } = req.body;
     
-    // Validate required fields
+    // Validate required business fields
     if (!businessName || !businessName.trim()) {
       return res.status(400).json({
         success: false,
@@ -119,18 +127,22 @@ const createClient = async (req, res) => {
       });
     }
     
-    // Get admin email from authenticated user
-    const createdBy = req.user?.email;
+    // Get creator xID from authenticated user (server-side only)
+    const createdByXid = req.user?.xID;
     
-    if (!createdBy) {
+    if (!createdByXid) {
       return res.status(401).json({
         success: false,
-        message: 'Authentication required - user email not found',
+        message: 'Authentication required - user xID not found',
       });
     }
     
-    // Create new client
+    // Optional: get email for backward compatibility (deprecated field)
+    const createdBy = req.user?.email;
+    
+    // Create new client with system-owned fields set server-side
     const client = new Client({
+      // Business fields from request
       businessName: businessName.trim(),
       businessAddress: businessAddress.trim(),
       businessPhone: businessPhone.trim(),
@@ -140,9 +152,11 @@ const createClient = async (req, res) => {
       CIN: CIN ? CIN.trim().toUpperCase() : undefined,
       latitude: latitude ? parseFloat(latitude) : undefined,
       longitude: longitude ? parseFloat(longitude) : undefined,
+      // System-owned fields (set server-side only)
+      createdByXid, // CANONICAL - set from auth context
+      createdBy: createdBy?.trim().toLowerCase(), // DEPRECATED - backward compatibility only
       isSystemClient: false,
-      isActive: true,
-      createdBy: createdBy.trim().toLowerCase(),
+      isActive: true, // Default status
     });
     
     await client.save();

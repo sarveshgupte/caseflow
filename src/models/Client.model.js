@@ -140,13 +140,41 @@ const clientSchema = new mongoose.Schema({
   },
   
   /**
+   * xID of user who created the client
+   * 
+   * ✅ CANONICAL IDENTIFIER - REQUIRED FOR OWNERSHIP ✅
+   * 
+   * This is the authoritative field for tracking who created the client.
+   * Format: X123456
+   * Immutable after creation
+   * 
+   * Set server-side from authenticated user context (req.user.xID)
+   * NEVER accept this from client payload
+   */
+  createdByXid: {
+    type: String,
+    required: [true, 'Creator xID is required'],
+    uppercase: true,
+    trim: true,
+    immutable: true,
+  },
+  
+  /**
    * Email of user who created the client
-   * Required for accountability and audit trail
-   * Only Admin users can create clients (via case approval)
+   * 
+   * ⚠️ DEPRECATED - FOR DISPLAY PURPOSES ONLY ⚠️
+   * 
+   * This field is kept for backward compatibility with existing client records.
+   * 
+   * NEVER use this field for:
+   * - Ownership logic
+   * - Authorization checks
+   * - Client queries
+   * 
+   * ALWAYS use createdByXid instead for all ownership and authorization logic.
    */
   createdBy: {
     type: String,
-    required: [true, 'Creator email is required'],
     lowercase: true,
     trim: true,
   },
@@ -209,9 +237,11 @@ clientSchema.pre('save', async function() {
  * - businessName: For lookups and searches
  * - isActive: For filtering active vs inactive clients
  * - isSystemClient: For identifying system clients
+ * - createdByXid: For ownership queries (canonical identifier)
  */
 clientSchema.index({ isActive: 1 });
 clientSchema.index({ isSystemClient: 1 });
 clientSchema.index({ businessName: 1 });
+clientSchema.index({ createdByXid: 1 }); // CANONICAL - xID-based creator queries
 
 module.exports = mongoose.model('Client', clientSchema);

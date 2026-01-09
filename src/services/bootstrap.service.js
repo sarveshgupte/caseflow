@@ -93,7 +93,8 @@ const seedSystemAdmin = async () => {
  * - businessName: Default Client
  * - isActive: true
  * - isSystemClient: true
- * - createdBy: SYSTEM
+ * - createdByXid: SYSTEM (canonical identifier)
+ * - createdBy: system@system.local (deprecated, for backward compatibility)
  */
 const seedDefaultClient = async () => {
   try {
@@ -114,7 +115,8 @@ const seedDefaultClient = async () => {
       businessEmail: 'default@system.local',
       isSystemClient: true,
       isActive: true,
-      createdBy: 'system@system.local',
+      createdByXid: 'SYSTEM', // CANONICAL - system-generated identifier
+      createdBy: 'system@system.local', // DEPRECATED - backward compatibility only
     });
 
     await defaultClient.save();
