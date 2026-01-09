@@ -18,8 +18,10 @@ const User = require('../models/User.model');
  * Visibility Rules:
  * - Admin: Can see ALL cases
  * - Employee: Can see only cases where:
- *   - They are assigned (assignedTo matches their email), OR
+ *   - They are assigned (assignedTo matches their xID), OR
  *   - The case category is in their allowedCategories
+ * 
+ * PR #42: Updated to use xID for assignment matching
  */
 const globalSearch = async (req, res) => {
   try {
@@ -72,12 +74,13 @@ const globalSearch = async (req, res) => {
       caseQuery = { $or: caseSearchConditions };
     } else {
       // Employee: Only see assigned or allowed category cases
+      // PR #42: Use xID for assignment matching
       caseQuery = {
         $and: [
           { $or: caseSearchConditions },
           {
             $or: [
-              { assignedTo: userEmail.toLowerCase() },
+              { assignedTo: user.xID }, // CANONICAL: Match by xID
               { category: { $in: user.allowedCategories } },
             ],
           },
@@ -137,12 +140,13 @@ const globalSearch = async (req, res) => {
       
       if (!isAdmin) {
         // Apply employee visibility rules
+        // PR #42: Use xID for assignment matching
         relatedQuery = {
           $and: [
             { caseId: { $in: caseIdsFromRelated } },
             {
               $or: [
-                { assignedTo: userEmail.toLowerCase() },
+                { assignedTo: user.xID }, // CANONICAL: Match by xID
                 { category: { $in: user.allowedCategories } },
               ],
             },
@@ -276,6 +280,7 @@ const categoryWorklist = async (req, res) => {
  * Shows all cases assigned to the current user
  * Excludes Pending cases
  * Does NOT show caseId in the list
+ * PR #42: Updated to query by xID instead of email
  */
 const employeeWorklist = async (req, res) => {
   try {
@@ -297,9 +302,10 @@ const employeeWorklist = async (req, res) => {
       });
     }
     
-    // Build query: assigned to this user and status is NOT Pending
+    // Build query: assigned to this user's xID and status is NOT Pending
+    // PR #42: Query by xID (canonical identifier) instead of email
     const query = {
-      assignedTo: userEmail.toLowerCase(),
+      assignedTo: user.xID, // CANONICAL: Query by xID
       status: { $ne: 'Pending' },
     };
     

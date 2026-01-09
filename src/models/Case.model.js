@@ -208,12 +208,18 @@ const caseSchema = new mongoose.Schema({
   },
   
   /**
-   * Email of currently assigned user
+   * xID of currently assigned user
+   * CANONICAL IDENTIFIER: Stores user's xID (e.g., X123456), NOT email
    * Null when unassigned, tracks current ownership
+   * 
+   * PR #42: Standardized to use xID as the canonical identifier
+   * - Assignment operations MUST store xID
+   * - Query operations MUST filter by xID
+   * - Display operations MUST resolve xID → user info
    */
   assignedTo: {
     type: String,
-    lowercase: true,
+    uppercase: true,
     trim: true,
   },
   

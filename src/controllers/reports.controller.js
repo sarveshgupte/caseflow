@@ -89,6 +89,7 @@ const getCaseMetrics = async (req, res) => {
     }
     
     // Aggregate by employee
+    // PR #42: assignedTo now stores xID, need to resolve to user info for display
     const byEmployeeResult = await Case.aggregate([
       { $match: { ...matchStage, assignedTo: { $ne: null, $ne: '' } } },
       { $group: { _id: '$assignedTo', count: { $sum: 1 } } },
@@ -97,11 +98,17 @@ const getCaseMetrics = async (req, res) => {
     ]);
     
     // Populate employee names
+    // PR #42: assignedTo contains xID, resolve to user
     const byEmployee = [];
     for (const item of byEmployeeResult) {
-      const user = await User.findOne({ email: item._id }).lean();
+      // Try to find user by xID first, fallback to email for backward compatibility
+      let user = await User.findOne({ xID: item._id }).lean();
+      if (!user) {
+        user = await User.findOne({ email: item._id }).lean();
+      }
       byEmployee.push({
-        email: item._id,
+        xID: user ? user.xID : item._id,
+        email: user ? user.email : 'Unknown',
         name: user ? user.name : 'Unknown',
         count: item.count,
       });
@@ -174,10 +181,22 @@ const getPendingCasesReport = async (req, res) => {
       filteredCases = casesWithAgeing.filter(c => c.ageingBucket === ageingBucket);
     }
     
-    // Populate client names
+    // Populate client names and resolve assignedTo xID to user info
     const casesWithClientNames = [];
     for (const caseItem of filteredCases) {
       const client = await Client.findOne({ clientId: caseItem.clientId }).lean();
+      
+      // PR #42: Resolve assignedTo xID to user info for display
+      let assignedToDisplay = caseItem.assignedTo || '';
+      if (caseItem.assignedTo) {
+        // Try to find user by xID first, fallback to email for backward compatibility
+        let assignedUser = await User.findOne({ xID: caseItem.assignedTo }).lean();
+        if (!assignedUser) {
+          assignedUser = await User.findOne({ email: caseItem.assignedTo }).lean();
+        }
+        assignedToDisplay = assignedUser ? assignedUser.email : caseItem.assignedTo;
+      }
+      
       casesWithClientNames.push({
         caseId: caseItem.caseId,
         caseName: caseItem.caseName,
@@ -185,7 +204,7 @@ const getPendingCasesReport = async (req, res) => {
         category: caseItem.category,
         clientId: caseItem.clientId,
         clientName: client ? client.businessName : 'Unknown',
-        assignedTo: caseItem.assignedTo,
+        assignedTo: assignedToDisplay, // Display email, not xID
         pendingUntil: caseItem.pendingUntil,
         ageingDays: caseItem.ageingDays,
         ageingBucket: caseItem.ageingBucket,
@@ -202,6 +221,7 @@ const getPendingCasesReport = async (req, res) => {
     });
     
     // Aggregate by employee
+    // PR #42: assignedTo now stores xID, need to resolve to user info
     const byEmployeeMap = {};
     filteredCases.forEach(c => {
       if (c.assignedTo) {
@@ -210,12 +230,17 @@ const getPendingCasesReport = async (req, res) => {
     });
     
     const byEmployee = [];
-    for (const email of Object.keys(byEmployeeMap)) {
-      const user = await User.findOne({ email }).lean();
+    for (const assignedToValue of Object.keys(byEmployeeMap)) {
+      // Try to find user by xID first, fallback to email for backward compatibility
+      let user = await User.findOne({ xID: assignedToValue }).lean();
+      if (!user) {
+        user = await User.findOne({ email: assignedToValue }).lean();
+      }
       byEmployee.push({
-        email,
+        xID: user ? user.xID : assignedToValue,
+        email: user ? user.email : 'Unknown',
         name: user ? user.name : 'Unknown',
-        count: byEmployeeMap[email],
+        count: byEmployeeMap[assignedToValue],
       });
     }
     byEmployee.sort((a, b) => b.count - a.count);
@@ -286,10 +311,22 @@ const getCasesByDateRange = async (req, res) => {
       .limit(parseInt(limit))
       .lean();
     
-    // Populate client names
+    // Populate client names and resolve assignedTo xID to user info
     const casesWithClientNames = [];
     for (const caseItem of cases) {
       const client = await Client.findOne({ clientId: caseItem.clientId }).lean();
+      
+      // PR #42: Resolve assignedTo xID to user info for display
+      let assignedToDisplay = caseItem.assignedTo || '';
+      if (caseItem.assignedTo) {
+        // Try to find user by xID first, fallback to email for backward compatibility
+        let assignedUser = await User.findOne({ xID: caseItem.assignedTo }).lean();
+        if (!assignedUser) {
+          assignedUser = await User.findOne({ email: caseItem.assignedTo }).lean();
+        }
+        assignedToDisplay = assignedUser ? assignedUser.email : caseItem.assignedTo;
+      }
+      
       casesWithClientNames.push({
         caseId: caseItem.caseId,
         caseName: caseItem.caseName,
@@ -298,7 +335,7 @@ const getCasesByDateRange = async (req, res) => {
         category: caseItem.category,
         clientId: caseItem.clientId,
         clientName: client ? client.businessName : 'Unknown',
-        assignedTo: caseItem.assignedTo,
+        assignedTo: assignedToDisplay, // Display email, not xID
         createdAt: caseItem.createdAt,
         createdBy: caseItem.createdBy,
       });
@@ -359,10 +396,22 @@ const exportCasesCSV = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
     
-    // Populate client names
+    // Populate client names and resolve assignedTo xID to user info
     const casesWithClientNames = [];
     for (const caseItem of cases) {
       const client = await Client.findOne({ clientId: caseItem.clientId }).lean();
+      
+      // PR #42: Resolve assignedTo xID to user info for display
+      let assignedToDisplay = caseItem.assignedTo || '';
+      if (caseItem.assignedTo) {
+        // Try to find user by xID first, fallback to email for backward compatibility
+        let assignedUser = await User.findOne({ xID: caseItem.assignedTo }).lean();
+        if (!assignedUser) {
+          assignedUser = await User.findOne({ email: caseItem.assignedTo }).lean();
+        }
+        assignedToDisplay = assignedUser ? assignedUser.email : caseItem.assignedTo;
+      }
+      
       casesWithClientNames.push({
         caseId: caseItem.caseId,
         caseName: caseItem.caseName,
@@ -371,7 +420,7 @@ const exportCasesCSV = async (req, res) => {
         category: caseItem.category,
         clientId: caseItem.clientId,
         clientName: client ? client.businessName : 'Unknown',
-        assignedTo: caseItem.assignedTo || '',
+        assignedTo: assignedToDisplay, // Display email, not xID
         createdAt: caseItem.createdAt.toISOString(),
         createdBy: caseItem.createdBy,
       });
@@ -434,10 +483,22 @@ const exportCasesExcel = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
     
-    // Populate client names
+    // Populate client names and resolve assignedTo xID to user info
     const casesWithClientNames = [];
     for (const caseItem of cases) {
       const client = await Client.findOne({ clientId: caseItem.clientId }).lean();
+      
+      // PR #42: Resolve assignedTo xID to user info for display
+      let assignedToDisplay = caseItem.assignedTo || '';
+      if (caseItem.assignedTo) {
+        // Try to find user by xID first, fallback to email for backward compatibility
+        let assignedUser = await User.findOne({ xID: caseItem.assignedTo }).lean();
+        if (!assignedUser) {
+          assignedUser = await User.findOne({ email: caseItem.assignedTo }).lean();
+        }
+        assignedToDisplay = assignedUser ? assignedUser.email : caseItem.assignedTo;
+      }
+      
       casesWithClientNames.push({
         caseId: caseItem.caseId,
         caseName: caseItem.caseName,
@@ -446,7 +507,7 @@ const exportCasesExcel = async (req, res) => {
         category: caseItem.category,
         clientId: caseItem.clientId,
         clientName: client ? client.businessName : 'Unknown',
-        assignedTo: caseItem.assignedTo || '',
+        assignedTo: assignedToDisplay, // Display email, not xID
         createdAt: caseItem.createdAt,
         createdBy: caseItem.createdBy,
       });
