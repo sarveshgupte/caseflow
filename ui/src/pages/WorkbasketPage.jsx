@@ -11,9 +11,9 @@ import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
 import { useAuth } from '../hooks/useAuth';
 import { worklistService } from '../services/worklistService';
-import './GlobalWorklistPage.css';
+import './WorkbasketPage.css';
 
-export const GlobalWorklistPage = () => {
+export const WorkbasketPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
