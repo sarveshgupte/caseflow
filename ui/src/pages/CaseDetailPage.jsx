@@ -108,7 +108,7 @@ export const CaseDetailPage = () => {
   };
 
   const handleMoveToGlobal = async () => {
-    if (!window.confirm('This will remove the current assignment and move the case to the Global Worklist. Continue?')) {
+    if (!window.confirm('This will remove the current assignment and move the case to the Workbasket. Continue?')) {
       return;
     }
 
@@ -117,11 +117,11 @@ export const CaseDetailPage = () => {
       const response = await caseService.moveCaseToGlobal(caseId);
       
       if (response.success) {
-        showSuccess('Case moved to Global Worklist');
+        showSuccess('Case moved to Workbasket');
         await loadCase(); // Reload to update UI
       }
     } catch (error) {
-      console.error('Failed to move case to global worklist:', error);
+      console.error('Failed to move case to workbasket:', error);
       // Sanitize error message: only show if it's from server response, otherwise use generic message
       const serverMessage = error.response?.data?.message;
       const errorMessage = serverMessage && typeof serverMessage === 'string'
@@ -318,8 +318,8 @@ export const CaseDetailPage = () => {
                           caseInfo.queueType === 'GLOBAL' &&
                           caseInfo.status === 'UNASSIGNED';
 
-  // Move to Global button: show only for admin users AND case is currently assigned
-  const showMoveToGlobalButton = isAdmin && caseInfo.assignedToXID;
+  // Move to Workbasket button: show only for admin users AND case is currently assigned
+  const showMoveToWorkbasketButton = isAdmin && caseInfo.assignedToXID;
 
   // Case action buttons (File, Pend, Resolve)
   // According to requirements: Only OPEN cases can perform these actions
@@ -346,7 +346,7 @@ export const CaseDetailPage = () => {
                 {pullingCase ? 'Pulling...' : 'Pull Case'}
               </Button>
             )}
-            {showMoveToGlobalButton && (
+            {showMoveToWorkbasketButton && (
               <Button
                 variant="default"
                 onClick={handleMoveToGlobal}
@@ -356,7 +356,7 @@ export const CaseDetailPage = () => {
                   color: 'var(--warning-color)'
                 }}
               >
-                {movingToGlobal ? 'Moving...' : 'Move to Global Worklist'}
+                {movingToGlobal ? 'Moving...' : 'Move to Workbasket'}
               </Button>
             )}
             {/* Case Action Buttons: File, Pend, Resolve */}
@@ -448,8 +448,8 @@ export const CaseDetailPage = () => {
               </Badge>
             </div>
             <div className="case-detail__field">
-              <span className="case-detail__label">Assigned To:</span>
-              <span>{caseInfo.assignedTo || 'Unassigned'}</span>
+              <span className="case-detail__label">Location:</span>
+              <span>{caseInfo.assignedToXID ? 'My Worklist' : 'Workbasket'}</span>
             </div>
             <div className="case-detail__field">
               <span className="case-detail__label">Created:</span>

@@ -42,7 +42,7 @@ export const Layout = ({ children }) => {
               to="/global-worklist"
               className={`layout__nav-link ${isActive('/global-worklist') ? 'active' : ''}`}
             >
-              Global Worklist
+              Workbasket
             </Link>
             <Link
               to="/worklist"

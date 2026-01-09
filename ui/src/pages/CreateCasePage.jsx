@@ -232,7 +232,7 @@ export const CreateCasePage = () => {
       
       if (response.success) {
         // DO NOT redirect to case detail - show success message instead
-        // Per PR requirements: show success and options to go to Global Worklist or create another
+        // Per PR requirements: show success and options to go to Workbasket or create another
         setSuccessMessage({
           caseId: response.data.caseId,
           caseName: response.data.caseName,
@@ -284,11 +284,11 @@ export const CreateCasePage = () => {
           <div className="neo-alert neo-alert--success" style={{ marginBottom: 'var(--spacing-lg)' }}>
             <h3>✅ Case Created Successfully!</h3>
             <p>
-              Case <strong>{successMessage.caseId}</strong> has been created and moved to the Global Worklist.
+              Case <strong>{successMessage.caseId}</strong> has been created and moved to the Workbasket.
             </p>
             <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
               <Button variant="primary" onClick={() => navigate('/global-worklist')}>
-                Go to Global Worklist
+                Go to Workbasket
               </Button>
               <Button variant="default" onClick={() => setSuccessMessage(null)}>
                 Create Another Case

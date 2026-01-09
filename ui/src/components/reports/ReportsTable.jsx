@@ -50,7 +50,7 @@ export const ReportsTable = ({ cases, onCaseClick, pagination, onPageChange }) =
                     </td>
                     <td>{caseItem.category}</td>
                     <td>{caseItem.clientName}</td>
-                    <td>{caseItem.assignedTo || 'Unassigned'}</td>
+                    <td>{caseItem.assignedTo || 'Workbasket'}</td>
                     <td>{formatDate(caseItem.createdAt)}</td>
                   </tr>
                 ))}

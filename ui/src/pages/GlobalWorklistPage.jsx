@@ -1,5 +1,5 @@
 /**
- * Global Worklist Page
+ * Workbasket Page (formerly Global Worklist)
  * Displays unassigned cases that can be pulled by users
  */
 
@@ -50,7 +50,7 @@ export const GlobalWorklistPage = () => {
         setSelectedCases([]); // Clear selection when reloading
       }
     } catch (error) {
-      console.error('Failed to load global worklist:', error);
+      console.error('Failed to load workbasket:', error);
     } finally {
       setLoading(false);
     }
@@ -176,7 +176,7 @@ export const GlobalWorklistPage = () => {
   if (loading && cases.length === 0) {
     return (
       <Layout>
-        <Loading message="Loading global worklist..." />
+        <Loading message="Loading workbasket..." />
       </Layout>
     );
   }
@@ -185,7 +185,7 @@ export const GlobalWorklistPage = () => {
     <Layout>
       <div className="global-worklist">
         <div className="global-worklist__header">
-          <h1>Global Worklist</h1>
+          <h1>Workbasket</h1>
           <p className="text-secondary">Pull cases from the unassigned queue</p>
         </div>
 
