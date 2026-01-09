@@ -33,12 +33,44 @@ const clientSchema = new mongoose.Schema({
   /**
    * Business/Client name
    * Required field for client identification
+   * 
+   * PROTECTED - Can only be changed via dedicated "Change Legal Name" endpoint
+   * All changes are tracked in previousBusinessNames array
    */
   businessName: {
     type: String,
     required: [true, 'Business name is required'],
     trim: true,
   },
+  
+  /**
+   * Previous business names history
+   * Tracks all legal name changes for audit compliance
+   * Each entry captures: old name, change date, who changed it, and reason
+   */
+  previousBusinessNames: [{
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    changedOn: {
+      type: Date,
+      required: true,
+      default: Date.now,
+    },
+    changedByXid: {
+      type: String,
+      required: true,
+      uppercase: true,
+      trim: true,
+    },
+    reason: {
+      type: String,
+      required: true,
+      trim: true,
+    }
+  }],
   
   /**
    * Business physical address
@@ -51,12 +83,33 @@ const clientSchema = new mongoose.Schema({
   },
   
   /**
-   * Business contact phone number
+   * Primary contact phone number
    * Required for communication
+   */
+  primaryContactNumber: {
+    type: String,
+    required: [true, 'Primary contact number is required'],
+    trim: true,
+  },
+  
+  /**
+   * Secondary contact phone number
+   * Optional additional contact
+   */
+  secondaryContactNumber: {
+    type: String,
+    trim: true,
+  },
+  
+  /**
+   * Legacy field - kept for backward compatibility
+   * Use primaryContactNumber for new implementations
+   * Not required since primaryContactNumber is the canonical field
+   * Automatically synced with primaryContactNumber on create/update
+   * @deprecated
    */
   businessPhone: {
     type: String,
-    required: [true, 'Business phone is required'],
     trim: true,
   },
   
@@ -74,11 +127,25 @@ const clientSchema = new mongoose.Schema({
   /**
    * PAN (Permanent Account Number)
    * Indian tax identifier
+   * IMMUTABLE - Cannot be changed after creation
    */
   PAN: {
     type: String,
     trim: true,
     uppercase: true,
+    immutable: true,
+  },
+  
+  /**
+   * TAN (Tax Deduction and Collection Account Number)
+   * Indian tax identifier for TDS
+   * IMMUTABLE - Cannot be changed after creation
+   */
+  TAN: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    immutable: true,
   },
   
   /**
@@ -94,11 +161,13 @@ const clientSchema = new mongoose.Schema({
   /**
    * CIN (Corporate Identification Number)
    * Indian company registration number
+   * IMMUTABLE - Cannot be changed after creation
    */
   CIN: {
     type: String,
     trim: true,
     uppercase: true,
+    immutable: true,
   },
   
   /**
@@ -129,10 +198,22 @@ const clientSchema = new mongoose.Schema({
   },
   
   /**
-   * Soft delete mechanism
-   * When false, client is considered deleted without removing from database
+   * Client lifecycle status
+   * ACTIVE: Client can be used for new cases
+   * INACTIVE: Client cannot be used for new cases (soft delete)
    * Maintains data integrity and audit trail
    * System clients (isSystemClient: true) cannot be deactivated
+   */
+  status: {
+    type: String,
+    enum: ['ACTIVE', 'INACTIVE'],
+    default: 'ACTIVE',
+  },
+  
+  /**
+   * Legacy soft delete flag - kept for backward compatibility
+   * Use status field for new implementations
+   * @deprecated
    */
   isActive: {
     type: Boolean,

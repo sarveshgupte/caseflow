@@ -162,3 +162,44 @@
   gap: var(--spacing-sm);
   margin-top: var(--spacing-lg);
 }
+
+/* Client Management Styles */
+.client-warning-box {
+  padding: 15px;
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.client-warning-box strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.client-reason-textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.95em;
+  resize: vertical;
+}
+
+.client-reason-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary, #007bff);
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+.client-field-hint {
+  margin-top: -10px;
+  margin-bottom: 15px;
+  font-size: 0.85em;
+  color: #666;
+}
+
+.client-current-name {
+  font-weight: bold;
+}

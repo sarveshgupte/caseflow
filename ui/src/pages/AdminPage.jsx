@@ -32,6 +32,7 @@ export const AdminPage = () => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
+  const [showChangeNameModal, setShowChangeNameModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [creatingUser, setCreatingUser] = useState(false);
@@ -66,13 +67,21 @@ export const AdminPage = () => {
   const [clientForm, setClientForm] = useState({
     businessName: '',
     businessAddress: '',
-    businessPhone: '',
+    primaryContactNumber: '',
+    secondaryContactNumber: '',
     businessEmail: '',
     PAN: '',
     GST: '',
+    TAN: '',
     CIN: '',
     latitude: '',
     longitude: '',
+  });
+  
+  // Change name form state
+  const [changeNameForm, setChangeNameForm] = useState({
+    newBusinessName: '',
+    reason: '',
   });
 
   useEffect(() => {
@@ -358,7 +367,7 @@ export const AdminPage = () => {
     e.preventDefault();
     
     if (!clientForm.businessName || !clientForm.businessAddress || 
-        !clientForm.businessPhone || !clientForm.businessEmail) {
+        !clientForm.primaryContactNumber || !clientForm.businessEmail) {
       showToast('Please fill in all required fields', 'error');
       return;
     }
@@ -374,10 +383,12 @@ export const AdminPage = () => {
         setClientForm({
           businessName: '',
           businessAddress: '',
-          businessPhone: '',
+          primaryContactNumber: '',
+          secondaryContactNumber: '',
           businessEmail: '',
           PAN: '',
           GST: '',
+          TAN: '',
           CIN: '',
           latitude: '',
           longitude: '',
@@ -395,13 +406,17 @@ export const AdminPage = () => {
 
   const handleEditClient = (client) => {
     setSelectedClient(client);
+    // Backward compatibility: Use primaryContactNumber if available, fallback to businessPhone
+    const primaryPhone = client.primaryContactNumber || client.businessPhone || '';
     setClientForm({
       businessName: client.businessName,
       businessAddress: client.businessAddress,
-      businessPhone: client.businessPhone,
+      primaryContactNumber: primaryPhone,
+      secondaryContactNumber: client.secondaryContactNumber || '',
       businessEmail: client.businessEmail,
       PAN: client.PAN || '',
       GST: client.GST || '',
+      TAN: client.TAN || '',
       CIN: client.CIN || '',
       latitude: client.latitude || '',
       longitude: client.longitude || '',
@@ -417,16 +432,23 @@ export const AdminPage = () => {
       return;
     }
     
-    if (!clientForm.businessName || !clientForm.businessAddress || 
-        !clientForm.businessPhone || !clientForm.businessEmail) {
-      showToast('Please fill in all required fields', 'error');
+    // Only allow updating email and contact numbers
+    if (!clientForm.primaryContactNumber || !clientForm.businessEmail) {
+      showToast('Primary contact number and business email are required', 'error');
       return;
     }
     
     setSubmitting(true);
     
     try {
-      const response = await clientService.updateClient(selectedClient.clientId, clientForm);
+      // Only send editable fields to backend
+      const updateData = {
+        businessEmail: clientForm.businessEmail,
+        primaryContactNumber: clientForm.primaryContactNumber,
+        secondaryContactNumber: clientForm.secondaryContactNumber,
+      };
+      
+      const response = await clientService.updateClient(selectedClient.clientId, updateData);
       
       if (response.success) {
         showToast('Client updated successfully', 'success');
@@ -435,10 +457,12 @@ export const AdminPage = () => {
         setClientForm({
           businessName: '',
           businessAddress: '',
-          businessPhone: '',
+          primaryContactNumber: '',
+          secondaryContactNumber: '',
           businessEmail: '',
           PAN: '',
           GST: '',
+          TAN: '',
           CIN: '',
           latitude: '',
           longitude: '',
@@ -456,7 +480,7 @@ export const AdminPage = () => {
 
   const handleToggleClientStatus = async (client) => {
     const newStatus = !client.isActive;
-    const action = newStatus ? 'enable' : 'disable';
+    const action = newStatus ? 'activate' : 'deactivate';
     
     try {
       const response = await clientService.toggleClientStatus(client.clientId, newStatus);
@@ -472,19 +496,85 @@ export const AdminPage = () => {
     }
   };
 
+  const handleOpenChangeNameModal = (client) => {
+    setSelectedClient(client);
+    setChangeNameForm({
+      newBusinessName: '',
+      reason: '',
+    });
+    setShowChangeNameModal(true);
+  };
+
+  const handleChangeLegalName = async (e) => {
+    e.preventDefault();
+    
+    if (!selectedClient) {
+      showToast('No client selected', 'error');
+      return;
+    }
+    
+    if (!changeNameForm.newBusinessName || !changeNameForm.newBusinessName.trim()) {
+      showToast('New business name is required', 'error');
+      return;
+    }
+    
+    if (!changeNameForm.reason || !changeNameForm.reason.trim()) {
+      showToast('Reason for name change is required for audit compliance', 'error');
+      return;
+    }
+    
+    setSubmitting(true);
+    
+    try {
+      const response = await clientService.changeLegalName(
+        selectedClient.clientId,
+        changeNameForm.newBusinessName.trim(),
+        changeNameForm.reason.trim()
+      );
+      
+      if (response.success) {
+        showToast('Client legal name changed successfully', 'success');
+        setShowChangeNameModal(false);
+        setSelectedClient(null);
+        setChangeNameForm({
+          newBusinessName: '',
+          reason: '',
+        });
+        loadAdminData();
+      } else {
+        showToast(response.message || 'Failed to change client name', 'error');
+      }
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Failed to change client name', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleCloseClientModal = () => {
     setShowClientModal(false);
     setSelectedClient(null);
     setClientForm({
       businessName: '',
       businessAddress: '',
-      businessPhone: '',
+      primaryContactNumber: '',
+      secondaryContactNumber: '',
       businessEmail: '',
       PAN: '',
       GST: '',
+      TAN: '',
       CIN: '',
       latitude: '',
       longitude: '',
+    });
+  };
+  
+  const handleCloseChangeNameModal = () => {
+    setShowChangeNameModal(false);
+    setSelectedClient(null);
+    setChangeNameForm({
+      newBusinessName: '',
+      reason: '',
     });
   };
 
@@ -633,10 +723,12 @@ export const AdminPage = () => {
                   setClientForm({
                     businessName: '',
                     businessAddress: '',
-                    businessPhone: '',
+                    primaryContactNumber: '',
+                    secondaryContactNumber: '',
                     businessEmail: '',
                     PAN: '',
                     GST: '',
+                    TAN: '',
                     CIN: '',
                     latitude: '',
                     longitude: '',
@@ -671,7 +763,7 @@ export const AdminPage = () => {
                       <td>{client.clientId}</td>
                       <td>{client.businessName}</td>
                       <td>{client.businessEmail}</td>
-                      <td>{client.businessPhone}</td>
+                      <td>{client.primaryContactNumber || client.businessPhone}</td>
                       <td>
                         <Badge status={client.isActive ? 'Approved' : 'Rejected'}>
                           {client.isActive ? 'Active' : 'Inactive'}
@@ -689,11 +781,19 @@ export const AdminPage = () => {
                         </Button>
                         <Button
                           size="small"
+                          variant="warning"
+                          onClick={() => handleOpenChangeNameModal(client)}
+                          disabled={client.isSystemClient}
+                        >
+                          Change Name
+                        </Button>
+                        <Button
+                          size="small"
                           variant={client.isActive ? 'danger' : 'success'}
                           onClick={() => handleToggleClientStatus(client)}
                           disabled={client.isSystemClient}
                         >
-                          {client.isActive ? 'Disable' : 'Enable'}
+                          {client.isActive ? 'Deactivate' : 'Activate'}
                         </Button>
                       </td>
                     </tr>
@@ -1013,25 +1113,44 @@ export const AdminPage = () => {
             onChange={(e) => setClientForm({ ...clientForm, businessName: e.target.value })}
             placeholder="Enter business name"
             required
+            disabled={!!selectedClient}
+            title={selectedClient ? 'Business name cannot be edited inline. Use "Change Legal Name" action.' : ''}
           />
+          
+          {selectedClient && (
+            <div className="client-field-hint">
+              To change business name, use the "Change Legal Name" button for audit compliance
+            </div>
+          )}
 
           <Input
-            label="Business Address *"
+            label="Business Address"
             name="businessAddress"
             value={clientForm.businessAddress}
             onChange={(e) => setClientForm({ ...clientForm, businessAddress: e.target.value })}
             placeholder="Enter business address"
+            required={!selectedClient}
+            disabled={!!selectedClient}
+            title={selectedClient ? 'Address cannot be changed after creation' : ''}
+          />
+
+          <Input
+            label="Primary Contact Number *"
+            name="primaryContactNumber"
+            type="tel"
+            value={clientForm.primaryContactNumber}
+            onChange={(e) => setClientForm({ ...clientForm, primaryContactNumber: e.target.value })}
+            placeholder="Enter primary contact number"
             required
           />
 
           <Input
-            label="Business Phone *"
-            name="businessPhone"
+            label="Secondary Contact Number"
+            name="secondaryContactNumber"
             type="tel"
-            value={clientForm.businessPhone}
-            onChange={(e) => setClientForm({ ...clientForm, businessPhone: e.target.value })}
-            placeholder="Enter business phone"
-            required
+            value={clientForm.secondaryContactNumber}
+            onChange={(e) => setClientForm({ ...clientForm, secondaryContactNumber: e.target.value })}
+            placeholder="Enter secondary contact number (optional)"
           />
 
           <Input
@@ -1050,14 +1169,18 @@ export const AdminPage = () => {
             value={clientForm.PAN}
             onChange={(e) => setClientForm({ ...clientForm, PAN: e.target.value })}
             placeholder="Enter PAN (optional)"
+            disabled={!!selectedClient}
+            title={selectedClient ? 'PAN is immutable and cannot be changed' : ''}
           />
 
           <Input
-            label="GST"
-            name="GST"
-            value={clientForm.GST}
-            onChange={(e) => setClientForm({ ...clientForm, GST: e.target.value })}
-            placeholder="Enter GST (optional)"
+            label="TAN"
+            name="TAN"
+            value={clientForm.TAN}
+            onChange={(e) => setClientForm({ ...clientForm, TAN: e.target.value })}
+            placeholder="Enter TAN (optional)"
+            disabled={!!selectedClient}
+            title={selectedClient ? 'TAN is immutable and cannot be changed' : ''}
           />
 
           <Input
@@ -1066,6 +1189,18 @@ export const AdminPage = () => {
             value={clientForm.CIN}
             onChange={(e) => setClientForm({ ...clientForm, CIN: e.target.value })}
             placeholder="Enter CIN (optional)"
+            disabled={!!selectedClient}
+            title={selectedClient ? 'CIN is immutable and cannot be changed' : ''}
+          />
+
+          <Input
+            label="GST"
+            name="GST"
+            value={clientForm.GST}
+            onChange={(e) => setClientForm({ ...clientForm, GST: e.target.value })}
+            placeholder="Enter GST (optional)"
+            disabled={!!selectedClient}
+            title={selectedClient ? 'GST cannot be changed after creation' : ''}
           />
 
           <Input
@@ -1076,6 +1211,8 @@ export const AdminPage = () => {
             value={clientForm.latitude}
             onChange={(e) => setClientForm({ ...clientForm, latitude: e.target.value })}
             placeholder="Enter latitude (optional)"
+            disabled={!!selectedClient}
+            title={selectedClient ? 'Location cannot be changed after creation' : ''}
           />
 
           <Input
@@ -1086,6 +1223,8 @@ export const AdminPage = () => {
             value={clientForm.longitude}
             onChange={(e) => setClientForm({ ...clientForm, longitude: e.target.value })}
             placeholder="Enter longitude (optional)"
+            disabled={!!selectedClient}
+            title={selectedClient ? 'Location cannot be changed after creation' : ''}
           />
 
           <div className="neo-form-actions">
@@ -1102,6 +1241,73 @@ export const AdminPage = () => {
               disabled={submitting}
             >
               {submitting ? (selectedClient ? 'Updating...' : 'Creating...') : (selectedClient ? 'Update Client' : 'Create Client')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+      
+      {/* Change Legal Name Modal */}
+      <Modal
+        isOpen={showChangeNameModal}
+        onClose={handleCloseChangeNameModal}
+        title="Change Client Legal Name"
+      >
+        <form onSubmit={handleChangeLegalName} className="admin__create-form">
+          {selectedClient && (
+            <>
+              <div className="neo-form-group">
+                <label className="neo-label">Client ID</label>
+                <div className="neo-info-text">{selectedClient.clientId}</div>
+              </div>
+              
+              <div className="neo-form-group">
+                <label className="neo-label">Current Business Name</label>
+                <div className="neo-info-text client-current-name">{selectedClient.businessName}</div>
+              </div>
+            </>
+          )}
+          
+          <div className="client-warning-box">
+            <strong>⚠️ Important:</strong> Changing a client's legal name is a significant action. 
+            This change will be permanently recorded in the audit trail with your user ID and the reason provided.
+          </div>
+
+          <Input
+            label="New Business Name *"
+            name="newBusinessName"
+            value={changeNameForm.newBusinessName}
+            onChange={(e) => setChangeNameForm({ ...changeNameForm, newBusinessName: e.target.value })}
+            placeholder="Enter new business name"
+            required
+          />
+
+          <div className="neo-form-group">
+            <label className="neo-label">Reason for Name Change *</label>
+            <textarea
+              name="reason"
+              value={changeNameForm.reason}
+              onChange={(e) => setChangeNameForm({ ...changeNameForm, reason: e.target.value })}
+              placeholder="Enter reason for legal name change (e.g., merger, rebranding, legal restructuring)"
+              required
+              rows="4"
+              className="client-reason-textarea"
+            />
+          </div>
+
+          <div className="neo-form-actions">
+            <Button
+              type="button"
+              variant="default"
+              onClick={handleCloseChangeNameModal}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="warning"
+              disabled={submitting}
+            >
+              {submitting ? 'Changing Name...' : 'Confirm Name Change'}
             </Button>
           </div>
         </form>
