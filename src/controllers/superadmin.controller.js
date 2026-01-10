@@ -207,6 +207,7 @@ const createFirm = async (req, res) => {
       role: 'Admin',
       status: 'INVITED',
       isActive: true,
+      isSystem: true, // Mark as system user - cannot be deleted or deactivated
       passwordSet: false,
       mustChangePassword: true,
       passwordSetupTokenHash: setupTokenHash,

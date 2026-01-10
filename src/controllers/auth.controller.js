@@ -1211,6 +1211,26 @@ const deactivateUser = async (req, res) => {
       });
     }
     
+    // PROTECTION: Prevent deactivation of system users (default admin)
+    if (user.isSystem === true) {
+      // Log the attempt for audit
+      await AuthAudit.create({
+        xID: user.xID,
+        firmId: user.firmId,
+        userId: user._id,
+        actionType: 'DeactivationAttemptBlocked',
+        description: `Attempted to deactivate system user (default admin) - blocked`,
+        performedBy: admin.xID,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot deactivate the default admin user. This is a protected system entity.',
+      });
+    }
+    
     // Deactivate user
     user.isActive = false;
     await user.save();
@@ -1571,6 +1591,26 @@ const updateUserStatus = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'User not found',
+      });
+    }
+    
+    // PROTECTION: Prevent deactivation of system users (default admin)
+    if (user.isSystem === true && !active) {
+      // Log the attempt for audit
+      await AuthAudit.create({
+        xID: user.xID,
+        firmId: user.firmId,
+        userId: user._id,
+        actionType: 'DeactivationAttemptBlocked',
+        description: `Attempted to deactivate system user (default admin) - blocked`,
+        performedBy: admin.xID,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot deactivate the default admin user. This is a protected system entity.',
       });
     }
     
