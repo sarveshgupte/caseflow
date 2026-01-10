@@ -1,6 +1,7 @@
 const Case = require('../models/Case.model');
 const CaseHistory = require('../models/CaseHistory.model');
 const CaseAudit = require('../models/CaseAudit.model');
+const { CaseRepository } = require('../repositories');
 const { CASE_STATUS, CASE_ACTION_TYPES } = require('../config/constants');
 const { logCaseHistory } = require('./auditLog.service');
 
@@ -35,12 +36,13 @@ const { logCaseHistory } = require('./auditLog.service');
  * - Appears in user's My Worklist
  * - Counted in user's "My Open Cases" dashboard
  * 
+ * @param {string} firmId - Firm ID from req.user.firmId (SECURITY: MUST be from authenticated user)
  * @param {string} caseId - Case identifier
  * @param {object} user - User object with xID and email
  * @returns {object} Updated case or null if already assigned
  * @throws {Error} If case not found or user invalid
  */
-const assignCaseToUser = async (caseId, user) => {
+const assignCaseToUser = async (firmId, caseId, user) => {
   if (!user || !user.xID) {
     throw new Error('Valid user with xID is required for case assignment');
   }
@@ -48,6 +50,7 @@ const assignCaseToUser = async (caseId, user) => {
   // Use findOneAndUpdate for atomic operation to prevent double assignment
   const caseData = await Case.findOneAndUpdate(
     {
+      firmId,
       caseId,
       status: CASE_STATUS.UNASSIGNED, // Only assign if still unassigned
     },
@@ -68,7 +71,7 @@ const assignCaseToUser = async (caseId, user) => {
   
   if (!caseData) {
     // Either case doesn't exist or is not UNASSIGNED anymore
-    const existingCase = await Case.findOne({ caseId });
+    const existingCase = await CaseRepository.findByCaseId(firmId, caseId);
     
     if (!existingCase) {
       throw new Error('Case not found');
@@ -130,7 +133,7 @@ const assignCaseToUser = async (caseId, user) => {
  * @param {object} user - User object with xID and email
  * @returns {object} Results with count of assigned cases
  */
-const bulkAssignCasesToUser = async (caseIds, user) => {
+const bulkAssignCasesToUser = async (firmId, caseIds, user) => {
   if (!user || !user.xID) {
     throw new Error('Valid user with xID is required for case assignment');
   }
@@ -142,6 +145,7 @@ const bulkAssignCasesToUser = async (caseIds, user) => {
   // Atomic bulk update - only updates cases that are still UNASSIGNED
   const result = await Case.updateMany(
     {
+      firmId,
       caseId: { $in: caseIds },
       status: CASE_STATUS.UNASSIGNED,
     },
@@ -159,6 +163,7 @@ const bulkAssignCasesToUser = async (caseIds, user) => {
   
   // Get the actual cases that were updated
   const updatedCases = await Case.find({
+    firmId,
     caseId: { $in: caseIds },
     assignedToXID: user.xID.toUpperCase(),
     queueType: 'PERSONAL',
@@ -208,18 +213,19 @@ const bulkAssignCasesToUser = async (caseIds, user) => {
  * Changes case assignment from one user to another.
  * Only works if case is currently assigned (not UNASSIGNED).
  * 
+ * @param {string} firmId - Firm ID from req.user.firmId (SECURITY: MUST be from authenticated user)
  * @param {string} caseId - Case identifier
  * @param {string} newUserXID - xID of new assignee
  * @param {object} performedBy - User object performing the reassignment
  * @returns {object} Updated case
  * @throws {Error} If case not found or cannot be reassigned
  */
-const reassignCase = async (caseId, newUserXID, performedBy) => {
+const reassignCase = async (firmId, caseId, newUserXID, performedBy) => {
   if (!newUserXID || !/^X\d{6}$/i.test(newUserXID)) {
     throw new Error('Valid xID is required for reassignment (format: X123456)');
   }
   
-  const caseData = await Case.findOne({ caseId });
+  const caseData = await CaseRepository.findByCaseId(firmId, caseId);
   
   if (!caseData) {
     throw new Error('Case not found');

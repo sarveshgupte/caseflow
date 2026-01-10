@@ -1166,7 +1166,7 @@ const lockCaseEndpoint = async (req, res) => {
     
     // Build query with firmId scoping
     const query = buildCaseQuery(req, caseId);
-    const caseData = await Case.findOne(query);
+    const caseData = await CaseRepository.findByCaseId(req.user.firmId, caseId);
     
     if (!caseData) {
       return res.status(404).json({
@@ -1417,8 +1417,8 @@ const pullCases = async (req, res) => {
     
     // Handle single case pull vs bulk pull
     if (caseIds.length === 1) {
-      // Single case pull
-      const result = await caseAssignmentService.assignCaseToUser(caseIds[0], user);
+      // Single case pull - with firm scoping
+      const result = await caseAssignmentService.assignCaseToUser(req.user.firmId, caseIds[0], user);
       
       if (!result.success) {
         return res.status(409).json({
@@ -1435,8 +1435,8 @@ const pullCases = async (req, res) => {
         message: 'Case pulled successfully',
       });
     } else {
-      // Bulk case pull
-      const result = await caseAssignmentService.bulkAssignCasesToUser(caseIds, user);
+      // Bulk case pull - with firm scoping
+      const result = await caseAssignmentService.bulkAssignCasesToUser(req.user.firmId, caseIds, user);
       
       const successCount = result.assigned;
       const requestedCount = result.requested;
