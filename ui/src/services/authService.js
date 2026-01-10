@@ -19,7 +19,13 @@ export const authService = {
     const response = await api.post('/auth/login', payload);
     
     if (response.data.success) {
-      const userData = response.data.data;
+      const { accessToken, refreshToken, data: userData } = response.data;
+      
+      // Store JWT tokens
+      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+      
+      // Store user data
       localStorage.setItem(STORAGE_KEYS.X_ID, userData.xID);
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
     }
@@ -35,6 +41,8 @@ export const authService = {
     try {
       await api.post('/auth/logout');
     } finally {
+      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
       localStorage.removeItem(STORAGE_KEYS.X_ID);
       localStorage.removeItem(STORAGE_KEYS.USER);
     }
@@ -138,6 +146,28 @@ export const authService = {
    * Check if user is authenticated
    */
   isAuthenticated: () => {
-    return !!localStorage.getItem(STORAGE_KEYS.X_ID);
+    return !!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+  },
+  
+  /**
+   * Refresh access token
+   */
+  refreshToken: async () => {
+    const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+    
+    const response = await api.post('/auth/refresh', {
+      refreshToken,
+    });
+    
+    if (response.data.success) {
+      const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
+      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, newAccessToken);
+      localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken);
+    }
+    
+    return response.data;
   },
 };

@@ -24,6 +24,14 @@ const attachmentSchema = new mongoose.Schema({
     index: true,
   },
   
+  // Firm/Organization ID for multi-tenancy
+  firmId: {
+    type: String,
+    required: [true, 'Firm ID is required'],
+    default: 'FIRM001',
+    index: true,
+  },
+  
   /**
    * Original file name
    */
@@ -194,8 +202,11 @@ attachmentSchema.pre('findOneAndDelete', function(next) {
  * Performance Indexes
  * - caseId + createdAt: List attachments for a case
  * - fileName: Full-text search index for global search
+ * - firmId: Multi-tenancy queries
  */
 attachmentSchema.index({ caseId: 1, createdAt: -1 });
 attachmentSchema.index({ fileName: 'text' });
+attachmentSchema.index({ firmId: 1 }); // Multi-tenancy queries
+attachmentSchema.index({ firmId: 1, caseId: 1 }); // Firm-scoped case attachments
 
 module.exports = mongoose.model('Attachment', attachmentSchema);

@@ -44,6 +44,15 @@ const userSchema = new mongoose.Schema({
     match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address'],
   },
   
+  // Firm/Organization ID for multi-tenancy
+  // All users belong to a firm - enforces data isolation
+  firmId: {
+    type: String,
+    required: [true, 'Firm ID is required'],
+    default: 'FIRM001', // Default firm for single-tenant deployment
+    index: true,
+  },
+  
   // Determines access level: Admin has full system access, Employee has category-restricted access
   role: {
     type: String,
@@ -219,6 +228,8 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ isActive: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ status: 1 });
+userSchema.index({ firmId: 1 }); // Multi-tenancy queries
+userSchema.index({ firmId: 1, role: 1 }); // Firm-scoped role queries
 
 // Virtual property to check if account is locked
 userSchema.virtual('isLocked').get(function() {

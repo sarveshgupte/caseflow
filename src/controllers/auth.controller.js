@@ -3,11 +3,13 @@ const mongoose = require('mongoose');
 const User = require('../models/User.model');
 const UserProfile = require('../models/UserProfile.model');
 const AuthAudit = require('../models/AuthAudit.model');
+const RefreshToken = require('../models/RefreshToken.model');
 const emailService = require('../services/email.service');
 const xIDGenerator = require('../services/xIDGenerator');
+const jwtService = require('../services/jwt.service');
 
 /**
- * Authentication Controller for xID-based Enterprise Authentication
+ * Authentication Controller for JWT-based Enterprise Authentication
  * PART B - Identity and Authentication Management
  */
 
@@ -49,13 +51,15 @@ const login = async (req, res) => {
     const user = await User.findOne({ xID: normalizedXID });
     
     if (!user) {
-      // Log failed login attempt
+      // Log failed login attempt (no firmId available as user doesn't exist)
       await AuthAudit.create({
         xID: normalizedXID,
+        firmId: 'UNKNOWN', // User not found, so firmId unknown
         actionType: 'LoginFailed',
         description: `Login failed: User not found`,
         performedBy: normalizedXID,
         ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
       });
       
       return res.status(401).json({
@@ -124,10 +128,13 @@ const login = async (req, res) => {
         // Log account lock
         await AuthAudit.create({
           xID: user.xID,
+          firmId: user.firmId,
+          userId: user._id,
           actionType: 'AccountLocked',
           description: `Account locked due to ${MAX_FAILED_ATTEMPTS} failed login attempts`,
           performedBy: user.xID,
           ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
         });
         
         return res.status(403).json({
@@ -142,10 +149,13 @@ const login = async (req, res) => {
       // Log failed login attempt
       await AuthAudit.create({
         xID: user.xID,
+        firmId: user.firmId,
+        userId: user._id,
         actionType: 'LoginFailed',
         description: `Login failed: Invalid password (attempt ${user.failedLoginAttempts})`,
         performedBy: user.xID,
         ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
       });
       
       return res.status(401).json({
@@ -168,10 +178,13 @@ const login = async (req, res) => {
       // Log password expiry
       await AuthAudit.create({
         xID: user.xID,
+        firmId: user.firmId,
+        userId: user._id,
         actionType: 'PasswordExpired',
         description: `Login attempt with expired password`,
         performedBy: user.xID,
         ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
       });
       
       return res.status(403).json({
@@ -229,12 +242,15 @@ const login = async (req, res) => {
       try {
         await AuthAudit.create({
           xID: user.xID,
+          firmId: user.firmId,
+          userId: user._id,
           actionType: 'PasswordResetEmailSent',
           description: emailSent 
             ? 'Password reset email sent on first login' 
             : 'Password reset email failed to send on first login',
           performedBy: user.xID,
           ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
         });
       } catch (auditError) {
         console.error('[AUTH] Failed to create audit log:', auditError.message);
@@ -244,21 +260,49 @@ const login = async (req, res) => {
     // Log successful login
     await AuthAudit.create({
       xID: user.xID,
+      firmId: user.firmId,
+      userId: user._id,
       actionType: 'Login',
       description: `User logged in successfully`,
       performedBy: user.xID,
       ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
     });
     
-    // Return user info (exclude sensitive fields)
+    // Generate JWT access token
+    const accessToken = jwtService.generateAccessToken({
+      userId: user._id.toString(),
+      firmId: user.firmId,
+      role: user.role,
+    });
+    
+    // Generate refresh token
+    const refreshToken = jwtService.generateRefreshToken();
+    const refreshTokenHash = jwtService.hashRefreshToken(refreshToken);
+    
+    // Store refresh token in database
+    await RefreshToken.create({
+      tokenHash: refreshTokenHash,
+      userId: user._id,
+      firmId: user.firmId,
+      expiresAt: jwtService.getRefreshTokenExpiry(),
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+    
+    // Return user info with tokens (exclude sensitive fields)
     const response = {
       success: true,
       message: user.forcePasswordReset ? 'Password reset required' : 'Login successful',
+      accessToken,
+      refreshToken,
       data: {
+        id: user._id.toString(),
         xID: user.xID,
         name: user.name,
         email: user.email,
         role: user.role,
+        firmId: user.firmId,
         allowedCategories: user.allowedCategories,
         isActive: user.isActive,
       },
@@ -272,6 +316,7 @@ const login = async (req, res) => {
     
     res.json(response);
   } catch (error) {
+    console.error('[AUTH] Login error:', error);
     res.status(500).json({
       success: false,
       message: 'Error during login',
@@ -286,16 +331,25 @@ const login = async (req, res) => {
  */
 const logout = async (req, res) => {
   try {
-    // Get xID from authenticated user
-    const xID = req.user.xID;
+    // Get user from authenticated request
+    const user = req.user;
+    
+    // Revoke all refresh tokens for this user
+    await RefreshToken.updateMany(
+      { userId: user._id, isRevoked: false },
+      { isRevoked: true }
+    );
     
     // Log logout
     await AuthAudit.create({
-      xID: xID,
+      xID: user.xID,
+      firmId: user.firmId,
+      userId: user._id,
       actionType: 'Logout',
       description: `User logged out`,
-      performedBy: xID,
+      performedBy: user.xID,
       ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
     });
     
     res.json({
@@ -303,6 +357,7 @@ const logout = async (req, res) => {
       message: 'Logout successful',
     });
   } catch (error) {
+    console.error('[AUTH] Logout error:', error);
     res.status(500).json({
       success: false,
       message: 'Error during logout',
@@ -383,13 +438,22 @@ const changePassword = async (req, res) => {
     
     await user.save();
     
+    // Revoke all refresh tokens for security (force re-login)
+    await RefreshToken.updateMany(
+      { userId: user._id, isRevoked: false },
+      { isRevoked: true }
+    );
+    
     // Log password change
     await AuthAudit.create({
       xID: user.xID,
+      firmId: user.firmId,
+      userId: user._id,
       actionType: 'PasswordChanged',
       description: `User changed their password`,
       performedBy: user.xID,
       ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
     });
     
     res.json({
@@ -397,6 +461,7 @@ const changePassword = async (req, res) => {
       message: 'Password changed successfully',
     });
   } catch (error) {
+    console.error('[AUTH] Change password error:', error);
     res.status(500).json({
       success: false,
       message: 'Error changing password',
@@ -458,12 +523,15 @@ const resetPassword = async (req, res) => {
       // Log password setup email sent
       await AuthAudit.create({
         xID: user.xID,
+        firmId: user.firmId,
+        userId: user._id,
         actionType: 'PasswordSetupEmailSent',
         description: emailResult.success 
           ? `Password reset email sent to ${emailService.maskEmail(user.email)}` 
           : `Password reset email failed to send to ${emailService.maskEmail(user.email)}: ${emailResult.error}`,
         performedBy: admin.xID,
         ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
       });
     } catch (emailError) {
       console.error('[AUTH] Failed to send password setup email:', emailError.message);
@@ -473,10 +541,13 @@ const resetPassword = async (req, res) => {
     // Log password reset
     await AuthAudit.create({
       xID: user.xID,
+      firmId: user.firmId,
+      userId: user._id,
       actionType: 'PasswordResetByAdmin',
       description: `Password reset by admin - setup email sent`,
       performedBy: admin.xID,
       ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
       metadata: {
         resetBy: admin.xID,
       },
@@ -664,10 +735,13 @@ const updateProfile = async (req, res) => {
     
     await AuthAudit.create({
       xID: user.xID,
+      firmId: user.firmId,
+      userId: user._id,
       actionType: 'ProfileUpdated',
       description: `User profile updated`,
       performedBy: user.xID,
       ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
       metadata: {
         changes,
       },
@@ -743,6 +817,7 @@ const createUser = async (req, res) => {
       xID: xID, // Auto-generated, immutable
       name,
       email: email.toLowerCase(),
+      firmId: admin.firmId, // Inherit firmId from admin
       role: role || 'Employee',
       allowedCategories: allowedCategories || [],
       isActive: true,
@@ -765,12 +840,15 @@ const createUser = async (req, res) => {
       // Log invite email sent
       await AuthAudit.create({
         xID: newUser.xID,
+        firmId: newUser.firmId,
+        userId: newUser._id,
         actionType: 'InviteEmailSent',
         description: emailResult.success 
           ? `Invite email sent to ${emailService.maskEmail(newUser.email)}` 
           : `Invite email failed to send to ${emailService.maskEmail(newUser.email)}: ${emailResult.error}`,
         performedBy: admin.xID,
         ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
       });
     } catch (emailError) {
       console.error('[AUTH] Failed to send invite email:', emailError.message);
@@ -778,10 +856,13 @@ const createUser = async (req, res) => {
       try {
         await AuthAudit.create({
           xID: newUser.xID,
+          firmId: newUser.firmId,
+          userId: newUser._id,
           actionType: 'InviteEmailFailed',
           description: `Failed to send invite email to ${emailService.maskEmail(newUser.email)}: ${emailError.message}`,
           performedBy: admin.xID,
           ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
         });
       } catch (auditError) {
         console.error('[AUTH] Failed to log email error:', auditError.message);
@@ -791,10 +872,13 @@ const createUser = async (req, res) => {
     // Log user creation
     await AuthAudit.create({
       xID: newUser.xID,
+      firmId: newUser.firmId,
+      userId: newUser._id,
       actionType: 'UserCreated',
       description: `User account created by admin with auto-generated xID`,
       performedBy: admin.xID,
       ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
       metadata: {
         createdBy: admin.xID,
         role: newUser.role,
@@ -885,10 +969,13 @@ const activateUser = async (req, res) => {
     // Log activation
     await AuthAudit.create({
       xID: user.xID,
+      firmId: user.firmId,
+      userId: user._id,
       actionType: 'AccountActivated',
       description: `User account activated by admin`,
       performedBy: admin.xID,
       ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
     });
     
     res.json({
@@ -940,10 +1027,13 @@ const deactivateUser = async (req, res) => {
     // Log deactivation
     await AuthAudit.create({
       xID: user.xID,
+      firmId: user.firmId,
+      userId: user._id,
       actionType: 'AccountDeactivated',
       description: `User account deactivated by admin`,
       performedBy: admin.xID,
       ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
     });
     
     res.json({
@@ -1013,10 +1103,13 @@ const setPassword = async (req, res) => {
     // Log password setup
     await AuthAudit.create({
       xID: user.xID,
+      firmId: user.firmId,
+      userId: user._id,
       actionType: 'PasswordSetup',
       description: `User set password via email link`,
       performedBy: user.xID,
       ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
     });
     
     res.json({
@@ -1135,10 +1228,13 @@ const resetPasswordWithToken = async (req, res) => {
     // Log password reset
     await AuthAudit.create({
       xID: user.xID,
+      firmId: user.firmId,
+      userId: user._id,
       actionType: 'PasswordReset',
       description: `User reset password via email link`,
       performedBy: user.xID,
       ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
     });
     
     res.json({
@@ -1220,10 +1316,13 @@ const resendSetupEmail = async (req, res) => {
       // Log invite email sent
       await AuthAudit.create({
         xID: user.xID,
+        firmId: user.firmId,
+        userId: user._id,
         actionType: 'InviteEmailResent',
         description: `Invite reminder email sent to ${emailService.maskEmail(user.email)}`,
         performedBy: admin.xID,
         ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
       });
     } catch (emailError) {
       console.error('[AUTH] Failed to send invite email:', emailError.message);
@@ -1291,10 +1390,13 @@ const updateUserStatus = async (req, res) => {
     // Log status change
     await AuthAudit.create({
       xID: user.xID,
+      firmId: user.firmId,
+      userId: user._id,
       actionType: active ? 'AccountActivated' : 'AccountDeactivated',
       description: `User account ${active ? 'activated' : 'deactivated'} by admin`,
       performedBy: admin.xID,
       ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
     });
     
     res.json({
@@ -1346,10 +1448,13 @@ const unlockAccount = async (req, res) => {
     // Log unlock
     await AuthAudit.create({
       xID: user.xID,
+      firmId: user.firmId,
+      userId: user._id,
       actionType: 'AccountUnlocked',
       description: `Account unlocked by admin`,
       performedBy: admin.xID,
       ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
     });
     
     res.json({
@@ -1425,12 +1530,15 @@ const forgotPassword = async (req, res) => {
       // Log password reset request
       await AuthAudit.create({
         xID: user.xID,
+        firmId: user.firmId,
+        userId: user._id,
         actionType: 'ForgotPasswordRequested',
         description: emailResult.success 
           ? `Password reset link sent to ${emailService.maskEmail(user.email)}` 
           : `Password reset link failed to send to ${emailService.maskEmail(user.email)}: ${emailResult.error}`,
         performedBy: user.xID,
         ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
       });
     } catch (emailError) {
       console.error('[AUTH] Failed to send forgot password email:', emailError.message);
@@ -1475,6 +1583,101 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+/**
+ * Refresh access token using refresh token
+ * POST /api/auth/refresh
+ */
+const refreshAccessToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Refresh token is required',
+      });
+    }
+    
+    // Hash the provided refresh token
+    const tokenHash = jwtService.hashRefreshToken(refreshToken);
+    
+    // Find the refresh token in database
+    const storedToken = await RefreshToken.findOne({
+      tokenHash,
+      isRevoked: false,
+      expiresAt: { $gt: new Date() },
+    });
+    
+    if (!storedToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired refresh token',
+      });
+    }
+    
+    // Get the user
+    const user = await User.findById(storedToken.userId);
+    
+    if (!user || !user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found or inactive',
+      });
+    }
+    
+    // Revoke the old refresh token (token rotation)
+    storedToken.isRevoked = true;
+    await storedToken.save();
+    
+    // Generate new access token
+    const newAccessToken = jwtService.generateAccessToken({
+      userId: user._id.toString(),
+      firmId: user.firmId,
+      role: user.role,
+    });
+    
+    // Generate new refresh token
+    const newRefreshToken = jwtService.generateRefreshToken();
+    const newTokenHash = jwtService.hashRefreshToken(newRefreshToken);
+    
+    // Store new refresh token
+    await RefreshToken.create({
+      tokenHash: newTokenHash,
+      userId: user._id,
+      firmId: user.firmId,
+      expiresAt: jwtService.getRefreshTokenExpiry(),
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+    
+    // Log token refresh
+    await AuthAudit.create({
+      xID: user.xID,
+      firmId: user.firmId,
+      userId: user._id,
+      actionType: 'TokenRefreshed',
+      description: 'Access token refreshed successfully',
+      performedBy: user.xID,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+    
+    res.json({
+      success: true,
+      message: 'Token refreshed successfully',
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
+  } catch (error) {
+    console.error('[AUTH] Refresh token error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error refreshing token',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   login,
   logout,
@@ -1492,4 +1695,5 @@ module.exports = {
   unlockAccount,
   forgotPassword,
   getAllUsers,
+  refreshAccessToken, // NEW: JWT token refresh
 };

@@ -112,7 +112,7 @@ const corsOptions = {
   origin: true, // reflect request origin
   credentials: false,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id']
+  allowedHeaders: ['Content-Type', 'Authorization']
 };
 
 // Middleware

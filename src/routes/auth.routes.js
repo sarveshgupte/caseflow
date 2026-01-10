@@ -18,6 +18,7 @@ const {
   unlockAccount,
   forgotPassword,
   getAllUsers,
+  refreshAccessToken, // NEW: JWT token refresh
 } = require('../controllers/auth.controller');
 
 /**
@@ -32,6 +33,7 @@ router.post('/login', login);
 router.post('/set-password', setPassword);
 router.post('/reset-password-with-token', resetPasswordWithToken);
 router.post('/forgot-password', forgotPassword);
+router.post('/refresh', refreshAccessToken); // NEW: JWT token refresh
 
 // Protected authentication endpoints - require authentication
 router.post('/logout', authenticate, logout);

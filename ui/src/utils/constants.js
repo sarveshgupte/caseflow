@@ -60,6 +60,8 @@ export const USER_ROLES = {
 export const STORAGE_KEYS = {
   X_ID: 'xID',
   USER: 'user',
+  ACCESS_TOKEN: 'accessToken',
+  REFRESH_TOKEN: 'refreshToken',
 };
 
 export const HTTP_STATUS = {

@@ -19,6 +19,15 @@ const taskSchema = new mongoose.Schema({
     trim: true,
     maxlength: [2000, 'Description cannot exceed 2000 characters'],
   },
+  
+  // Firm/Organization ID for multi-tenancy
+  firmId: {
+    type: String,
+    required: [true, 'Firm ID is required'],
+    default: 'FIRM001',
+    index: true,
+  },
+  
   status: {
     type: String,
     enum: ['pending', 'in_progress', 'review', 'completed', 'blocked', 'cancelled'],
@@ -91,6 +100,8 @@ taskSchema.index({ status: 1, priority: -1 });
 taskSchema.index({ assignedTo: 1, status: 1 });
 taskSchema.index({ case: 1 });
 taskSchema.index({ dueDate: 1 });
+taskSchema.index({ firmId: 1 }); // Multi-tenancy queries
+taskSchema.index({ firmId: 1, status: 1 }); // Firm-scoped status queries
 
 // Pre-save middleware to track status changes
 taskSchema.pre('save', async function() {
