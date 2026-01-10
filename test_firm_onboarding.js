@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Test script to verify firm onboarding fix
- * Tests that multiple firms can be created successfully
+ * Tests that multiple firms can be created successfully with firm-scoped IDs
  */
 
 const mongoose = require('mongoose');
@@ -9,6 +9,7 @@ const Firm = require('./src/models/Firm.model');
 const Client = require('./src/models/Client.model');
 const User = require('./src/models/User.model');
 const { generateNextClientId } = require('./src/services/clientIdGenerator');
+const { generateNextXID } = require('./src/services/xIDGenerator');
 
 // Use in-memory MongoDB for testing
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/docketra-test';
@@ -65,7 +66,9 @@ async function createTestFirm(firmNumber) {
     console.log(`[TEST] Linked firm ${firmId} to client ${clientId}`);
     
     // Step 4: Create Admin User
-    const adminXID = `XTEST${firmNumber.toString().padStart(3, '0')}`;
+    const adminXID = await generateNextXID(firm._id, session);
+    console.log(`[TEST] Generated adminXID: ${adminXID}`);
+    
     const adminUser = new User({
       xID: adminXID,
       name: `Test Admin ${firmNumber}`,
@@ -147,6 +150,22 @@ async function runTests() {
     }
     console.log('[TEST] ✓ All client IDs are unique');
     
+    // Verify each firm starts with C000001 (firm-scoped)
+    for (const client of allClients) {
+      if (client.clientId !== 'C000001') {
+        throw new Error(`Client ${client._id} has unexpected ID: ${client.clientId} (expected C000001)`);
+      }
+    }
+    console.log('[TEST] ✓ All firms start with C000001 (firm-scoped)');
+    
+    // Verify each admin starts with X000001 (firm-scoped)
+    for (const admin of allAdmins) {
+      if (admin.xID !== 'X000001') {
+        throw new Error(`Admin ${admin._id} has unexpected ID: ${admin.xID} (expected X000001)`);
+      }
+    }
+    console.log('[TEST] ✓ All firms start with X000001 (firm-scoped)');
+    
     // Verify each firm is linked to its own client
     for (const firm of allFirms) {
       const client = allClients.find(c => c.firmId.toString() === firm._id.toString());
@@ -175,7 +194,8 @@ async function runTests() {
     console.log('✓✓✓ ALL TESTS PASSED ✓✓✓');
     console.log('========================================');
     console.log('[TEST] Multiple firms can be created successfully');
-    console.log('[TEST] Each firm has its own unique client ID');
+    console.log('[TEST] Each firm starts with C000001 (firm-scoped client IDs)');
+    console.log('[TEST] Each firm starts with X000001 (firm-scoped user IDs)');
     console.log('[TEST] Each firm is properly isolated');
     
     // Cleanup after tests
