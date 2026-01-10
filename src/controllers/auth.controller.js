@@ -97,19 +97,6 @@ const login = async (req, res) => {
       });
     }
     
-    // Check if user's firm is suspended (skip for SUPER_ADMIN)
-    if (user.role !== 'SUPER_ADMIN' && user.firmId) {
-      const Firm = require('../models/Firm.model');
-      const firm = await Firm.findById(user.firmId);
-      if (firm && firm.status === 'SUSPENDED') {
-        return res.status(403).json({
-          success: false,
-          message: 'Your firm has been suspended. Please contact support.',
-          code: 'FIRM_SUSPENDED',
-        });
-      }
-    }
-    
     // Check if user status is ACTIVE (invited users cannot login)
     // Skip for SUPER_ADMIN (they don't have invite flow)
     if (user.role !== 'SUPER_ADMIN' && user.status !== 'ACTIVE') {
