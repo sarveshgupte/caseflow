@@ -56,7 +56,6 @@ const userSchema = new mongoose.Schema({
       return this.role !== 'SUPER_ADMIN';
     },
     immutable: true,
-    index: true,
   },
   
   /**

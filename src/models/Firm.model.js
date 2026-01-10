@@ -81,7 +81,7 @@ const firmSchema = new mongoose.Schema({
 });
 
 // Indexes for performance
-firmSchema.index({ firmId: 1 });
+// Note: firmId already has unique index from schema definition
 firmSchema.index({ status: 1 });
 
 module.exports = mongoose.model('Firm', firmSchema);

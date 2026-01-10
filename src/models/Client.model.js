@@ -49,7 +49,6 @@ const clientSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Firm',
     required: [true, 'Firm ID is required'],
-    index: true,
     immutable: true, // Client cannot be moved between firms
   },
   
