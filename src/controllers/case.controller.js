@@ -604,8 +604,17 @@ const cloneCase = async (req, res) => {
       });
     }
     
-    // Find original case - with firm scoping
-    const originalCase = await CaseRepository.findByCaseId(req.user.firmId, caseId);
+    // PR: Case Identifier Semantics - Resolve identifier to internal ID
+    let originalCase;
+    try {
+      const internalId = await resolveCaseIdentifier(req.user.firmId, caseId);
+      originalCase = await CaseRepository.findByInternalId(req.user.firmId, internalId);
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        message: 'Original case not found',
+      });
+    }
     
     if (!originalCase) {
       return res.status(404).json({
@@ -804,6 +813,7 @@ const unpendCase = async (req, res) => {
 /**
  * Update case status
  * PUT /api/cases/:caseId/status
+ * PR: Case Identifier Semantics - Uses internal ID resolution
  */
 const updateCaseStatus = async (req, res) => {
   try {
@@ -825,8 +835,17 @@ const updateCaseStatus = async (req, res) => {
       });
     }
     
-    // Find case - with firm scoping
-    const caseData = await CaseRepository.findByCaseId(req.user.firmId, caseId);
+    // PR: Case Identifier Semantics - Resolve identifier to internal ID
+    let caseData;
+    try {
+      const internalId = await resolveCaseIdentifier(req.user.firmId, caseId);
+      caseData = await CaseRepository.findByInternalId(req.user.firmId, internalId);
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
     
     if (!caseData) {
       return res.status(404).json({
@@ -1180,6 +1199,7 @@ const getCases = async (req, res) => {
  * POST /api/cases/:caseId/lock
  * 
  * Implements soft locking with 2-hour inactivity auto-unlock
+ * PR: Case Identifier Semantics - Uses internal ID resolution
  */
 const lockCaseEndpoint = async (req, res) => {
   try {
@@ -1193,9 +1213,17 @@ const lockCaseEndpoint = async (req, res) => {
       });
     }
     
-    // Build query with firmId scoping
-    const query = buildCaseQuery(req, caseId);
-    const caseData = await CaseRepository.findByCaseId(req.user.firmId, caseId);
+    // PR: Case Identifier Semantics - Resolve identifier to internal ID
+    let caseData;
+    try {
+      const internalId = await resolveCaseIdentifier(req.user.firmId, caseId);
+      caseData = await CaseRepository.findByInternalId(req.user.firmId, internalId);
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
     
     if (!caseData) {
       return res.status(404).json({
@@ -1267,6 +1295,11 @@ const lockCaseEndpoint = async (req, res) => {
  * Unlock a case
  * POST /api/cases/:caseId/unlock
  */
+/**
+ * Unlock a case
+ * POST /api/cases/:caseId/unlock
+ * PR: Case Identifier Semantics - Uses internal ID resolution
+ */
 const unlockCaseEndpoint = async (req, res) => {
   try {
     const { caseId } = req.params;
@@ -1279,7 +1312,17 @@ const unlockCaseEndpoint = async (req, res) => {
       });
     }
     
-    const caseData = await CaseRepository.findByCaseId(req.user.firmId, caseId);
+    // PR: Case Identifier Semantics - Resolve identifier to internal ID
+    let caseData;
+    try {
+      const internalId = await resolveCaseIdentifier(req.user.firmId, caseId);
+      caseData = await CaseRepository.findByInternalId(req.user.firmId, internalId);
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
     
     if (!caseData) {
       return res.status(404).json({
@@ -1326,6 +1369,7 @@ const unlockCaseEndpoint = async (req, res) => {
  * POST /api/cases/:caseId/activity
  * 
  * Updates lastActivityAt to prevent auto-unlock
+ * PR: Case Identifier Semantics - Uses internal ID resolution
  */
 const updateCaseActivity = async (req, res) => {
   try {
@@ -1339,7 +1383,17 @@ const updateCaseActivity = async (req, res) => {
       });
     }
     
-    const caseData = await CaseRepository.findByCaseId(req.user.firmId, caseId);
+    // PR: Case Identifier Semantics - Resolve identifier to internal ID
+    let caseData;
+    try {
+      const internalId = await resolveCaseIdentifier(req.user.firmId, caseId);
+      caseData = await CaseRepository.findByInternalId(req.user.firmId, internalId);
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
     
     if (!caseData) {
       return res.status(404).json({
