@@ -4,10 +4,12 @@
  * Shows:
  * - My Open Cases: Cases assigned to me with status = OPEN (matches My Worklist)
  * - My Pending Cases: Cases assigned to me with status = PENDED (does not appear in worklist)
+ * - Cases Created by Me (Unassigned): Cases I created that are still in global worklist
  * - Admin views: All cases, pending approvals, filed cases
  * 
  * PR: Case Lifecycle - Fixed to use correct queries that match worklist
  * PR: Clickable Dashboard KPI Cards - All cards are clickable and navigate to filtered lists
+ * PR: Fix Case Visibility - Added unassigned created cases metric
  */
 
 import React, { useState, useEffect } from 'react';
@@ -34,6 +36,7 @@ export const DashboardPage = () => {
     myOpenCases: 0,
     myPendingCases: 0,
     myResolvedCases: 0,
+    myUnassignedCreatedCases: 0,
     adminPendingApprovals: 0,
     adminFiledCases: 0,
     adminResolvedCases: 0,
@@ -93,6 +96,22 @@ export const DashboardPage = () => {
         }
       } catch (error) {
         console.error('Failed to load resolved cases:', error);
+        // Non-critical, continue
+      }
+      
+      // Get My Unassigned Created Cases count
+      // PR: Fix Case Visibility - New dashboard metric for created-but-unassigned cases
+      try {
+        const unassignedCreatedResponse = await caseService.getMyUnassignedCreatedCases();
+        if (unassignedCreatedResponse.success) {
+          const unassignedCreatedCases = unassignedCreatedResponse.data || [];
+          setStats((prev) => ({
+            ...prev,
+            myUnassignedCreatedCases: unassignedCreatedCases.length,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load unassigned created cases:', error);
         // Non-critical, continue
       }
       
@@ -158,6 +177,10 @@ export const DashboardPage = () => {
     navigate('/my-worklist?status=RESOLVED');
   };
   
+  const handleMyUnassignedCreatedCasesClick = () => {
+    navigate('/worklists/global?createdBy=me&status=UNASSIGNED');
+  };
+  
   const handlePendingApprovalsClick = () => {
     navigate('/cases?approvalStatus=PENDING');
   };
@@ -217,6 +240,17 @@ export const DashboardPage = () => {
             <div className="dashboard__stat-label">My Resolved Cases</div>
             <div className="dashboard__stat-description text-secondary">
               Successfully completed
+            </div>
+          </Card>
+
+          <Card 
+            className="dashboard__stat-card dashboard__stat-card--clickable" 
+            onClick={handleMyUnassignedCreatedCasesClick}
+          >
+            <div className="dashboard__stat-value">{stats.myUnassignedCreatedCases}</div>
+            <div className="dashboard__stat-label">Cases Created by Me (Unassigned)</div>
+            <div className="dashboard__stat-description text-secondary">
+              In Global Worklist
             </div>
           </Card>
 

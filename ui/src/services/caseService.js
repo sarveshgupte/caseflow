@@ -205,6 +205,16 @@ export const caseService = {
   },
 
   /**
+   * Get unassigned cases created by me
+   * Returns cases with status UNASSIGNED that were created by current user
+   * PR: Fix Case Visibility - New endpoint for dashboard accuracy
+   */
+  getMyUnassignedCreatedCases: async () => {
+    const response = await api.get('/cases/my-unassigned-created');
+    return response.data;
+  },
+
+  /**
    * View attachment inline
    * Opens attachment in new tab
    */
