@@ -168,6 +168,14 @@ const deleteUser = async (req, res) => {
       });
     }
     
+    // PROTECTION: Prevent deactivation of system users (default admin)
+    if (user.isSystem === true) {
+      return res.status(403).json({
+        success: false,
+        error: 'Cannot deactivate the default admin user. This is a protected system entity.',
+      });
+    }
+    
     user.isActive = false;
     user.updatedBy = req.body.updatedBy; // In real app, this comes from auth
     await user.save();

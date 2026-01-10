@@ -455,15 +455,6 @@ const toggleClientStatus = async (req, res) => {
       });
     }
     
-    // HARD BLOCK: Prevent deactivation of Default Client (C000001)
-    // This is a system invariant that must be enforced server-side
-    if (clientId === 'C000001' && !isActive) {
-      return res.status(400).json({
-        success: false,
-        message: 'Default client cannot be deactivated.',
-      });
-    }
-    
     // Build query with firmId scoping
     const client = await Client.findOne({ clientId, firmId: userFirmId });
     
@@ -474,11 +465,20 @@ const toggleClientStatus = async (req, res) => {
       });
     }
     
-    // Additional check using isSystemClient flag
-    if (client.isSystemClient && !isActive) {
-      return res.status(400).json({
+    // PROTECTION: Prevent deactivation of system/internal clients
+    // Check multiple flags to ensure firm's operational identity is protected
+    const isProtectedClient = 
+      client.isSystemClient === true || 
+      client.isInternal === true || 
+      clientId === 'C000001';
+    
+    if (isProtectedClient && !isActive) {
+      // Log the attempt for audit
+      console.warn(`[CLIENT_PROTECTION] Attempt to deactivate protected client ${clientId} by user ${req.user?.xID}`);
+      
+      return res.status(403).json({
         success: false,
-        message: 'Default client cannot be deactivated.',
+        message: 'Cannot deactivate the default internal client. This is a protected system entity.',
       });
     }
     
@@ -486,6 +486,8 @@ const toggleClientStatus = async (req, res) => {
     client.isActive = isActive;
     client.status = isActive ? 'ACTIVE' : 'INACTIVE';
     await client.save();
+    
+    console.log(`[CLIENT_STATUS] Client ${clientId} ${isActive ? 'activated' : 'deactivated'} by ${req.user?.xID}`);
     
     res.json({
       success: true,

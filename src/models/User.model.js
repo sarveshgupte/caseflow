@@ -236,6 +236,19 @@ const userSchema = new mongoose.Schema({
   },
   
   /**
+   * System user flag - marks users created during firm onboarding
+   * TRUE for the default admin user (X000001) created when a firm is onboarded
+   * System users (isSystem=true) CANNOT be deleted or deactivated
+   * This ensures firms always have at least one active admin
+   */
+  isSystem: {
+    type: Boolean,
+    default: false,
+    immutable: true, // Cannot change after creation
+    index: true,
+  },
+  
+  /**
    * Client Access Restrictions (Admin-Managed Deny-List)
    * Array of client IDs (C123456 format) that this user CANNOT access
    * Default: empty array (user can access all clients)
