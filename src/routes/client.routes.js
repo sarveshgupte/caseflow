@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth.middleware');
-const { requireAdmin } = require('../middleware/permission.middleware');
+const { requireAdmin, blockSuperadmin } = require('../middleware/permission.middleware');
 const {
   getClients,
   getClientById,
@@ -24,9 +24,13 @@ const {
  * - Only email and contact numbers can be updated normally
  */
 
+// Block SuperAdmin from accessing client routes
+router.use(authenticate);
+router.use(blockSuperadmin);
+
 // Public/authenticated endpoints
-router.get('/', authenticate, getClients);
-router.get('/:clientId', authenticate, getClientById);
+router.get('/', getClients);
+router.get('/:clientId', getClientById);
 
 // Admin-only endpoints
 router.post('/', authenticate, requireAdmin, createClient);

@@ -11,6 +11,7 @@ import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { useToast } from '../hooks/useToast';
+import { USER_ROLES } from '../utils/constants';
 import './SuperadminDashboard.css';
 
 export const SuperadminDashboard = () => {
@@ -32,7 +33,7 @@ export const SuperadminDashboard = () => {
 
   // Verify user is Superadmin
   useEffect(() => {
-    if (!user || user.role !== 'SUPER_ADMIN') {
+    if (!user || user.role !== USER_ROLES.SUPER_ADMIN) {
       navigate('/dashboard');
     }
   }, [user, navigate]);

@@ -1,0 +1,136 @@
+/**
+ * SuperAdmin Layout Styles
+ * Clean, minimal styling for platform management
+ */
+
+.superadmin-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.superadmin-layout__nav {
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.superadmin-layout__nav-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 70px;
+}
+
+.superadmin-layout__brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.superadmin-layout__brand h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.superadmin-layout__badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.superadmin-layout__nav-links {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.superadmin-layout__nav-link {
+  position: relative;
+  padding: 0.75rem 0;
+  color: #4a5568;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: color 0.3s ease;
+}
+
+.superadmin-layout__nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 3px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  transition: width 0.3s ease;
+}
+
+.superadmin-layout__nav-link:hover {
+  color: #667eea;
+}
+
+.superadmin-layout__nav-link.active {
+  color: #667eea;
+}
+
+.superadmin-layout__nav-link.active::after {
+  width: 100%;
+}
+
+.superadmin-layout__nav-user {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.superadmin-layout__user-info {
+  color: #4a5568;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.superadmin-layout__main {
+  flex: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+  width: 100%;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .superadmin-layout__nav-container {
+    flex-direction: column;
+    height: auto;
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .superadmin-layout__nav-links {
+    gap: 1rem;
+  }
+
+  .superadmin-layout__nav-link {
+    font-size: 0.9rem;
+  }
+
+  .superadmin-layout__main {
+    padding: 1rem;
+  }
+}

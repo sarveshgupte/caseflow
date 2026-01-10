@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth.middleware');
-const { requireAdmin } = require('../middleware/permission.middleware');
+const { requireAdmin, blockSuperadmin } = require('../middleware/permission.middleware');
 const {
   getCaseMetrics,
   getPendingCasesReport,
@@ -15,10 +15,12 @@ const {
  * 
  * All report routes require authentication and admin role
  * Reports are strictly read-only - no data mutation allowed
+ * SuperAdmin is blocked from accessing firm-specific reports
  */
 
 // All report routes require authentication and admin role
 router.use(authenticate);
+router.use(blockSuperadmin);
 router.use(requireAdmin);
 
 // Case metrics aggregation

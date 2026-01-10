@@ -321,7 +321,43 @@ const createFirm = async (req, res) => {
 };
 
 /**
- * List all firms
+ * Get platform-level statistics
+ * GET /api/superadmin/stats
+ */
+const getPlatformStats = async (req, res) => {
+  try {
+    // Get total firms
+    const totalFirms = await Firm.countDocuments();
+    const activeFirms = await Firm.countDocuments({ status: 'ACTIVE' });
+    
+    // Get total clients across all firms
+    const totalClients = await Client.countDocuments();
+    
+    // Get total users across all firms (excluding SUPER_ADMIN)
+    const totalUsers = await User.countDocuments({ role: { $ne: 'SuperAdmin' } });
+    
+    res.json({
+      success: true,
+      data: {
+        totalFirms,
+        activeFirms,
+        inactiveFirms: totalFirms - activeFirms,
+        totalClients,
+        totalUsers,
+      },
+    });
+  } catch (error) {
+    console.error('[SUPERADMIN] Error getting platform stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get platform stats',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * List all firms with client and user counts
  * GET /api/superadmin/firms
  */
 const listFirms = async (req, res) => {
@@ -330,10 +366,29 @@ const listFirms = async (req, res) => {
       .select('firmId name status createdAt')
       .sort({ createdAt: -1 });
     
+    // Get counts for each firm
+    const firmsWithCounts = await Promise.all(
+      firms.map(async (firm) => {
+        const clientCount = await Client.countDocuments({ firmId: firm._id });
+        const userCount = await User.countDocuments({ firmId: firm._id });
+        
+        return {
+          _id: firm._id,
+          firmId: firm.firmId,
+          name: firm.name,
+          status: firm.status,
+          isActive: firm.status === 'ACTIVE',
+          clientCount,
+          userCount,
+          createdAt: firm.createdAt,
+        };
+      })
+    );
+    
     res.json({
       success: true,
-      data: firms,
-      count: firms.length,
+      data: firmsWithCounts,
+      count: firmsWithCounts.length,
     });
   } catch (error) {
     console.error('[SUPERADMIN] Error listing firms:', error);
@@ -553,4 +608,5 @@ module.exports = {
   listFirms,
   updateFirmStatus,
   createFirmAdmin,
+  getPlatformStats,
 };

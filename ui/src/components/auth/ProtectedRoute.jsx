@@ -20,10 +20,17 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadm
     return <Navigate to="/login" replace />;
   }
 
+  // SuperAdmin trying to access superadmin routes
   if (requireSuperadmin && !isSuperadmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
+  // SuperAdmin trying to access regular/admin routes (block them)
+  if (!requireSuperadmin && isSuperadmin) {
+    return <Navigate to="/superadmin" replace />;
+  }
+
+  // Admin-only routes
   if (requireAdmin && !isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }

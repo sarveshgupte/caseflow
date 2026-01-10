@@ -7,10 +7,18 @@ import api from './api';
 
 export const superadminService = {
   /**
+   * Get platform statistics
+   */
+  getPlatformStats: async () => {
+    const response = await api.get('/superadmin/stats');
+    return response.data;
+  },
+
+  /**
    * Create a new firm
    */
-  createFirm: async (name) => {
-    const response = await api.post('/superadmin/firms', { name });
+  createFirm: async (name, adminName, adminEmail) => {
+    const response = await api.post('/superadmin/firms', { name, adminName, adminEmail });
     return response.data;
   },
 

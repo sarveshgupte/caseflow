@@ -20,6 +20,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { useToast } from '../hooks/useToast';
 import { caseService } from '../services/caseService';
 import { formatDateTime, formatClientDisplay } from '../utils/formatters';
+import { USER_ROLES } from '../utils/constants';
 import './CaseDetailPage.css';
 
 /**
@@ -959,7 +960,7 @@ export const CaseDetailPage = () => {
         </Modal>
         
         {/* Case History - PR: Comprehensive CaseHistory & Audit Trail */}
-        {user && user.role !== 'SUPER_ADMIN' && (
+        {user && user.role !== USER_ROLES.SUPER_ADMIN && (
           <CaseHistory caseId={caseId} />
         )}
       </div>

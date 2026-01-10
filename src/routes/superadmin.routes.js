@@ -7,6 +7,7 @@ const {
   listFirms,
   updateFirmStatus,
   createFirmAdmin,
+  getPlatformStats,
 } = require('../controllers/superadmin.controller');
 
 /**
@@ -19,11 +20,15 @@ const {
  * - Create and manage firms
  * - Activate/suspend firms
  * - Create firm admins
+ * - View platform statistics
  * 
  * Superadmin CANNOT:
  * - Access firm data (cases, clients, tasks, attachments)
  * - Be seen or managed by firm admins
  */
+
+// Platform statistics
+router.get('/stats', authenticate, requireSuperadmin, getPlatformStats);
 
 // Firm management
 router.post('/firms', authenticate, requireSuperadmin, createFirm);

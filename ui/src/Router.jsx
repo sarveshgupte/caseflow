@@ -5,6 +5,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { DefaultRoute } from './components/routing/DefaultRoute';
 import { LoginPage } from './pages/LoginPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
 import { SetPasswordPage } from './pages/SetPasswordPage';
@@ -18,6 +19,8 @@ import { CreateCasePage } from './pages/CreateCasePage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AdminPage } from './pages/AdminPage';
 import { SuperadminDashboard } from './pages/SuperadminDashboard';
+import { PlatformDashboard } from './pages/PlatformDashboard';
+import { FirmsManagement } from './pages/FirmsManagement';
 import { ReportsDashboard } from './pages/reports/ReportsDashboard';
 import { DetailedReports } from './pages/reports/DetailedReports';
 import { FilteredCasesPage } from './pages/FilteredCasesPage';
@@ -32,6 +35,26 @@ export const Router = () => {
         <Route path="/change-password" element={<ChangePasswordPage />} />
         <Route path="/set-password" element={<SetPasswordPage />} />
         
+        {/* SuperAdmin Routes */}
+        <Route
+          path="/superadmin"
+          element={
+            <ProtectedRoute requireSuperadmin>
+              <PlatformDashboard />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/superadmin/firms"
+          element={
+            <ProtectedRoute requireSuperadmin>
+              <FirmsManagement />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Regular User Routes */}
         <Route
           path="/dashboard"
           element={
@@ -114,15 +137,6 @@ export const Router = () => {
         />
         
         <Route
-          path="/superadmin"
-          element={
-            <ProtectedRoute requireSuperadmin>
-              <SuperadminDashboard />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
           path="/admin/reports"
           element={
             <ProtectedRoute requireAdmin>
@@ -140,8 +154,8 @@ export const Router = () => {
           }
         />
         
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<DefaultRoute />} />
+        <Route path="*" element={<DefaultRoute />} />
       </Routes>
     </BrowserRouter>
   );

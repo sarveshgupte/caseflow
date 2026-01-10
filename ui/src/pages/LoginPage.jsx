@@ -9,6 +9,7 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { validateXID, validatePassword } from '../utils/validators';
+import { USER_ROLES } from '../utils/constants';
 import './LoginPage.css';
 
 export const LoginPage = () => {
@@ -47,7 +48,7 @@ export const LoginPage = () => {
 
       if (response.success) {
         // Check if user is Superadmin - redirect to superadmin dashboard
-        if (response.data.role === 'SUPER_ADMIN') {
+        if (response.data.role === USER_ROLES.SUPER_ADMIN) {
           navigate('/superadmin');
         } else {
           // Regular users go to dashboard

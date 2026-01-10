@@ -53,7 +53,7 @@ export const CLIENT_STATUS = {
 };
 
 export const USER_ROLES = {
-  SUPER_ADMIN: 'SUPER_ADMIN',
+  SUPER_ADMIN: 'SuperAdmin',
   ADMIN: 'Admin',
   EMPLOYEE: 'Employee',
 };

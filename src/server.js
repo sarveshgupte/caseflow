@@ -14,6 +14,7 @@ const requestLogger = require('./middleware/requestLogger');
 const errorHandler = require('./middleware/errorHandler');
 const notFound = require('./middleware/notFound');
 const { authenticate } = require('./middleware/auth.middleware');
+const { blockSuperadmin } = require('./middleware/permission.middleware');
 
 // Routes
 const userRoutes = require('./routes/users');
@@ -177,12 +178,13 @@ app.use('/api/debug', debugRoutes);
 app.use('/api/inbound', inboundRoutes);
 
 // Protected routes - require authentication
-app.use('/api/users', authenticate, userRoutes);
-app.use('/api/tasks', authenticate, taskRoutes);
-app.use('/api/cases', authenticate, newCaseRoutes);
-app.use('/api/search', authenticate, searchRoutes);
-app.use('/api/worklists', authenticate, searchRoutes);
-app.use('/api/client-approval', authenticate, clientApprovalRoutes);
+// Block SuperAdmin from firm-specific operations
+app.use('/api/users', authenticate, blockSuperadmin, userRoutes);
+app.use('/api/tasks', authenticate, blockSuperadmin, taskRoutes);
+app.use('/api/cases', authenticate, blockSuperadmin, newCaseRoutes);
+app.use('/api/search', authenticate, blockSuperadmin, searchRoutes);
+app.use('/api/worklists', authenticate, blockSuperadmin, searchRoutes);
+app.use('/api/client-approval', authenticate, blockSuperadmin, clientApprovalRoutes);
 app.use('/api/clients', clientRoutes);  // Client management (PR #39) - authentication handled in routes
 app.use('/api/reports', reportsRoutes);  // Reports routes (authentication handled in routes file)
 
