@@ -41,6 +41,23 @@ const firmSchema = new mongoose.Schema({
   },
   
   /**
+   * Firm slug - URL-safe identifier for firm-scoped login
+   * Format: lowercase-with-hyphens (e.g., "teekeet-store")
+   * IMMUTABLE - Cannot be changed after creation
+   * GLOBALLY UNIQUE - No two firms can have the same slug
+   * Used in firm login URL: /f/:firmSlug/login
+   */
+  firmSlug: {
+    type: String,
+    required: [true, 'Firm slug is required'],
+    unique: true,
+    lowercase: true,
+    trim: true,
+    immutable: true,
+    match: [/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'firmSlug must be URL-safe (lowercase letters, numbers, and hyphens only)'],
+  },
+  
+  /**
    * Default Client ID - represents the firm itself
    * Every firm MUST have exactly one default client
    * This client is created automatically when the firm is created
@@ -80,7 +97,8 @@ const firmSchema = new mongoose.Schema({
 });
 
 // Indexes for performance
-// Note: firmId already has unique index from schema definition
+// Note: firmId and firmSlug already have unique indexes from schema definition
 firmSchema.index({ status: 1 });
+firmSchema.index({ firmSlug: 1 }); // For fast firm resolution during login
 
 module.exports = mongoose.model('Firm', firmSchema);

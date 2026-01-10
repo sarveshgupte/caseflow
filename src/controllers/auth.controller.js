@@ -125,8 +125,35 @@ const login = async (req, res) => {
     // NORMAL USER AUTHENTICATION (FROM MONGODB)
     // ============================================================
     
-    // Find user by xID only
-    const user = await User.findOne({ xID: normalizedXID });
+    // If firmSlug is provided, use firm-scoped lookup
+    // This prevents ambiguity when multiple firms have the same xID (e.g., X000001)
+    let user;
+    
+    if (req.firmId) {
+      // Firm-scoped login - query by firmId AND xID
+      console.log(`[AUTH] Firm-scoped login attempt: firmSlug=${req.firmSlug}, xID=${normalizedXID}`);
+      user = await User.findOne({ 
+        firmId: req.firmId, 
+        xID: normalizedXID 
+      });
+    } else {
+      // Legacy login without firm context - query by xID only
+      // This supports existing users who don't have firmSlug yet
+      console.log(`[AUTH] Legacy login attempt (no firm context): xID=${normalizedXID}`);
+      user = await User.findOne({ xID: normalizedXID });
+      
+      // If multiple users with same xID exist, reject login
+      if (user) {
+        const duplicateCount = await User.countDocuments({ xID: normalizedXID });
+        if (duplicateCount > 1) {
+          console.warn(`[AUTH] Multiple users with xID ${normalizedXID} found. Firm-scoped login required.`);
+          return res.status(400).json({
+            success: false,
+            message: 'Multiple accounts found. Please use your firm-specific login URL.',
+          });
+        }
+      }
+    }
     
     if (!user) {
       // Check if system has been initialized (any users exist)
@@ -145,9 +172,9 @@ const login = async (req, res) => {
       try {
         await AuthAudit.create({
           xID: normalizedXID || 'UNKNOWN',
-          firmId: 'UNKNOWN', // User not found, so firmId unknown
+          firmId: req.firmIdString || 'UNKNOWN', // Use resolved firmId if available
           actionType: 'LoginFailed',
-          description: `Login failed: User not found (attempted with xID: ${normalizedXID})`,
+          description: `Login failed: User not found (attempted with xID: ${normalizedXID}, firmSlug: ${req.firmSlug || 'none'})`,
           performedBy: normalizedXID,
           ipAddress: req.ip,
           userAgent: req.get('user-agent'),

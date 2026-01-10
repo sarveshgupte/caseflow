@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth.middleware');
 const { requireAdmin } = require('../middleware/permission.middleware');
+const { optionalFirmResolution } = require('../middleware/firmResolution.middleware');
 const {
   login,
   logout,
@@ -29,7 +30,8 @@ const {
  */
 
 // Public authentication endpoints - NO authentication required
-router.post('/login', login);
+// Login supports optional firm resolution for firm-scoped login
+router.post('/login', optionalFirmResolution, login);
 router.post('/set-password', setPassword);
 router.post('/reset-password-with-token', resetPasswordWithToken);
 router.post('/forgot-password', forgotPassword);
