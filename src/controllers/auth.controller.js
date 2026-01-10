@@ -83,36 +83,8 @@ const login = async (req, res) => {
       });
     }
     
-    // Defensive validation: Ensure user has firmId (except for SUPER_ADMIN)
-    // Check early to prevent state changes for misconfigured accounts
-    if (user.role !== 'SUPER_ADMIN' && !user.firmId) {
-      console.error('[AUTH] CRITICAL: User resolved without firm context', {
-        xID: user.xID,
-        userId: user._id,
-        role: user.role,
-      });
-      return res.status(500).json({
-        success: false,
-        message: 'User account configuration error. Please contact support.',
-      });
-    }
-    
-    // Check if user's firm is suspended (skip for SUPER_ADMIN)
-    if (user.role !== 'SUPER_ADMIN' && user.firmId) {
-      const Firm = require('../models/Firm.model');
-      const firm = await Firm.findById(user.firmId);
-      if (firm && firm.status === 'SUSPENDED') {
-        return res.status(403).json({
-          success: false,
-          message: 'Your firm has been suspended. Please contact support.',
-          code: 'FIRM_SUSPENDED',
-        });
-      }
-    }
-    
     // Check if user status is ACTIVE (invited users cannot login)
-    // Skip for SUPER_ADMIN (they don't have invite flow)
-    if (user.role !== 'SUPER_ADMIN' && user.status !== 'ACTIVE') {
+    if (user.status && user.status !== 'ACTIVE') {
       return res.status(403).json({
         success: false,
         message: 'Please complete your account setup using the invite link sent to your email',
@@ -129,8 +101,8 @@ const login = async (req, res) => {
       });
     }
     
-    // Check if password has been set (skip for SUPER_ADMIN)
-    if (user.role !== 'SUPER_ADMIN' && (!user.passwordSet || !user.passwordHash)) {
+    // Check if password has been set
+    if (!user.passwordSet || !user.passwordHash) {
       return res.status(403).json({
         success: false,
         message: 'Please set your password using the link sent to your email',
@@ -139,8 +111,8 @@ const login = async (req, res) => {
     }
     
     // PR 32: Check if user must change password (invite not completed)
-    // Block login until password is set via invite link (skip for SUPER_ADMIN)
-    if (user.role !== 'SUPER_ADMIN' && user.mustChangePassword) {
+    // Block login until password is set via invite link
+    if (user.mustChangePassword) {
       return res.status(403).json({
         success: false,
         message: 'Please complete your account setup using the invite link sent to your email',
@@ -321,7 +293,6 @@ const login = async (req, res) => {
     }
     
     // Generate JWT access token
-    // For SUPER_ADMIN, firmId is null/undefined (not included in token)
     const accessToken = jwtService.generateAccessToken({
       userId: user._id.toString(),
       firmId: user.firmId ? user.firmId.toString() : undefined,

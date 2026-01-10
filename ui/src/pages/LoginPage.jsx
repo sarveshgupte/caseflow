@@ -57,10 +57,7 @@ export const LoginPage = () => {
     } catch (err) {
       const errorData = err.response?.data;
       
-      // Check if firm is suspended
-      if (errorData?.code === 'FIRM_SUSPENDED') {
-        setError(errorData?.message || 'Your firm has been suspended. Please contact support.');
-      } else if (errorData?.mustChangePassword) {
+      if (errorData?.mustChangePassword) {
         // Redirect to change password page with identifier
         navigate('/change-password', { state: { xID: identifier } });
       } else if (errorData?.passwordSetupRequired) {
@@ -70,7 +67,7 @@ export const LoginPage = () => {
         // Account is locked
         setError(errorData?.message || 'Account is locked. Please try again later or contact an administrator.');
       } else {
-        setError(errorData?.message || 'Login failed. Please try again.');
+        setError(errorData?.message || 'Invalid xID or password');
       }
     } finally {
       setLoading(false);
