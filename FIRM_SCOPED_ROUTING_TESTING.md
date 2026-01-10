@@ -498,9 +498,9 @@ This guide provides step-by-step instructions for testing the firm-scoped routin
 ## Automated Testing Checklist
 
 ### Unit Tests (Future)
-- [ ] FirmContext provider
-- [ ] useFirm hook
 - [ ] FirmLayout validation logic
+- [ ] ProtectedRoute authentication and role checks
+- [ ] URL-based firmSlug extraction
 
 ### Integration Tests (Future)
 - [ ] Router configuration

@@ -38,18 +38,18 @@ if (user?.firmSlug && user.firmSlug !== firmSlug) {
 - Accidental navigation to wrong firm
 - Confused deputy attacks
 
-### 3. Firm Context Persistence
-**Enhancement:** Firm slug stored in sessionStorage for persistence.
+### 3. URL as Single Source of Truth
+**Enhancement:** Firm slug extracted from URL on every render.
 
 **Benefits:**
-- Survives page refreshes
-- Cleared on logout (session-based, not persistent)
-- Available for client-side validation
+- Survives page refreshes naturally (URL persists)
+- No cache to invalidate on logout
+- No state duplication risk
 
 **Security Considerations:**
-- sessionStorage is origin-bound (same-origin policy)
-- Cleared when browser tab/window closes
-- Not shared across tabs (better isolation)
+- URL is visible and transparent
+- No hidden state that could desync
+- Browser history naturally maintains firm context
 
 ### 4. Authenticated Redirect Protection
 **Enhancement:** All authentication redirects preserve firm context.
@@ -87,21 +87,21 @@ The backend already validates firmId in JWT tokens. This implementation adds an 
 
 **Verdict:** ✅ Acceptable - firm slugs are public identifiers
 
-### 3. Session Storage Security
-**Consideration:** firmSlug stored in sessionStorage is accessible to JavaScript.
+### 3. URL-Based Architecture Security
+**Consideration:** firmSlug is extracted from URL on every component render.
 
 **Analysis:**
-- sessionStorage is protected by same-origin policy
-- Only accessible to scripts from same origin
-- Not vulnerable to CSRF (not sent in HTTP headers)
-- Cleared on logout
+- URL is transparent and visible to user
+- No hidden state that could desync
+- Browser naturally preserves URL on refresh
+- No cache invalidation needed
 
 **Protection Against XSS:**
-- If XSS vulnerability exists, attackers could read sessionStorage
-- However, XSS would also compromise JWT tokens in localStorage
+- URL-based approach has no additional XSS surface
 - firmSlug alone doesn't grant access (JWT still required)
+- Even if URL is manipulated, FirmLayout validates against user's firm
 
-**Verdict:** ✅ Acceptable - consistent with existing security model
+**Verdict:** ✅ Acceptable - simpler and more transparent than caching
 
 ### 4. Logout Redirect Security
 **Enhancement:** Logout now redirects to firm-specific login.

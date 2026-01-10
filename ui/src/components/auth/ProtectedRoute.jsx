@@ -28,6 +28,10 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadm
 
   // SuperAdmin trying to access superadmin routes
   if (requireSuperadmin && !isSuperadmin) {
+    // Redirect authenticated users to their firm dashboard
+    if (firmSlug) {
+      return <Navigate to={`/${firmSlug}/dashboard`} replace />;
+    }
     return <Navigate to="/login" replace />;
   }
 

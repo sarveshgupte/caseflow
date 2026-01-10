@@ -24,7 +24,7 @@ Now:
 - **Login flows** preserve firm context in URL
 - **Navigation** maintains firm slug across all pages
 - **Security** validates firm slug on every request
-- **Persistence** via sessionStorage for refresh scenarios
+- **Persistence** via URL structure (no caching needed)
 
 ---
 
@@ -49,17 +49,14 @@ NEW STRUCTURE:
 
 ### Key Components
 
-1. **FirmContext** (`ui/src/contexts/FirmContext.jsx`)
-   - Manages firm slug state
-   - Persists in sessionStorage
-   - Available throughout app
-
-2. **FirmLayout** (`ui/src/components/routing/FirmLayout.jsx`)
+1. **FirmLayout** (`ui/src/components/routing/FirmLayout.jsx`)
    - Wraps all firm-scoped routes
    - Validates authentication
    - Prevents cross-firm access
+   - **Single validation point** for firm context
+   - Extracts firmSlug from URL via `useParams()`
 
-3. **Router** (`ui/src/Router.jsx`)
+2. **Router** (`ui/src/Router.jsx`)
    - Restructured with `/:firmSlug/*` pattern
    - All authenticated routes nested
    - SuperAdmin routes remain non-scoped
@@ -97,7 +94,7 @@ NEW STRUCTURE:
 |------------|--------|----------|
 | Login via `/{firmSlug}/login` preserves firmSlug | ✅ PASS | FirmLoginPage redirects to `/{firmSlug}/dashboard` |
 | First-time password setup redirects correctly | ✅ PASS | SetPasswordPage uses backend `redirectUrl` |
-| Page refresh maintains firmSlug | ✅ PASS | URL structure + sessionStorage |
+| Page refresh maintains firmSlug | ✅ PASS | URL structure naturally persists firmSlug |
 | No route works without firmSlug | ✅ PASS | All routes nested under `/:firmSlug` |
 | Logout redirects to firm login | ✅ PASS | Layout redirects to `/f/{firmSlug}/login` |
 | Hardcoded redirects eliminated | ✅ PASS | All navigate() calls updated |
@@ -127,10 +124,8 @@ NEW STRUCTURE:
 ### Backend (1 file)
 - `src/controllers/auth.controller.js` - Added firmSlug to responses
 
-### Frontend - New Files (3)
-- `ui/src/contexts/FirmContext.jsx` - Firm context provider
-- `ui/src/hooks/useFirm.js` - Hook for firm context
-- `ui/src/components/routing/FirmLayout.jsx` - Firm route wrapper
+### Frontend - New Files (1)
+- `ui/src/components/routing/FirmLayout.jsx` - Firm route wrapper (single validation point)
 
 ### Frontend - Modified Files (16)
 - `ui/src/Router.jsx` - Route restructuring
@@ -211,7 +206,7 @@ NEW STRUCTURE:
 ### Expected Impact
 - **Minimal to None**
 - URL parsing is negligible overhead
-- sessionStorage operations are fast
+- No caching operations needed
 - No additional API calls
 
 ### Monitoring

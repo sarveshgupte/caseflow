@@ -45,20 +45,14 @@ Prior to this implementation:
 
 ### 2. Frontend Infrastructure
 
-#### FirmContext (`ui/src/contexts/FirmContext.jsx`)
-- Manages firm slug across the application
-- Stores firmSlug in sessionStorage for persistence
-- Provides context for all components
-
-#### useFirm Hook (`ui/src/hooks/useFirm.js`)
-- Convenient access to firm context
-- Used throughout the application
-
 #### FirmLayout Component (`ui/src/components/routing/FirmLayout.jsx`)
 - Wraps all firm-scoped routes
 - Validates authentication
 - Enforces firm isolation (prevents cross-firm access via URL tampering)
+- Validates that user's firmSlug matches URL firmSlug
 - Redirects unauthenticated users to firm login
+
+**Key Point**: FirmLayout is the **single validation point** for firm context. It extracts firmSlug directly from the URL via `useParams()`.
 
 ### 3. Router Refactoring
 
@@ -162,10 +156,10 @@ if (user?.firmSlug && user.firmSlug !== firmSlug) {
 }
 ```
 
-### 2. Firm Context Persistence
-- firmSlug stored in sessionStorage
-- Survives page refreshes
-- Cleared on logout
+### 2. URL as Single Source of Truth
+- firmSlug extracted from URL via `useParams()` in each component
+- Survives page refreshes (URL persists naturally)
+- No caching or state duplication needed
 
 ### 3. Backend Validation
 - Backend already validates firmId in JWT token
@@ -210,8 +204,8 @@ All authenticated user routes follow `/:firmSlug/*` pattern:
 - SetPasswordPage uses backend-provided redirectUrl
 
 ✅ **Page refresh maintains firmSlug**
-- FirmContext stores firmSlug in sessionStorage
-- Router structure ensures firmSlug is always in URL
+- URL structure naturally preserves firmSlug
+- Router extracts firmSlug from URL params on every render
 - FirmLayout validates on every render
 
 ✅ **No route works without firmSlug**
@@ -261,7 +255,7 @@ All authenticated user routes follow `/:firmSlug/*` pattern:
    - Verify redirect to `/f/{firmSlug}/login`
 
 ### Automated Testing (Future)
-- Unit tests for FirmContext
+- Unit tests for FirmLayout validation logic
 - Integration tests for routing
 - E2E tests for authentication flows
 
@@ -280,7 +274,7 @@ All authenticated user routes follow `/:firmSlug/*` pattern:
 
 3. **Session Handling**
    - Existing sessions continue to work
-   - firmSlug stored in user data on next login
+   - firmSlug extracted from URL on each page load
 
 ## Future Enhancements
 
@@ -306,9 +300,7 @@ All authenticated user routes follow `/:firmSlug/*` pattern:
 - `src/controllers/auth.controller.js` - Added firmSlug to login/setPassword responses
 
 ### Frontend - New Files
-- `ui/src/contexts/FirmContext.jsx` - Firm context provider
-- `ui/src/hooks/useFirm.js` - Hook to access firm context
-- `ui/src/components/routing/FirmLayout.jsx` - Firm-scoped route wrapper
+- `ui/src/components/routing/FirmLayout.jsx` - Firm-scoped route wrapper (single validation point)
 
 ### Frontend - Modified Files
 - `ui/src/Router.jsx` - Restructured routes with firm scoping

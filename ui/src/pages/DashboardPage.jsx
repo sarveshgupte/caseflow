@@ -179,7 +179,7 @@ export const DashboardPage = () => {
   };
   
   const handleMyUnassignedCreatedCasesClick = () => {
-    navigate(`/${firmSlug}/worklists/global?createdBy=me&status=UNASSIGNED`);
+    navigate(`/${firmSlug}/global-worklist?createdBy=me&status=UNASSIGNED`);
   };
   
   const handlePendingApprovalsClick = () => {
