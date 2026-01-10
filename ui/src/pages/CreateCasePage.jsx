@@ -287,7 +287,10 @@ export const CreateCasePage = () => {
               Case <strong>{successMessage.caseId}</strong> has been created and moved to the Workbasket.
             </p>
             <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
-              <Button variant="primary" onClick={() => navigate('/global-worklist')}>
+              <Button variant="primary" onClick={() => navigate(`/cases/${successMessage.caseId}`)}>
+                View Case
+              </Button>
+              <Button variant="default" onClick={() => navigate('/global-worklist')}>
                 Go to Workbasket
               </Button>
               <Button variant="default" onClick={() => setSuccessMessage(null)}>
