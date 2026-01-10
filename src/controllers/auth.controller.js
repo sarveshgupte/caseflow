@@ -1,12 +1,14 @@
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
 const User = require('../models/User.model');
+const Firm = require('../models/Firm.model');
 const UserProfile = require('../models/UserProfile.model');
 const AuthAudit = require('../models/AuthAudit.model');
 const RefreshToken = require('../models/RefreshToken.model');
 const emailService = require('../services/email.service');
 const xIDGenerator = require('../services/xIDGenerator');
 const jwtService = require('../services/jwt.service');
+const { ensureDefaultClientForFirm } = require('../services/defaultClient.service');
 
 /**
  * Authentication Controller for JWT-based Enterprise Authentication
@@ -951,6 +953,28 @@ const createUser = async (req, res) => {
     // Get admin from authenticated request
     const admin = req.user;
     
+    // Resolve firm's default client to inherit for new user
+    const firm = await Firm.findById(admin.firmId);
+    if (!firm) {
+      return res.status(404).json({
+        success: false,
+        message: 'Firm not found',
+      });
+    }
+
+    // Auto-create default client if missing (defensive backfill)
+    if (!firm.defaultClientId) {
+      await ensureDefaultClientForFirm(firm);
+    }
+
+    if (!firm.defaultClientId) {
+      console.error('[AUTH] Firm default client not configured for admin firm', admin.firmId);
+      return res.status(500).json({
+        success: false,
+        message: 'Firm default client not configured',
+      });
+    }
+    
     // Check if email already exists (enforce uniqueness)
     const existingUser = await User.findOne({ 
       email: email.toLowerCase() 
@@ -983,6 +1007,7 @@ const createUser = async (req, res) => {
       name,
       email: email.toLowerCase(),
       firmId: admin.firmId, // Inherit firmId from admin
+      defaultClientId: firm.defaultClientId,
       role: role || 'Employee',
       allowedCategories: allowedCategories || [],
       isActive: true,
@@ -997,6 +1022,7 @@ const createUser = async (req, res) => {
     });
     
     await newUser.save();
+    console.log(`[AUTH] User inherited defaultClientId from firm ${firm._id}`);
     
     // Send invite email with xID included (per PR 32 requirements)
     try {

@@ -17,6 +17,7 @@ const Firm = require('../models/Firm.model');
 const User = require('../models/User.model');
 const Client = require('../models/Client.model');
 const Case = require('../models/Case.model');
+const { ensureDefaultClientForFirm } = require('../services/defaultClient.service');
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/docketra';
 const DEFAULT_FIRM_ID = 'FIRM001';
@@ -42,6 +43,11 @@ async function runMigration() {
       console.log(`[MIGRATION] ✓ Default firm created: ${defaultFirm._id}`);
     } else {
       console.log(`[MIGRATION] ✓ Default firm already exists: ${defaultFirm._id}`);
+    }
+
+    // Ensure default client exists for the firm
+    if (!defaultFirm.defaultClientId) {
+      await ensureDefaultClientForFirm(defaultFirm);
     }
 
     // Step 2: Update users - migrate string firmId to ObjectId reference

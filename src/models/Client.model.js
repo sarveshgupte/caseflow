@@ -237,6 +237,26 @@ const clientSchema = new mongoose.Schema({
     default: false,
     immutable: true, // Cannot change after creation
   },
+
+  /**
+   * Internal client flag - represents the firm itself
+   * Auto-created by the system during firm creation/backfill
+   */
+  isInternal: {
+    type: Boolean,
+    default: false,
+    immutable: true,
+    index: true,
+  },
+
+  /**
+   * System provenance for auto-created clients
+   */
+  createdBySystem: {
+    type: Boolean,
+    default: false,
+    immutable: true,
+  },
   
   /**
    * Client lifecycle status
