@@ -402,17 +402,21 @@ const logout = async (req, res) => {
       { isRevoked: true }
     );
     
-    // Log logout
-    await AuthAudit.create({
-      xID: user.xID,
-      firmId: user.firmId,
-      userId: user._id,
-      actionType: 'Logout',
-      description: `User logged out`,
-      performedBy: user.xID,
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent'),
-    });
+    // Log logout (non-blocking)
+    try {
+      await AuthAudit.create({
+        xID: user.xID,
+        firmId: user.firmId || DEFAULT_FIRM_ID,
+        userId: user._id,
+        actionType: 'Logout',
+        description: `User logged out`,
+        performedBy: user.xID,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+    } catch (auditError) {
+      console.error('[AUTH AUDIT] Failed to record logout event', auditError);
+    }
     
     res.json({
       success: true,
