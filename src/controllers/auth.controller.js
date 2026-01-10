@@ -64,15 +64,19 @@ const login = async (req, res) => {
     if (!user) {
       // Log failed login attempt (no firmId available as user doesn't exist)
       const identifier = normalizedEmail || normalizedXID;
-      await AuthAudit.create({
-        xID: normalizedXID || 'UNKNOWN',
-        firmId: 'UNKNOWN', // User not found, so firmId unknown
-        actionType: 'LoginFailed',
-        description: `Login failed: User not found (attempted with: ${normalizedEmail ? 'email' : 'xID'})`,
-        performedBy: identifier,
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-      });
+      try {
+        await AuthAudit.create({
+          xID: normalizedXID || 'UNKNOWN',
+          firmId: 'UNKNOWN', // User not found, so firmId unknown
+          actionType: 'LoginFailed',
+          description: `Login failed: User not found (attempted with: ${normalizedEmail ? 'email' : 'xID'})`,
+          performedBy: identifier,
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        });
+      } catch (auditError) {
+        console.error('[AUTH AUDIT] Failed to record login failure event', auditError);
+      }
       
       return res.status(401).json({
         success: false,
@@ -152,16 +156,20 @@ const login = async (req, res) => {
         await user.save();
         
         // Log account lock
-        await AuthAudit.create({
-          xID: user.xID,
-          firmId: user.firmId,
-          userId: user._id,
-          actionType: 'AccountLocked',
-          description: `Account locked due to ${MAX_FAILED_ATTEMPTS} failed login attempts`,
-          performedBy: user.xID,
-          ipAddress: req.ip,
-          userAgent: req.get('user-agent'),
-        });
+        try {
+          await AuthAudit.create({
+            xID: user.xID,
+            firmId: user.firmId || 'PLATFORM',
+            userId: user._id,
+            actionType: 'AccountLocked',
+            description: `Account locked due to ${MAX_FAILED_ATTEMPTS} failed login attempts`,
+            performedBy: user.xID,
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent'),
+          });
+        } catch (auditError) {
+          console.error('[AUTH AUDIT] Failed to record account lock event', auditError);
+        }
         
         return res.status(403).json({
           success: false,
@@ -173,16 +181,20 @@ const login = async (req, res) => {
       await user.save();
       
       // Log failed login attempt
-      await AuthAudit.create({
-        xID: user.xID,
-        firmId: user.firmId,
-        userId: user._id,
-        actionType: 'LoginFailed',
-        description: `Login failed: Invalid password (attempt ${user.failedLoginAttempts})`,
-        performedBy: user.xID,
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-      });
+      try {
+        await AuthAudit.create({
+          xID: user.xID,
+          firmId: user.firmId || 'PLATFORM',
+          userId: user._id,
+          actionType: 'LoginFailed',
+          description: `Login failed: Invalid password (attempt ${user.failedLoginAttempts})`,
+          performedBy: user.xID,
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        });
+      } catch (auditError) {
+        console.error('[AUTH AUDIT] Failed to record login failure event', auditError);
+      }
       
       return res.status(401).json({
         success: false,
@@ -198,20 +210,37 @@ const login = async (req, res) => {
       await user.save();
     }
     
+    // Defensive validation: Ensure user has firmId (except for SUPER_ADMIN)
+    if (user.role !== 'SUPER_ADMIN' && !user.firmId) {
+      console.error('[AUTH] CRITICAL: User resolved without firm context', {
+        xID: user.xID,
+        userId: user._id,
+        role: user.role,
+      });
+      return res.status(500).json({
+        success: false,
+        message: 'User account configuration error. Please contact support.',
+      });
+    }
+    
     // Check if password has expired (skip if passwordExpiresAt is null)
     const now = new Date();
     if (user.passwordExpiresAt && user.passwordExpiresAt < now) {
       // Log password expiry
-      await AuthAudit.create({
-        xID: user.xID,
-        firmId: user.firmId,
-        userId: user._id,
-        actionType: 'PasswordExpired',
-        description: `Login attempt with expired password`,
-        performedBy: user.xID,
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-      });
+      try {
+        await AuthAudit.create({
+          xID: user.xID,
+          firmId: user.firmId || 'PLATFORM',
+          userId: user._id,
+          actionType: 'PasswordExpired',
+          description: `Login attempt with expired password`,
+          performedBy: user.xID,
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        });
+      } catch (auditError) {
+        console.error('[AUTH AUDIT] Failed to record password expiry event', auditError);
+      }
       
       return res.status(403).json({
         success: false,
@@ -268,7 +297,7 @@ const login = async (req, res) => {
       try {
         await AuthAudit.create({
           xID: user.xID,
-          firmId: user.firmId,
+          firmId: user.firmId || 'PLATFORM',
           userId: user._id,
           actionType: 'PasswordResetEmailSent',
           description: emailSent 
@@ -279,21 +308,25 @@ const login = async (req, res) => {
           userAgent: req.get('user-agent'),
         });
       } catch (auditError) {
-        console.error('[AUTH] Failed to create audit log:', auditError.message);
+        console.error('[AUTH AUDIT] Failed to record password reset email event', auditError);
       }
     }
     
-    // Log successful login
-    await AuthAudit.create({
-      xID: user.xID || 'SUPERADMIN',
-      firmId: user.firmId || 'PLATFORM',
-      userId: user._id,
-      actionType: 'Login',
-      description: `User logged in successfully`,
-      performedBy: user.xID || user.email,
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent'),
-    });
+    // Log successful login (non-blocking)
+    try {
+      await AuthAudit.create({
+        xID: user.xID || 'SUPERADMIN',
+        firmId: user.firmId || 'PLATFORM',
+        userId: user._id,
+        actionType: 'Login',
+        description: `User logged in successfully`,
+        performedBy: user.xID || user.email,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+    } catch (auditError) {
+      console.error('[AUTH AUDIT] Failed to record login event', auditError);
+    }
     
     // Generate JWT access token
     // For SUPER_ADMIN, firmId is null/undefined (not included in token)
