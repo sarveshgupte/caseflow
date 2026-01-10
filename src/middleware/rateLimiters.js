@@ -149,6 +149,10 @@ const createLimiter = ({ windowMs, max, keyGenerator, name }) => {
     // If store is unavailable and we're in production, fail closed
     skipFailedRequests: false,
     skipSuccessfulRequests: false,
+    // Disable validation since we handle IPv6 in our custom key generators
+    validate: {
+      validationsConfig: false,
+    },
   });
 };
 
