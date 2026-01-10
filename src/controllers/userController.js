@@ -114,7 +114,15 @@ const createUser = async (req, res) => {
  */
 const updateUser = async (req, res) => {
   try {
-    const { name, role, isActive } = req.body;
+    const { name, role, isActive, firmId, xID } = req.body;
+    
+    // Block attempts to modify immutable fields
+    if (firmId !== undefined || xID !== undefined) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: Cannot modify immutable fields (firmId, xID)',
+      });
+    }
     
     const user = await User.findById(req.params.id);
     

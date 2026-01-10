@@ -578,6 +578,9 @@ const getProfile = async (req, res) => {
     // Get user from authenticated request
     const user = req.user;
     
+    // Populate firm metadata for display
+    await user.populate('firmId', 'firmId name');
+    
     // Get profile info
     let profile = await UserProfile.findOne({ xID: user.xID });
     
@@ -608,6 +611,12 @@ const getProfile = async (req, res) => {
         role: user.role,
         allowedCategories: user.allowedCategories,
         isActive: user.isActive,
+        // Firm metadata (read-only, admin-controlled)
+        firm: user.firmId ? {
+          id: user.firmId._id.toString(),
+          firmId: user.firmId.firmId,
+          name: user.firmId.name,
+        } : null,
         // Mutable fields from UserProfile model (editable)
         dateOfBirth: profile.dob || profile.dateOfBirth,
         gender: profile.gender,
@@ -637,13 +646,13 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const { dateOfBirth, dob, gender, phone, address, panMasked, pan, aadhaarMasked, aadhaar, 
-            name, email, xID } = req.body;
+            name, email, xID, firmId } = req.body;
     
     // PR 32: Block attempts to modify immutable fields
-    if (name !== undefined || email !== undefined || xID !== undefined) {
+    if (name !== undefined || email !== undefined || xID !== undefined || firmId !== undefined) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot modify immutable fields (name, email, xID). These fields are read-only.',
+        message: 'Cannot modify immutable fields (name, email, xID, firmId). These fields are read-only.',
       });
     }
     
@@ -1565,9 +1574,14 @@ const forgotPassword = async (req, res) => {
  */
 const getAllUsers = async (req, res) => {
   try {
-    // Get all users, excluding password-related fields
-    const users = await User.find()
+    // Get requesting admin's firmId for same-firm filtering
+    const adminFirmId = req.user.firmId;
+    
+    // Get all users in same firm, excluding password-related fields
+    // Populate firm metadata for display
+    const users = await User.find({ firmId: adminFirmId })
       .select('-passwordHash -passwordHistory -passwordSetupTokenHash -passwordResetTokenHash')
+      .populate('firmId', 'firmId name')
       .sort({ createdAt: -1 });
     
     res.json({

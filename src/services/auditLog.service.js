@@ -91,13 +91,20 @@ const logCaseListViewed = async ({ viewerXID, filters = {}, listType, resultCoun
 /**
  * Log admin-specific actions
  * 
+ * Supported action types:
+ * - ADMIN_FILED_CASES_VIEWED: Admin viewing filed cases list
+ * - ADMIN_APPROVAL_QUEUE_VIEWED: Admin viewing pending approval queue
+ * - ADMIN_RESOLVED_CASES_VIEWED: Admin viewing resolved cases list
+ * - USER_CLIENT_ACCESS_UPDATED: Admin updating user's client access restrictions
+ * 
  * @param {Object} options
  * @param {string} options.adminXID - xID of admin performing action
- * @param {string} options.actionType - ADMIN_FILED_CASES_VIEWED or ADMIN_APPROVAL_QUEUE_VIEWED
+ * @param {string} options.actionType - Type of admin action
+ * @param {string} [options.targetXID] - Optional xID of user being acted upon
  * @param {Object} options.metadata - Additional context
  * @returns {Promise<void>}
  */
-const logAdminAction = async ({ adminXID, actionType, metadata = {} }) => {
+const logAdminAction = async ({ adminXID, actionType, targetXID, metadata = {} }) => {
   try {
     if (!adminXID || !actionType) {
       console.error('[AUDIT] Missing required fields for admin action audit');
@@ -110,6 +117,10 @@ const logAdminAction = async ({ adminXID, actionType, metadata = {} }) => {
       description = `Admin ${adminXID} viewed filed cases list`;
     } else if (actionType === 'ADMIN_APPROVAL_QUEUE_VIEWED') {
       description = `Admin ${adminXID} viewed pending approval queue`;
+    } else if (actionType === 'ADMIN_RESOLVED_CASES_VIEWED') {
+      description = `Admin ${adminXID} viewed resolved cases list`;
+    } else if (actionType === 'USER_CLIENT_ACCESS_UPDATED') {
+      description = `Admin ${adminXID} updated client access restrictions for user ${targetXID}`;
     } else {
       description = `Admin ${adminXID} performed action: ${actionType}`;
     }
@@ -121,6 +132,7 @@ const logAdminAction = async ({ adminXID, actionType, metadata = {} }) => {
       performedByXID: adminXID.toUpperCase(),
       metadata: {
         ...metadata,
+        targetXID,
         timestamp: new Date(),
       },
     });

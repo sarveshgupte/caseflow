@@ -28,6 +28,13 @@ const {
   validateCaseAssignment,
 } = require('../middleware/xidOwnership.middleware');
 
+// Import client access control middleware
+const {
+  checkClientAccess,
+  checkCaseClientAccess,
+  applyClientAccessFilter,
+} = require('../middleware/clientAccess.middleware');
+
 /**
  * Configure multer for file uploads
  * Store files in uploads/ directory with unique names
@@ -57,11 +64,13 @@ const upload = multer({ storage: storage });
  */
 
 // GET /api/cases - Get all cases with filtering
-router.get('/', getCases);
+// Apply client access filter to exclude restricted clients
+router.get('/', applyClientAccessFilter, getCases);
 
 // POST /api/cases - Create new case
 // PR #44: Apply xID ownership validation guardrails
-router.post('/', validateCaseCreation, createCase);
+// Apply client access check to prevent creating cases with restricted clients
+router.post('/', checkClientAccess, validateCaseCreation, createCase);
 
 // POST /api/cases/pull - Unified pull endpoint for single or multiple cases
 // IMPORTANT: Must come BEFORE /:caseId routes to avoid matching "pull" as a caseId
@@ -82,50 +91,51 @@ const {
 
 // GET /api/cases/my-pending - Get my pending cases
 // IMPORTANT: Must come BEFORE /:caseId routes to avoid matching "my-pending" as a caseId
-router.get('/my-pending', getMyPendingCases);
+router.get('/my-pending', applyClientAccessFilter, getMyPendingCases);
 
 // GET /api/cases/my-resolved - Get my resolved cases
 // IMPORTANT: Must come BEFORE /:caseId routes to avoid matching "my-resolved" as a caseId
-router.get('/my-resolved', getMyResolvedCases);
+router.get('/my-resolved', applyClientAccessFilter, getMyResolvedCases);
 
 // POST /api/cases/auto-reopen-pended - Trigger auto-reopen for pended cases (Admin/System)
 router.post('/auto-reopen-pended', triggerAutoReopen);
 
 // GET /api/cases/:caseId - Get case by caseId with comments, attachments, and history
-router.get('/:caseId', getCaseByCaseId);
+// Check if user can access this case's client
+router.get('/:caseId', checkCaseClientAccess, getCaseByCaseId);
 
 // POST /api/cases/:caseId/comments - Add comment to case
-router.post('/:caseId/comments', addComment);
+router.post('/:caseId/comments', checkCaseClientAccess, addComment);
 
 // POST /api/cases/:caseId/attachments - Upload attachment to case
-router.post('/:caseId/attachments', upload.single('file'), addAttachment);
+router.post('/:caseId/attachments', upload.single('file'), checkCaseClientAccess, addAttachment);
 
 // GET /api/cases/:caseId/attachments/:attachmentId/view - View attachment inline
 // Note: authenticate middleware accepts xID from query params (req.query.xID)
-router.get('/:caseId/attachments/:attachmentId/view', authenticate, viewAttachment);
+router.get('/:caseId/attachments/:attachmentId/view', authenticate, checkCaseClientAccess, viewAttachment);
 
 // GET /api/cases/:caseId/attachments/:attachmentId/download - Download attachment
 // Note: authenticate middleware accepts xID from query params (req.query.xID)
-router.get('/:caseId/attachments/:attachmentId/download', authenticate, downloadAttachment);
+router.get('/:caseId/attachments/:attachmentId/download', authenticate, checkCaseClientAccess, downloadAttachment);
 
 // POST /api/cases/:caseId/clone - Clone case with comments and attachments
 // PR #44: Apply xID validation for assignment fields
-router.post('/:caseId/clone', validateCaseAssignment, cloneCase);
+router.post('/:caseId/clone', checkCaseClientAccess, validateCaseAssignment, cloneCase);
 
 // POST /api/cases/:caseId/unpend - Unpend a case
-router.post('/:caseId/unpend', unpendCase);
+router.post('/:caseId/unpend', checkCaseClientAccess, unpendCase);
 
 // PUT /api/cases/:caseId/status - Update case status
-router.put('/:caseId/status', updateCaseStatus);
+router.put('/:caseId/status', checkCaseClientAccess, updateCaseStatus);
 
 // POST /api/cases/:caseId/lock - Lock a case
-router.post('/:caseId/lock', lockCaseEndpoint);
+router.post('/:caseId/lock', checkCaseClientAccess, lockCaseEndpoint);
 
 // POST /api/cases/:caseId/unlock - Unlock a case
-router.post('/:caseId/unlock', unlockCaseEndpoint);
+router.post('/:caseId/unlock', checkCaseClientAccess, unlockCaseEndpoint);
 
 // POST /api/cases/:caseId/activity - Update case activity (heartbeat)
-router.post('/:caseId/activity', updateCaseActivity);
+router.post('/:caseId/activity', checkCaseClientAccess, updateCaseActivity);
 
 // Workflow state transition routes
 const {

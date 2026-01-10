@@ -431,6 +431,100 @@ const getAllResolvedCases = async (req, res) => {
   }
 };
 
+/**
+ * Update user's restricted client list (Admin only)
+ * PATCH /api/admin/users/:xID/restrict-clients
+ * 
+ * Allows admin to manage which clients a user cannot access (deny-list approach).
+ * Default: empty array means user can access all clients.
+ * 
+ * Request body:
+ * {
+ *   restrictedClientIds: ["C123456", "C123457"] // Array of client IDs to restrict
+ * }
+ */
+const updateRestrictedClients = async (req, res) => {
+  try {
+    const { xID } = req.params;
+    const { restrictedClientIds } = req.body;
+    
+    if (!xID) {
+      return res.status(400).json({
+        success: false,
+        message: 'xID is required',
+      });
+    }
+    
+    if (!Array.isArray(restrictedClientIds)) {
+      return res.status(400).json({
+        success: false,
+        message: 'restrictedClientIds must be an array',
+      });
+    }
+    
+    // Get admin from authenticated request
+    const admin = req.user;
+    
+    // Find target user by xID (same-firm only)
+    const user = await User.findOne({ 
+      xID: xID.toUpperCase(),
+      firmId: admin.firmId,
+    });
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found in your firm',
+      });
+    }
+    
+    // Validate all client IDs are in correct format
+    const invalidIds = restrictedClientIds.filter(id => !/^C\d{6}$/.test(id));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid client ID format: ${invalidIds.join(', ')}. Must be C123456 format.`,
+      });
+    }
+    
+    // Capture previous value before update for accurate audit (after validation)
+    const previousRestrictedClientIds = user.restrictedClientIds || [];
+    
+    // Update restricted clients list
+    user.restrictedClientIds = restrictedClientIds;
+    await user.save();
+    
+    // Log admin action for audit
+    await logAdminAction({
+      adminXID: admin.xID,
+      actionType: 'USER_CLIENT_ACCESS_UPDATED',
+      targetXID: user.xID,
+      metadata: {
+        previousClientIds: previousRestrictedClientIds,
+        restrictedClientIds,
+        previousCount: previousRestrictedClientIds.length,
+        newCount: restrictedClientIds.length,
+      },
+    });
+    
+    res.json({
+      success: true,
+      message: 'User client access restrictions updated successfully',
+      data: {
+        xID: user.xID,
+        restrictedClientIds: user.restrictedClientIds,
+      },
+    });
+  } catch (error) {
+    console.error('[ADMIN] Error updating restricted clients:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating client access restrictions',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getAdminStats,
   resendInviteEmail,
@@ -438,4 +532,5 @@ module.exports = {
   getAllPendingCases,
   getAllFiledCases,
   getAllResolvedCases,
+  updateRestrictedClients,
 };

@@ -963,6 +963,11 @@ const getCases = async (req, res) => {
     
     if (clientId) query.clientId = clientId;
     
+    // Apply client access filter from middleware (restrictedClientIds)
+    if (req.clientAccessFilter) {
+      Object.assign(query, req.clientAccessFilter);
+    }
+    
     const cases = await Case.find(query)
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit))

@@ -249,6 +249,11 @@ const getMyPendingCases = async (req, res) => {
       status: CASE_STATUS.PENDED,
     };
     
+    // Apply client access filter from middleware (restrictedClientIds)
+    if (req.clientAccessFilter) {
+      Object.assign(query, req.clientAccessFilter);
+    }
+    
     const cases = await Case.find(query)
       .select('caseId caseName category createdAt updatedAt status clientId clientName pendingUntil')
       .sort({ pendingUntil: 1 }) // Sort by pending deadline (earliest first)
@@ -315,6 +320,11 @@ const getMyResolvedCases = async (req, res) => {
       status: CASE_STATUS.RESOLVED,
       lastActionByXID: req.user.xID,
     };
+    
+    // Apply client access filter from middleware (restrictedClientIds)
+    if (req.clientAccessFilter) {
+      Object.assign(query, req.clientAccessFilter);
+    }
     
     const cases = await Case.find(query)
       .select('caseId caseName category createdAt updatedAt status clientId clientName lastActionAt')

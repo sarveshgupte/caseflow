@@ -9,6 +9,7 @@ const {
   getAllPendingCases,
   getAllFiledCases,
   getAllResolvedCases,
+  updateRestrictedClients,
 } = require('../controllers/admin.controller');
 
 /**
@@ -26,6 +27,10 @@ router.get('/stats', authenticate, requireAdmin, getAdminStats);
 // POST /api/admin/users/:xID/resend-invite - Resend invite email for user
 // PR #48: Admin-only endpoint that bypasses password enforcement
 router.post('/users/:xID/resend-invite', authenticate, requireAdmin, resendInviteEmail);
+
+// PATCH /api/admin/users/:xID/restrict-clients - Update user's client access restrictions
+// Admin-only endpoint to manage client deny-list per user
+router.patch('/users/:xID/restrict-clients', authenticate, requireAdmin, updateRestrictedClients);
 
 // GET /api/admin/cases/open - Get all open cases (admin view)
 router.get('/cases/open', authenticate, requireAdmin, getAllOpenCases);

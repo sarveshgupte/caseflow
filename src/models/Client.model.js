@@ -65,6 +65,53 @@ const clientSchema = new mongoose.Schema({
   },
   
   /**
+   * Client Description (Client Fact Sheet)
+   * Admin-managed context about the client
+   * Read-only reference visible in all cases for this client
+   * Used for providing client background, notes, guidelines
+   */
+  description: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+  
+  /**
+   * Client-Level Documents (Client Fact Sheet)
+   * Array of document references attached at client level
+   * Admin-managed, visible as read-only in all cases
+   * Not copied into individual cases
+   * 
+   * Each document contains:
+   * - name: Document file name
+   * - url: Storage URL or path
+   * - uploadedAt: Timestamp
+   * - uploadedByXid: Who uploaded it
+   */
+  documents: [{
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    url: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    uploadedByXid: {
+      type: String,
+      required: true,
+      uppercase: true,
+      trim: true,
+    },
+  }],
+  
+  /**
    * Previous business names history
    * Tracks all legal name changes for audit compliance
    * Each entry captures: old name, change date, who changed it, and reason
