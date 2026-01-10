@@ -137,9 +137,9 @@ const createFirm = async (req, res) => {
     // ============================================================
     // STEP 2: Generate Client ID and Create Default Client
     // ============================================================
-    // Pass session for transactional ID generation
+    // Pass firm ObjectId for transactional ID generation
     // Bootstrap-safe: returns C000001 when no clients exist
-    const clientId = await generateNextClientId(firmId, session);
+    const clientId = await generateNextClientId(firm._id, session);
     
     const defaultClient = new Client({
       clientId,
@@ -168,10 +168,10 @@ const createFirm = async (req, res) => {
     // ============================================================
     // STEP 4: Generate xID and Create Default Admin User
     // ============================================================
-    // Pass session for transactional ID generation
+    // Pass firm ObjectId for transactional ID generation
     // Bootstrap-safe: returns X000001 when no users exist
     const xIDGenerator = require('../services/xIDGenerator');
-    const adminXID = await xIDGenerator.generateNextXID(firmId, session);
+    const adminXID = await xIDGenerator.generateNextXID(firm._id, session);
     
     // Generate password setup token
     const crypto = require('crypto');
