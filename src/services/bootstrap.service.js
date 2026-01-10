@@ -2,10 +2,12 @@
  * Bootstrap Service for Docketra
  * 
  * Automatically ensures required system entities exist on startup:
- * 1. Superadmin - platform operator (from env vars)
- * 2. Default Firm (FIRM001)
- * 3. Default Client for Firm (represents the firm itself)
- * 4. System Admin (X000001) - assigned to default firm and client
+ * 1. Default Firm (FIRM001)
+ * 2. Default Client for Firm (represents the firm itself)
+ * 3. System Admin (X000001) - assigned to default firm and client
+ * 
+ * NOTE: SuperAdmin is NOT stored in MongoDB - it exists ONLY in .env
+ * SuperAdmin authentication is handled directly via environment variables.
  * 
  * Features:
  * - Runs automatically on server startup (after MongoDB connection)
@@ -25,75 +27,6 @@ const Firm = require('../models/Firm.model');
 const bcrypt = require('bcrypt');
 
 const SALT_ROUNDS = 10;
-
-/**
- * Seed Superadmin from environment variables
- * 
- * Creates the Superadmin user if none exists with role SUPER_ADMIN.
- * Uses SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD from environment.
- * xID is normalized to uppercase.
- * 
- * Superadmin properties:
- * - xID: SUPERADMIN (normalized to uppercase)
- * - email: from SUPERADMIN_EMAIL env var
- * - password: from SUPERADMIN_PASSWORD env var (hashed)
- * - role: SUPER_ADMIN
- * - firmId: null (platform-level access)
- * - defaultClientId: null (platform-level access)
- * - isActive: true
- * - status: ACTIVE
- * - passwordSet: true (allows immediate login)
- * - mustChangePassword: false (allows full system access)
- */
-const seedSuperadmin = async () => {
-  try {
-    // Check for required env vars
-    const superadminEmail = process.env.SUPERADMIN_EMAIL;
-    const superadminPassword = process.env.SUPERADMIN_PASSWORD;
-    
-    if (!superadminEmail || !superadminPassword) {
-      console.log('⚠️  SUPERADMIN_EMAIL or SUPERADMIN_PASSWORD not set - skipping Superadmin creation');
-      return;
-    }
-    
-    // Check if Superadmin already exists
-    const existingSuperadmin = await User.findOne({ role: 'SUPER_ADMIN' });
-    
-    if (existingSuperadmin) {
-      console.log('✓ Superadmin already exists (email: ' + existingSuperadmin.email + ')');
-      return;
-    }
-    
-    // Hash the password
-    const passwordHash = await bcrypt.hash(superadminPassword, SALT_ROUNDS);
-    
-    // Create Superadmin with normalized xID
-    const superadmin = new User({
-      xID: 'SUPERADMIN', // Already uppercase
-      name: 'Platform Superadmin',
-      email: superadminEmail,
-      role: 'SUPER_ADMIN',
-      firmId: null, // No firm - platform-level access
-      defaultClientId: null, // No default client - platform-level access
-      status: 'ACTIVE',
-      passwordHash,
-      passwordSet: true, // Allow immediate login
-      mustChangePassword: false, // Allow full system access
-      passwordLastChangedAt: new Date(),
-      passwordExpiresAt: new Date('2099-12-31T23:59:59.999Z'), // Far future date
-      isActive: true,
-    });
-    
-    await superadmin.save();
-    console.log('✓ Superadmin created successfully');
-    console.log('  Email: ' + superadminEmail);
-    console.log('  ⚠️  Please secure your SUPERADMIN_PASSWORD environment variable');
-  } catch (error) {
-    console.error('✗ Error seeding Superadmin:', error.message);
-    // Don't throw - log warning but continue bootstrap
-    console.warn('⚠️  Bootstrap will continue despite Superadmin creation failure');
-  }
-};
 
 /**
  * Seed System Admin (X000001) and ensure Firm → Default Client → Admin hierarchy
@@ -257,15 +190,30 @@ const seedDefaultClient = async () => {
  * - Clients without firmId
  * - Admins without firmId or defaultClientId
  * 
+ * Sends ONE email to SuperAdmin if violations exist (rate-limited per process start).
  * Does NOT block startup, only logs warnings.
  */
 const runPreflightChecks = async () => {
   try {
     console.log('\n🔍 Running preflight data validation checks...');
     
+    const violations = {};
+    let hasViolations = false;
+    
     // Check for firms without defaultClientId
-    const firmsWithoutDefaultClient = await Firm.find({ defaultClientId: { $exists: false } });
+    const firmsWithoutDefaultClient = await Firm.find({ 
+      $or: [
+        { defaultClientId: { $exists: false } },
+        { defaultClientId: null }
+      ]
+    }).select('firmId name');
+    
     if (firmsWithoutDefaultClient.length > 0) {
+      hasViolations = true;
+      violations.firmsWithoutDefaultClient = firmsWithoutDefaultClient.map(f => ({
+        firmId: f.firmId,
+        name: f.name
+      }));
       console.warn(`⚠️  WARNING: Found ${firmsWithoutDefaultClient.length} firm(s) without defaultClientId:`);
       firmsWithoutDefaultClient.forEach(firm => {
         console.warn(`   - Firm: ${firm.firmId} (${firm.name})`);
@@ -273,8 +221,19 @@ const runPreflightChecks = async () => {
     }
     
     // Check for clients without firmId
-    const clientsWithoutFirm = await Client.find({ firmId: { $exists: false } });
+    const clientsWithoutFirm = await Client.find({ 
+      $or: [
+        { firmId: { $exists: false } },
+        { firmId: null }
+      ]
+    }).select('clientId businessName');
+    
     if (clientsWithoutFirm.length > 0) {
+      hasViolations = true;
+      violations.clientsWithoutFirm = clientsWithoutFirm.map(c => ({
+        clientId: c.clientId,
+        businessName: c.businessName
+      }));
       console.warn(`⚠️  WARNING: Found ${clientsWithoutFirm.length} client(s) without firmId:`);
       clientsWithoutFirm.forEach(client => {
         console.warn(`   - Client: ${client.clientId} (${client.businessName})`);
@@ -286,10 +245,24 @@ const runPreflightChecks = async () => {
       role: 'Admin',
       $or: [
         { firmId: { $exists: false } },
-        { defaultClientId: { $exists: false } }
+        { firmId: null },
+        { defaultClientId: { $exists: false } },
+        { defaultClientId: null }
       ]
-    });
+    }).select('xID name firmId defaultClientId');
+    
     if (adminsWithoutFirm.length > 0) {
+      hasViolations = true;
+      violations.adminsWithoutFirmOrClient = adminsWithoutFirm.map(a => {
+        const missing = [];
+        if (!a.firmId) missing.push('firmId');
+        if (!a.defaultClientId) missing.push('defaultClientId');
+        return {
+          xID: a.xID,
+          name: a.name,
+          missing
+        };
+      });
       console.warn(`⚠️  WARNING: Found ${adminsWithoutFirm.length} admin(s) without firmId or defaultClientId:`);
       adminsWithoutFirm.forEach(admin => {
         console.warn(`   - Admin: ${admin.xID} (${admin.name})`);
@@ -298,13 +271,27 @@ const runPreflightChecks = async () => {
       });
     }
     
-    if (firmsWithoutDefaultClient.length === 0 && 
-        clientsWithoutFirm.length === 0 && 
-        adminsWithoutFirm.length === 0) {
-      console.log('✓ All preflight checks passed - data hierarchy is consistent');
-    } else {
+    // Send email if violations exist
+    if (hasViolations) {
       console.warn('⚠️  Preflight checks found data inconsistencies (see warnings above)');
       console.warn('⚠️  These issues should be resolved through data migration');
+      
+      // Send Tier-1 email: System Integrity Warning (rate-limited per process start)
+      const superadminEmail = process.env.SUPERADMIN_EMAIL;
+      if (superadminEmail) {
+        try {
+          const emailService = require('./email.service');
+          await emailService.sendSystemIntegrityEmail(superadminEmail, violations);
+          console.log('✓ System integrity warning email sent to SuperAdmin');
+        } catch (emailError) {
+          console.error('✗ Failed to send integrity warning email:', emailError.message);
+          // Don't throw - email failure should not block startup
+        }
+      } else {
+        console.warn('⚠️  SUPERADMIN_EMAIL not configured - cannot send integrity warning email');
+      }
+    } else {
+      console.log('✓ All preflight checks passed - data hierarchy is consistent');
     }
   } catch (error) {
     console.error('✗ Error running preflight checks:', error.message);
@@ -319,9 +306,10 @@ const runPreflightChecks = async () => {
  * It ensures all required system entities exist.
  * 
  * Order matters:
- * 1. Superadmin first (platform-level control)
- * 2. System Admin second (creates Firm → Default Client → Admin hierarchy)
- * 3. Preflight checks last (validates data consistency)
+ * 1. System Admin (creates Firm → Default Client → Admin hierarchy)
+ * 2. Preflight checks (validates data consistency and sends email if violations exist)
+ * 
+ * NOTE: SuperAdmin is NOT seeded in MongoDB - it exists ONLY in .env
  * 
  * Bootstrap NEVER crashes the application - all errors are caught and logged.
  */
@@ -331,16 +319,12 @@ const runBootstrap = async () => {
     console.log('║  Running Bootstrap Checks...               ║');
     console.log('╚════════════════════════════════════════════╝\n');
 
-    // Seed Superadmin
-    await seedSuperadmin();
-
     // Seed System Admin (includes Firm and Default Client creation)
+    // This creates the default firm hierarchy if none exists
     await seedSystemAdmin();
-    
-    // No longer need separate default client seeding
-    // It's integrated into seedSystemAdmin
 
     // Run preflight data validation checks
+    // Sends email to SuperAdmin if violations are found
     await runPreflightChecks();
 
     console.log('\n✓ Bootstrap completed successfully\n');
@@ -355,7 +339,6 @@ const runBootstrap = async () => {
 
 module.exports = {
   runBootstrap,
-  seedSuperadmin,
   seedSystemAdmin,
   seedDefaultClient,
 };

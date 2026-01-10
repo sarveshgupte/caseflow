@@ -39,7 +39,7 @@ const requireAdmin = async (req, res, next) => {
  */
 const requireSuperadmin = async (req, res, next) => {
   try {
-    if (!req.user || req.user.role !== 'SUPER_ADMIN') {
+    if (!req.user || req.user.role !== 'SuperAdmin') {
       return res.status(403).json({
         success: false,
         message: 'Superadmin access required',
@@ -59,11 +59,11 @@ const requireSuperadmin = async (req, res, next) => {
 /**
  * Block Superadmin from accessing firm data routes
  * Must be used after authenticate middleware
- * Returns 403 if user is SUPER_ADMIN
+ * Returns 403 if user is SuperAdmin
  */
 const blockSuperadmin = async (req, res, next) => {
   try {
-    if (req.user && req.user.role === 'SUPER_ADMIN') {
+    if (req.user && req.user.role === 'SuperAdmin') {
       return res.status(403).json({
         success: false,
         message: 'Superadmin cannot access firm data',
