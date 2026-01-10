@@ -56,6 +56,23 @@ const userSchema = new mongoose.Schema({
       return this.role !== 'SUPER_ADMIN';
     },
     immutable: true,
+  },
+  
+  /**
+   * Default Client ID for multi-tenancy
+   * Every Admin and Employee MUST have a default client
+   * For Admins, this is always the Firm's default client (represents the firm itself)
+   * REQUIRED for Admin and Employee roles
+   * SUPER_ADMIN has null defaultClientId (platform-level access)
+   */
+  defaultClientId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Client',
+    required: function() {
+      // defaultClientId is required for Admin and Employee, but not for SUPER_ADMIN
+      return this.role !== 'SUPER_ADMIN';
+    },
+    immutable: true, // Cannot change default client after creation
     index: true,
   },
   
@@ -250,6 +267,33 @@ const userSchema = new mongoose.Schema({
   // Enable virtuals in JSON output
   toJSON: { virtuals: true, getters: true },
   toObject: { virtuals: true, getters: true },
+});
+
+/**
+ * Validation: Admin defaultClientId must match Firm's defaultClientId
+ * Ensures the hierarchy is correct: Firm → Default Client → Admin
+ */
+userSchema.pre('save', async function(next) {
+  // Only validate for Admin role with both firmId and defaultClientId
+  if (this.role === 'Admin' && this.firmId && this.defaultClientId) {
+    try {
+      const Firm = require('./Firm.model');
+      const firm = await Firm.findById(this.firmId);
+      
+      if (firm && firm.defaultClientId) {
+        // Admin's defaultClientId must match Firm's defaultClientId
+        if (firm.defaultClientId.toString() !== this.defaultClientId.toString()) {
+          const error = new Error('Admin user\'s defaultClientId must match the Firm\'s defaultClientId');
+          error.name = 'ValidationError';
+          return next(error);
+        }
+      }
+    } catch (error) {
+      // If we can't verify, allow the save but log a warning
+      console.warn('[User Validation] Could not verify Admin defaultClientId constraint:', error.message);
+    }
+  }
+  next();
 });
 
 // Indexes for performance

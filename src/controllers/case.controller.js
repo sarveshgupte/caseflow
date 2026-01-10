@@ -23,6 +23,33 @@ const path = require('path');
  */
 
 /**
+ * Build case query with firmId scoping
+ * 
+ * Ensures all case queries are scoped to the user's firm for multi-tenancy.
+ * SUPER_ADMIN (no firmId) can see all cases across all firms.
+ * 
+ * @param {Object} req - Express request object with authenticated user
+ * @param {string} caseId - Optional caseId to include in query
+ * @returns {Object} Query object with firmId scoping
+ */
+const buildCaseQuery = (req, caseId = null) => {
+  const userFirmId = req.user?.firmId;
+  const query = {};
+  
+  // Add firmId scoping if user has a firmId (not SUPER_ADMIN)
+  if (userFirmId) {
+    query.firmId = userFirmId;
+  }
+  
+  // Add caseId if provided
+  if (caseId) {
+    query.caseId = caseId;
+  }
+  
+  return query;
+};
+
+/**
  * Sanitize text for logging
  * Removes control characters, newlines, and limits length
  * PR #45: Security - prevent log injection
@@ -317,8 +344,9 @@ const addComment = async (req, res) => {
       });
     }
     
-    // Check if case exists
-    const caseData = await Case.findOne({ caseId });
+    // Check if case exists - with firmId scoping
+    const query = buildCaseQuery(req, caseId);
+    const caseData = await Case.findOne(query);
     
     if (!caseData) {
       return res.status(404).json({
@@ -947,7 +975,12 @@ const getCases = async (req, res) => {
       limit = 20,
     } = req.query;
     
-    const query = {};
+    // Get firmId from authenticated user for query scoping
+    const userFirmId = req.user?.firmId;
+    
+    // Base query with firmId scoping (SUPER_ADMIN has no firmId, can see all)
+    const query = userFirmId ? { firmId: userFirmId } : {};
+    
     if (status) query.status = status;
     if (category) query.category = category;
     if (priority) query.priority = priority;
@@ -1079,7 +1112,9 @@ const lockCaseEndpoint = async (req, res) => {
       });
     }
     
-    const caseData = await Case.findOne({ caseId });
+    // Build query with firmId scoping
+    const query = buildCaseQuery(req, caseId);
+    const caseData = await Case.findOne(query);
     
     if (!caseData) {
       return res.status(404).json({

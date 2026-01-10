@@ -1,9 +1,12 @@
 const User = require('../models/User.model');
 const Firm = require('../models/Firm.model');
+const Client = require('../models/Client.model');
 const SuperadminAudit = require('../models/SuperadminAudit.model');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const emailService = require('../services/email.service');
+const mongoose = require('mongoose');
+const { generateNextClientId } = require('../services/clientIdGenerator');
 
 const SALT_ROUNDS = 10;
 
@@ -30,14 +33,28 @@ const logSuperadminAction = async ({ actionType, description, performedBy, perfo
 };
 
 /**
- * Create a new firm
+ * Create a new firm with transactional guarantees
  * POST /api/superadmin/firms
+ * 
+ * Atomically creates:
+ * 1. Firm
+ * 2. Default Client (represents the firm, isSystemClient=true)
+ * 3. Links Firm.defaultClientId to the default client
+ * 
+ * If any step fails, all changes are rolled back.
+ * This ensures a firm never exists without its default client.
  */
 const createFirm = async (req, res) => {
+  // Start a session for transaction
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
   try {
     const { name } = req.body;
     
     if (!name || !name.trim()) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({
         success: false,
         message: 'Firm name is required',
@@ -45,7 +62,7 @@ const createFirm = async (req, res) => {
     }
     
     // Generate firmId (FIRM001, FIRM002, etc.)
-    const lastFirm = await Firm.findOne().sort({ createdAt: -1 });
+    const lastFirm = await Firm.findOne().sort({ createdAt: -1 }).session(session);
     let firmNumber = 1;
     if (lastFirm && lastFirm.firmId) {
       const match = lastFirm.firmId.match(/FIRM(\d+)/);
@@ -55,43 +72,91 @@ const createFirm = async (req, res) => {
     }
     const firmId = `FIRM${firmNumber.toString().padStart(3, '0')}`;
     
-    // Create firm
+    // STEP 1: Create firm (without defaultClientId initially)
     const firm = new Firm({
       firmId,
       name: name.trim(),
       status: 'ACTIVE',
     });
     
-    await firm.save();
+    await firm.save({ session });
+    console.log(`[FIRM_CREATE] Firm created: ${firmId}`);
     
-    // Log action
+    // STEP 2: Generate clientId for the default client
+    const clientId = await generateNextClientId();
+    
+    // STEP 3: Create default client for the firm
+    const defaultClient = new Client({
+      clientId,
+      businessName: name.trim(), // Use firm name as business name
+      businessAddress: 'Default Address',
+      primaryContactNumber: '0000000000',
+      businessEmail: `${firmId.toLowerCase()}@system.local`,
+      firmId: firm._id, // Link to firm
+      isSystemClient: true, // Mark as system client
+      isActive: true,
+      status: 'ACTIVE',
+      createdByXid: 'SYSTEM', // System-generated
+      createdBy: 'system@system.local', // Deprecated field
+    });
+    
+    await defaultClient.save({ session });
+    console.log(`[FIRM_CREATE] Default client created: ${clientId}`);
+    
+    // STEP 4: Update firm with defaultClientId
+    firm.defaultClientId = defaultClient._id;
+    await firm.save({ session });
+    console.log(`[FIRM_CREATE] Firm.defaultClientId set to ${clientId}`);
+    
+    // Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+    
+    console.log(`[FIRM_CREATE] Transaction committed successfully for ${firmId}`);
+    
+    // Log action (outside transaction)
     await logSuperadminAction({
       actionType: 'FirmCreated',
-      description: `Firm created: ${name} (${firmId})`,
+      description: `Firm created: ${name} (${firmId}) with default client (${clientId})`,
       performedBy: req.user.email,
       performedById: req.user._id,
       targetEntityType: 'Firm',
       targetEntityId: firm._id.toString(),
-      metadata: { firmId, name },
+      metadata: { firmId, name, defaultClientId: clientId },
       req,
     });
     
     res.status(201).json({
       success: true,
-      message: 'Firm created successfully',
+      message: 'Firm created successfully with default client',
       data: {
-        _id: firm._id,
-        firmId: firm.firmId,
-        name: firm.name,
-        status: firm.status,
-        createdAt: firm.createdAt,
+        firm: {
+          _id: firm._id,
+          firmId: firm.firmId,
+          name: firm.name,
+          status: firm.status,
+          defaultClientId: firm.defaultClientId,
+          createdAt: firm.createdAt,
+        },
+        defaultClient: {
+          _id: defaultClient._id,
+          clientId: defaultClient.clientId,
+          businessName: defaultClient.businessName,
+          isSystemClient: defaultClient.isSystemClient,
+        },
       },
     });
   } catch (error) {
+    // Rollback transaction on error
+    await session.abortTransaction();
+    session.endSession();
+    
     console.error('[SUPERADMIN] Error creating firm:', error);
+    console.error('[SUPERADMIN] Transaction rolled back');
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to create firm',
+      message: 'Failed to create firm - transaction rolled back',
       error: error.message,
     });
   }
@@ -187,6 +252,12 @@ const updateFirmStatus = async (req, res) => {
 /**
  * Create firm admin
  * POST /api/superadmin/firms/:firmId/admin
+ * 
+ * Creates an Admin user for a firm with proper hierarchy:
+ * - firmId: Links to the firm
+ * - defaultClientId: Links to the firm's default client
+ * 
+ * The admin's defaultClientId MUST match the firm's defaultClientId.
  */
 const createFirmAdmin = async (req, res) => {
   try {
@@ -201,15 +272,18 @@ const createFirmAdmin = async (req, res) => {
       });
     }
     
+    // Normalize xID to uppercase
+    const normalizedXID = xID.toUpperCase();
+    
     // Validate xID format
-    if (!/^X\d{6}$/.test(xID)) {
+    if (!/^X\d{6}$/.test(normalizedXID)) {
       return res.status(400).json({
         success: false,
         message: 'xID must be in format X123456',
       });
     }
     
-    // Find firm by MongoDB _id
+    // Find firm by MongoDB _id and populate defaultClientId
     const firm = await Firm.findById(firmId);
     
     if (!firm) {
@@ -219,8 +293,16 @@ const createFirmAdmin = async (req, res) => {
       });
     }
     
+    // Ensure firm has a defaultClientId
+    if (!firm.defaultClientId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Firm does not have a default client. Cannot create admin.',
+      });
+    }
+    
     // Check if user with this xID already exists
-    const existingUser = await User.findOne({ xID: xID.toUpperCase() });
+    const existingUser = await User.findOne({ xID: normalizedXID });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -242,12 +324,13 @@ const createFirmAdmin = async (req, res) => {
     const setupTokenHash = crypto.createHash('sha256').update(setupToken).digest('hex');
     const setupExpires = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
     
-    // Create admin user
+    // Create admin user with firmId and defaultClientId
     const adminUser = new User({
-      xID: xID.toUpperCase(),
+      xID: normalizedXID,
       name,
       email: email.toLowerCase(),
       firmId: firm._id,
+      defaultClientId: firm.defaultClientId, // Set to firm's default client
       role: 'Admin',
       status: 'INVITED',
       isActive: true,

@@ -24,9 +24,24 @@ const getClients = async (req, res) => {
   try {
     const { activeOnly, forCreateCase } = req.query;
     
+    // Get firmId from authenticated user for query scoping
+    const userFirmId = req.user?.firmId;
+    
+    // Ensure user has a firmId (SUPER_ADMIN won't have firmId)
+    if (!userFirmId && req.user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'User must belong to a firm to access clients',
+      });
+    }
+    
+    // Base filter: scope by firmId (except for SUPER_ADMIN)
+    const baseFilter = req.user?.role === 'SUPER_ADMIN' ? {} : { firmId: userFirmId };
+    
     // Special logic for Create Case: Always include Default Client + other active clients
     if (forCreateCase === 'true') {
       const clients = await Client.find({
+        ...baseFilter,
         $or: [
           { clientId: 'C000001' }, // Always include Default Client
           { status: CLIENT_STATUS.ACTIVE } // Include other active clients
@@ -43,7 +58,10 @@ const getClients = async (req, res) => {
     
     // Filter based on activeOnly query parameter
     // Use canonical status field (ACTIVE/INACTIVE) instead of deprecated isActive
-    const filter = activeOnly === 'true' ? { status: CLIENT_STATUS.ACTIVE } : {};
+    const filter = { 
+      ...baseFilter,
+      ...(activeOnly === 'true' ? { status: CLIENT_STATUS.ACTIVE } : {})
+    };
     
     const clients = await Client.find(filter)
       .select('clientId businessName status') // Select necessary fields (status is canonical)
@@ -70,7 +88,24 @@ const getClientById = async (req, res) => {
   try {
     const { clientId } = req.params;
     
-    const client = await Client.findOne({ clientId });
+    // Get firmId from authenticated user for query scoping
+    const userFirmId = req.user?.firmId;
+    
+    // Ensure user has a firmId (SUPER_ADMIN won't have firmId)
+    if (!userFirmId && req.user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'User must belong to a firm to access clients',
+      });
+    }
+    
+    // Build query with firmId scoping (except for SUPER_ADMIN)
+    const query = { clientId };
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      query.firmId = userFirmId;
+    }
+    
+    const client = await Client.findOne(query);
     
     if (!client) {
       return res.status(404).json({
@@ -191,13 +226,22 @@ const createClient = async (req, res) => {
       });
     }
     
-    // STEP 6: Get creator xID from authenticated user (server-side only)
+    // STEP 6: Get creator xID and firmId from authenticated user (server-side only)
     const createdByXid = req.user?.xID;
+    const userFirmId = req.user?.firmId;
     
     if (!createdByXid) {
       return res.status(401).json({
         success: false,
         message: 'Authentication required - user xID not found',
+      });
+    }
+    
+    // Ensure user has a firmId (required for creating clients)
+    if (!userFirmId) {
+      return res.status(403).json({
+        success: false,
+        message: 'User must belong to a firm to create clients',
       });
     }
     
@@ -219,6 +263,7 @@ const createClient = async (req, res) => {
       TAN: TAN ? TAN.trim().toUpperCase() : undefined,
       CIN: CIN ? CIN.trim().toUpperCase() : undefined,
       // System-owned fields (injected server-side only, NEVER from client)
+      firmId: userFirmId, // Set from authenticated user's firm
       createdByXid, // CANONICAL - set from auth context
       createdBy: req.user?.email ? req.user.email.trim().toLowerCase() : undefined, // DEPRECATED - backward compatibility only
       isSystemClient: false,
@@ -285,7 +330,19 @@ const updateClient = async (req, res) => {
       longitude,
     } = req.body;
     
-    const client = await Client.findOne({ clientId });
+    // Get firmId from authenticated user for query scoping
+    const userFirmId = req.user?.firmId;
+    
+    // Ensure user has a firmId
+    if (!userFirmId) {
+      return res.status(403).json({
+        success: false,
+        message: 'User must belong to a firm to update clients',
+      });
+    }
+    
+    // Build query with firmId scoping
+    const client = await Client.findOne({ clientId, firmId: userFirmId });
     
     if (!client) {
       return res.status(404).json({
@@ -387,6 +444,17 @@ const toggleClientStatus = async (req, res) => {
       });
     }
     
+    // Get firmId from authenticated user for query scoping
+    const userFirmId = req.user?.firmId;
+    
+    // Ensure user has a firmId
+    if (!userFirmId) {
+      return res.status(403).json({
+        success: false,
+        message: 'User must belong to a firm to update clients',
+      });
+    }
+    
     // HARD BLOCK: Prevent deactivation of Default Client (C000001)
     // This is a system invariant that must be enforced server-side
     if (clientId === 'C000001' && !isActive) {
@@ -396,7 +464,8 @@ const toggleClientStatus = async (req, res) => {
       });
     }
     
-    const client = await Client.findOne({ clientId });
+    // Build query with firmId scoping
+    const client = await Client.findOne({ clientId, firmId: userFirmId });
     
     if (!client) {
       return res.status(404).json({
@@ -464,7 +533,19 @@ const changeLegalName = async (req, res) => {
       });
     }
     
-    const client = await Client.findOne({ clientId });
+    // Get firmId from authenticated user for query scoping
+    const userFirmId = req.user?.firmId;
+    
+    // Ensure user has a firmId
+    if (!userFirmId) {
+      return res.status(403).json({
+        success: false,
+        message: 'User must belong to a firm to update clients',
+      });
+    }
+    
+    // Build query with firmId scoping
+    const client = await Client.findOne({ clientId, firmId: userFirmId });
     
     if (!client) {
       return res.status(404).json({

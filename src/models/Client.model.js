@@ -44,11 +44,12 @@ const clientSchema = new mongoose.Schema({
   },
   
   // Firm/Organization ID for multi-tenancy
+  // Every client MUST belong to a firm
   firmId: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Firm',
     required: [true, 'Firm ID is required'],
-    default: 'FIRM001',
-    index: true,
+    immutable: true, // Client cannot be moved between firms
   },
   
   /**
@@ -345,6 +346,34 @@ clientSchema.pre('save', async function() {
     // Format as C + 6-digit zero-padded number
     this.clientId = `C${nextNumber.toString().padStart(6, '0')}`;
   }
+});
+
+/**
+ * Validation: isSystemClient integrity
+ * When a client is marked as isSystemClient=true, it must be the default client for its firm.
+ * This validation runs on save operations.
+ */
+clientSchema.pre('save', async function(next) {
+  // Only validate if isSystemClient is true
+  if (this.isSystemClient === true && this.firmId) {
+    try {
+      const Firm = require('./Firm.model');
+      const firm = await Firm.findById(this.firmId);
+      
+      if (firm && firm.defaultClientId) {
+        // If firm has a defaultClientId, this client must match it
+        if (firm.defaultClientId.toString() !== this._id.toString()) {
+          const error = new Error('A system client must be the firm\'s default client');
+          error.name = 'ValidationError';
+          return next(error);
+        }
+      }
+    } catch (error) {
+      // If we can't verify, allow the save but log a warning
+      console.warn('[Client Validation] Could not verify isSystemClient constraint:', error.message);
+    }
+  }
+  next();
 });
 
 /**
