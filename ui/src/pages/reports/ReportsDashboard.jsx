@@ -4,15 +4,18 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '../../components/common/Layout';
 import { MetricCard } from '../../components/reports/MetricCard';
 import { Loading } from '../../components/common/Loading';
+import { useAuth } from '../../hooks/useAuth';
 import { reportsService } from '../../services/reports.service';
 import './ReportsDashboard.css';
 
 export const ReportsDashboard = () => {
   const navigate = useNavigate();
+  const { firmSlug } = useParams();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState(null);
   const [pendingReport, setPendingReport] = useState(null);
@@ -51,7 +54,8 @@ export const ReportsDashboard = () => {
   };
 
   const handleViewDetailedReports = () => {
-    navigate('/admin/reports/detailed');
+    const slug = firmSlug || user?.firmSlug;
+    navigate(slug ? `/${slug}/admin/reports/detailed` : '/admin/reports/detailed');
   };
 
   if (loading) {

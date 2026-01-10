@@ -10,7 +10,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { Loading } from '../common/Loading';
 
 export const DefaultRoute = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const { isSuperadmin } = usePermissions();
 
   if (loading) {
@@ -26,6 +26,11 @@ export const DefaultRoute = () => {
     return <Navigate to="/superadmin" replace />;
   }
 
-  // Redirect regular users to their dashboard
-  return <Navigate to="/dashboard" replace />;
+  // Redirect regular users to their firm dashboard
+  if (user?.firmSlug) {
+    return <Navigate to={`/${user.firmSlug}/dashboard`} replace />;
+  }
+
+  // Fallback to generic login if no firm context
+  return <Navigate to="/login" replace />;
 };

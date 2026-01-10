@@ -4,18 +4,21 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '../../components/common/Layout';
 import { FilterPanel } from '../../components/reports/FilterPanel';
 import { ReportsTable } from '../../components/reports/ReportsTable';
 import { ExportModal } from './ExportModal';
 import { Loading } from '../../components/common/Loading';
 import { Button } from '../../components/common/Button';
+import { useAuth } from '../../hooks/useAuth';
 import { reportsService } from '../../services/reports.service';
 import './DetailedReports.css';
 
 export const DetailedReports = () => {
   const navigate = useNavigate();
+  const { firmSlug } = useParams();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [cases, setCases] = useState([]);
   const [pagination, setPagination] = useState(null);
@@ -109,7 +112,8 @@ export const DetailedReports = () => {
   };
 
   const handleCaseClick = (caseId) => {
-    navigate(`/cases/${caseId}`);
+    const slug = firmSlug || user?.firmSlug;
+    navigate(slug ? `/${slug}/cases/${caseId}` : `/cases/${caseId}`);
   };
 
   const handleExport = (type) => {

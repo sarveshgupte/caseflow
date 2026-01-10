@@ -79,8 +79,10 @@ export const SetPasswordPage = () => {
 
       if (response.success) {
         setSuccess(true);
+        // Use redirectUrl from backend if available
+        const redirectPath = response.redirectUrl || '/login';
         setTimeout(() => {
-          navigate('/login');
+          navigate(redirectPath);
         }, 2000);
       } else {
         setError(response.message || 'Failed to set password');

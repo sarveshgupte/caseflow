@@ -73,7 +73,12 @@ export const WorklistPage = () => {
   };
 
   const handleCaseClick = (caseId) => {
-    navigate(`/cases/${caseId}`);
+    const firmSlug = user?.firmSlug;
+    if (firmSlug) {
+      navigate(`/${firmSlug}/cases/${caseId}`);
+    } else {
+      navigate(`/cases/${caseId}`);
+    }
   };
   
   // Get page title and description

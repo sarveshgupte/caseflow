@@ -4,7 +4,9 @@
 
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { FirmProvider } from './contexts/FirmContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { FirmLayout } from './components/routing/FirmLayout';
 import { DefaultRoute } from './components/routing/DefaultRoute';
 import { LoginPage } from './pages/LoginPage';
 import { FirmLoginPage } from './pages/FirmLoginPage';
@@ -29,137 +31,141 @@ import { FilteredCasesPage } from './pages/FilteredCasesPage';
 export const Router = () => {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public Login Routes */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/f/:firmSlug/login" element={<FirmLoginPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/change-password" element={<ChangePasswordPage />} />
-        <Route path="/set-password" element={<SetPasswordPage />} />
-        
-        {/* SuperAdmin Routes */}
-        <Route
-          path="/superadmin"
-          element={
-            <ProtectedRoute requireSuperadmin>
-              <PlatformDashboard />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/superadmin/firms"
-          element={
-            <ProtectedRoute requireSuperadmin>
-              <FirmsManagement />
-            </ProtectedRoute>
-          }
-        />
-        
-        {/* Regular User Routes */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/worklist"
-          element={
-            <ProtectedRoute>
-              <WorklistPage />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/my-worklist"
-          element={
-            <ProtectedRoute>
-              <WorklistPage />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/global-worklist"
-          element={
-            <ProtectedRoute>
-              <WorkbasketPage />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/cases/:caseId"
-          element={
-            <ProtectedRoute>
-              <CaseDetailPage />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/cases"
-          element={
-            <ProtectedRoute requireAdmin>
-              <FilteredCasesPage />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/cases/create"
-          element={
-            <ProtectedRoute>
-              <CreateCasePage />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute requireAdmin>
-              <AdminPage />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/admin/reports"
-          element={
-            <ProtectedRoute requireAdmin>
-              <ReportsDashboard />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route
-          path="/admin/reports/detailed"
-          element={
-            <ProtectedRoute requireAdmin>
-              <DetailedReports />
-            </ProtectedRoute>
-          }
-        />
-        
-        <Route path="/" element={<DefaultRoute />} />
-        <Route path="*" element={<DefaultRoute />} />
-      </Routes>
+      <FirmProvider>
+        <Routes>
+          {/* Public Login Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/f/:firmSlug/login" element={<FirmLoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/change-password" element={<ChangePasswordPage />} />
+          <Route path="/set-password" element={<SetPasswordPage />} />
+          
+          {/* SuperAdmin Routes - NOT firm-scoped */}
+          <Route
+            path="/superadmin"
+            element={
+              <ProtectedRoute requireSuperadmin>
+                <PlatformDashboard />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/superadmin/firms"
+            element={
+              <ProtectedRoute requireSuperadmin>
+                <FirmsManagement />
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* Firm-Scoped Routes for Regular Users */}
+          <Route path="/:firmSlug" element={<FirmLayout />}>
+            <Route
+              path="dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="worklist"
+              element={
+                <ProtectedRoute>
+                  <WorklistPage />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="my-worklist"
+              element={
+                <ProtectedRoute>
+                  <WorklistPage />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="global-worklist"
+              element={
+                <ProtectedRoute>
+                  <WorkbasketPage />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="cases/:caseId"
+              element={
+                <ProtectedRoute>
+                  <CaseDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="cases"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <FilteredCasesPage />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="cases/create"
+              element={
+                <ProtectedRoute>
+                  <CreateCasePage />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="admin"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="admin/reports"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <ReportsDashboard />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="admin/reports/detailed"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <DetailedReports />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
+          
+          <Route path="/" element={<DefaultRoute />} />
+          <Route path="*" element={<DefaultRoute />} />
+        </Routes>
+      </FirmProvider>
     </BrowserRouter>
   );
 };

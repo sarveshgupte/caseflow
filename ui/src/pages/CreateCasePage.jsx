@@ -3,13 +3,14 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '../components/common/Layout';
 import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { Select } from '../components/common/Select';
 import { Textarea } from '../components/common/Textarea';
 import { Button } from '../components/common/Button';
+import { useAuth } from '../hooks/useAuth';
 import { caseService } from '../services/caseService';
 import { categoryService } from '../services/categoryService';
 import { clientService } from '../services/clientService';
@@ -18,6 +19,8 @@ import './CreateCasePage.css';
 
 export const CreateCasePage = () => {
   const navigate = useNavigate();
+  const { firmSlug } = useParams();
+  const { user } = useAuth();
   
   const [formData, setFormData] = useState({
     clientId: '', // Will be populated from active clients
@@ -287,10 +290,16 @@ export const CreateCasePage = () => {
               Case <strong>{successMessage.caseId}</strong> has been created and moved to the Workbasket.
             </p>
             <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
-              <Button variant="primary" onClick={() => navigate(`/cases/${successMessage.caseId}`)}>
+              <Button variant="primary" onClick={() => {
+                const slug = firmSlug || user?.firmSlug;
+                navigate(slug ? `/${slug}/cases/${successMessage.caseId}` : `/cases/${successMessage.caseId}`);
+              }}>
                 View Case
               </Button>
-              <Button variant="default" onClick={() => navigate('/global-worklist')}>
+              <Button variant="default" onClick={() => {
+                const slug = firmSlug || user?.firmSlug;
+                navigate(slug ? `/${slug}/global-worklist` : '/global-worklist');
+              }}>
                 Go to Workbasket
               </Button>
               <Button variant="default" onClick={() => setSuccessMessage(null)}>

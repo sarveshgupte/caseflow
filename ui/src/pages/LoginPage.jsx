@@ -51,8 +51,14 @@ export const LoginPage = () => {
         if (response.data.role === USER_ROLES.SUPER_ADMIN) {
           navigate('/superadmin');
         } else {
-          // Regular users go to dashboard
-          navigate('/dashboard');
+          // Regular users go to firm-scoped dashboard
+          const firmSlug = response.data.firmSlug;
+          if (firmSlug) {
+            navigate(`/${firmSlug}/dashboard`);
+          } else {
+            // Fallback if firmSlug not available
+            setError('Firm context not available. Please use your firm-specific login URL.');
+          }
         }
       }
     } catch (err) {

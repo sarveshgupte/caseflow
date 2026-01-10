@@ -102,8 +102,9 @@ export const FirmLoginPage = () => {
         if (userData.role === USER_ROLES.SUPER_ADMIN) {
           navigate('/superadmin');
         } else {
-          // Regular users go to dashboard
-          navigate('/dashboard');
+          // Regular users go to firm-scoped dashboard
+          const userFirmSlug = userData.firmSlug || firmSlug;
+          navigate(`/${userFirmSlug}/dashboard`);
         }
       }
     } catch (err) {
