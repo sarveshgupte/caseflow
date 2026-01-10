@@ -1,4 +1,4 @@
-const Case = require('../models/Case.model');
+const { getNextSequence } = require('./counter.service');
 
 /**
  * Case ID Generator Service
@@ -6,22 +6,35 @@ const Case = require('../models/Case.model');
  * Generates unique, deterministic case IDs in format: CASE-YYYYMMDD-XXXXX
  * Example: CASE-20260108-00012
  * 
+ * PR 2: Atomic Counter Implementation
+ * - Uses MongoDB atomic counters to eliminate race conditions
+ * - Firm-scoped for multi-tenancy
+ * - Daily sequences via date-specific counter names
+ * 
  * Rules:
- * - Daily sequence, zero-padded to 5 digits
- * - Sequence resets daily
+ * - Daily sequences, zero-padded to 5 digits
+ * - New counter per day (not reset, but new counter name)
  * - Generated using server time
  * - Unique DB index enforced
  * - Never editable
+ * - Concurrency-safe through atomic operations
  */
 
 /**
  * Generate case ID for current date
  * Format: CASE-YYYYMMDD-XXXXX
  * 
+ * @param {string} firmId - Firm ID for tenant scoping (REQUIRED)
  * @returns {Promise<string>} Generated case ID
+ * @throws {Error} If firmId is missing or generation fails
  */
-async function generateCaseId() {
+async function generateCaseId(firmId) {
   try {
+    // Validate firmId
+    if (!firmId) {
+      throw new Error('Firm ID is required for case ID generation');
+    }
+    
     // Get current date components
     const now = new Date();
     const year = now.getFullYear();
@@ -32,31 +45,18 @@ async function generateCaseId() {
     const datePrefix = `${year}${month}${day}`;
     const casePrefix = `CASE-${datePrefix}-`;
     
-    // Find the highest case number for today
-    // Use regex to match cases from today: CASE-20260108-XXXXX
-    const todayCases = await Case.find({
-      caseId: new RegExp(`^${casePrefix.replace(/[-]/g, '\\-')}\\d{5}$`)
-    })
-    .select('caseId')
-    .sort({ caseId: -1 })
-    .limit(1)
-    .lean();
+    // Counter name includes date for daily reset
+    // Format: case-YYYYMMDD (e.g., case-20260108)
+    const counterName = `case-${datePrefix}`;
     
-    let nextNumber = 1;
-    
-    if (todayCases.length > 0 && todayCases[0].caseId) {
-      // Extract the sequence number (last 5 digits)
-      const match = todayCases[0].caseId.match(/(\d{5})$/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
-      }
-    }
+    // Get next sequence atomically - this is thread-safe and eliminates race conditions
+    const sequenceNumber = await getNextSequence(counterName, firmId);
     
     // Format as 5-digit zero-padded number
-    const sequenceNumber = String(nextNumber).padStart(5, '0');
+    const paddedSequence = String(sequenceNumber).padStart(5, '0');
     
     // Generate final case ID
-    const caseId = `${casePrefix}${sequenceNumber}`;
+    const caseId = `${casePrefix}${paddedSequence}`;
     
     return caseId;
   } catch (error) {

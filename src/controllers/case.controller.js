@@ -206,6 +206,9 @@ const createCase = async (req, res) => {
       }
     }
     
+    // Get firmId from authenticated user (PR 1: Multi-tenancy from auth context)
+    const firmId = req.user.firmId || 'FIRM001'; // Default to FIRM001 for single-tenant deployments
+    
     // Create new case with defaults
     const newCase = new Case({
       title: title.trim(),
@@ -216,6 +219,7 @@ const createCase = async (req, res) => {
       caseCategory: actualCategory,
       caseSubCategory: subcategory.name,
       clientId: finalClientId,
+      firmId, // PR 2: Explicitly set firmId for atomic counter scoping
       createdByXID, // Set from authenticated user context
       createdBy: req.user.email || req.user.xID, // Legacy field - use email or xID as fallback
       priority: priority || 'Medium',

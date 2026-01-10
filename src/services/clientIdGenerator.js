@@ -10,6 +10,8 @@
  * - Uniqueness guarantees (via atomic MongoDB operations)
  * - Immutability (clientId cannot be changed after creation)
  * - Race-condition safety under concurrent requests
+ * 
+ * PR 2: Updated to use 'seq' field (renamed from 'value' for consistency)
  */
 
 const Counter = require('../models/Counter.model');
@@ -20,22 +22,23 @@ const Client = require('../models/Client.model');
  * Uses MongoDB's findOneAndUpdate with $inc for atomic counter increment
  * This prevents race conditions under concurrent client creation
  * 
+ * @param {string} firmId - Firm ID for tenant scoping (defaults to FIRM001)
  * @returns {Promise<string>} Next clientId in format C000001
  */
-const generateNextClientId = async () => {
+const generateNextClientId = async (firmId = 'FIRM001') => {
   try {
     // Atomically increment the clientId counter
-    // - upsert: true creates the counter if it doesn't exist (starts at 0, then increments to 1)
+    // - upsert: true creates the counter if it doesn't exist (starts at seq: 1)
     // - new: true returns the updated document (after increment)
-    // - $inc: 1 atomically increments the value by 1
+    // - $inc: 1 atomically increments the seq by 1
     const counter = await Counter.findOneAndUpdate(
-      { name: 'clientId' },
-      { $inc: { value: 1 } },
+      { name: 'clientId', firmId },
+      { $inc: { seq: 1 } },
       { upsert: true, new: true }
     );
     
     // Format the counter value with leading zeros (6 digits)
-    const paddedNumber = String(counter.value).padStart(6, '0');
+    const paddedNumber = String(counter.seq).padStart(6, '0');
     const clientId = `C${paddedNumber}`;
     
     return clientId;

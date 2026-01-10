@@ -48,3 +48,7 @@ Thumbs.db
 
 # Uploads
 uploads/
+
+# Test scripts (temporary)
+test_atomic_counters.js
+test_counter_service.js

@@ -560,35 +560,43 @@ caseSchema.virtual('isReadOnly').get(function() {
  * Generates deterministic case IDs in format CASE-YYYYMMDD-XXXXX
  * Generates deterministic case names in format caseYYYYMMDDxxxxx
  * 
+ * PR 2: Atomic Counter Implementation
+ * - Uses MongoDB atomic counters to eliminate race conditions
+ * - Firm-scoped counters for multi-tenancy
+ * - Daily sequence reset (counter name includes date)
+ * 
  * Algorithm for caseId:
  * 1. Get current date (YYYYMMDD)
- * 2. Find highest sequence for today
- * 3. Increment by 1
- * 4. Format as CASE- + YYYYMMDD + - + 5-digit zero-padded sequence
+ * 2. Atomically increment firm-scoped counter for today
+ * 3. Format as CASE- + YYYYMMDD + - + 5-digit zero-padded sequence
  * 
  * Algorithm for caseName:
  * 1. Get current date (YYYYMMDD)
- * 2. Find highest sequence for today
- * 3. Increment by 1
- * 4. Format as case + YYYYMMDD + 5-digit zero-padded sequence
+ * 2. Atomically increment firm-scoped counter for today
+ * 3. Format as case + YYYYMMDD + 5-digit zero-padded sequence
  * 
  * Note: This runs before validation, so IDs are available for unique constraint check
  * 
- * LIMITATION: This implementation has a potential race condition with concurrent saves.
- * For production use with high concurrency, consider using MongoDB's findOneAndUpdate 
- * with atomic increment or a dedicated counter collection.
+ * CONCURRENCY-SAFE: Uses atomic counters to prevent race conditions
  */
 caseSchema.pre('validate', async function() {
+  // Ensure firmId is set before generating IDs
+  // This is fail-fast validation at the model level (checks existence)
+  // counter.service.js performs defensive validation (checks type and existence)
+  if (!this.firmId) {
+    throw new Error('Firm ID is required for case creation');
+  }
+  
   // Only generate IDs if they're not already set (for new documents)
   if (!this.caseId) {
     const { generateCaseId } = require('../services/caseIdGenerator');
-    this.caseId = await generateCaseId();
+    this.caseId = await generateCaseId(this.firmId);
   }
   
   // Generate caseName if not set
   if (!this.caseName) {
     const { generateCaseName } = require('../services/caseNameGenerator');
-    this.caseName = await generateCaseName();
+    this.caseName = await generateCaseName(this.firmId);
   }
   
   // If this is a new case and clientId is provided, fetch and snapshot the client
