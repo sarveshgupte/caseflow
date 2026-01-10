@@ -160,6 +160,24 @@ const login = async (req, res) => {
       });
     }
     
+    // ============================================================
+    // PART 3: PREVENT ADMIN LOGIN BEFORE FIRM INITIALIZATION
+    // ============================================================
+    // If user is not SuperAdmin and no firms exist, block login
+    // This prevents confusing "empty dashboard" behavior
+    if (user.role !== 'SUPER_ADMIN') {
+      const Firm = require('../models/Firm.model');
+      const firmCount = await Firm.countDocuments();
+      
+      if (firmCount === 0) {
+        console.warn(`[AUTH] Login blocked for ${user.xID} - system not initialized (no firms exist)`);
+        return res.status(403).json({
+          success: false,
+          message: 'System not initialized. Contact SuperAdmin.',
+        });
+      }
+    }
+    
     // Validate Admin user has required fields (firmId and defaultClientId)
     if (user.role === 'Admin') {
       if (!user.firmId) {

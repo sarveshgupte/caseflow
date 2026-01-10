@@ -80,4 +80,47 @@ const blockSuperadmin = async (req, res, next) => {
   }
 };
 
-module.exports = { requireAdmin, requireSuperadmin, blockSuperadmin };
+/**
+ * PART 6: Require Firm Context (Defensive Assertion)
+ * Ensures non-SuperAdmin users have firmId
+ * Must be used after authenticate middleware
+ * This is a fail-fast guard to protect against future route refactors
+ */
+const requireFirmContext = async (req, res, next) => {
+  try {
+    // SuperAdmin doesn't have firmId - that's expected
+    if (req.user && req.user.role === 'SuperAdmin') {
+      return next();
+    }
+    
+    // All other users MUST have firmId
+    if (!req.user || !req.user.firmId) {
+      console.error('[PERMISSION] Firm context missing for non-SuperAdmin user', {
+        xID: req.user?.xID || 'unknown',
+        role: req.user?.role || 'unknown',
+        path: req.path,
+      });
+      
+      return res.status(500).json({
+        success: false,
+        message: 'Firm context missing. Please contact administrator.',
+      });
+    }
+    
+    next();
+  } catch (error) {
+    console.error('[PERMISSION] Error checking firm context:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking permissions',
+      error: error.message,
+    });
+  }
+};
+
+module.exports = { 
+  requireAdmin, 
+  requireSuperadmin, 
+  blockSuperadmin,
+  requireFirmContext,
+};
