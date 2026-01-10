@@ -581,8 +581,8 @@ caseSchema.virtual('isReadOnly').get(function() {
  */
 caseSchema.pre('validate', async function() {
   // Ensure firmId is set before generating IDs
-  // This validation is intentionally duplicated from counter.service.js
-  // to fail fast at the model level before attempting ID generation
+  // This is fail-fast validation at the model level (checks existence)
+  // counter.service.js performs defensive validation (checks type and existence)
   if (!this.firmId) {
     throw new Error('Firm ID is required for case creation');
   }

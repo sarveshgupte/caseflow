@@ -10,10 +10,10 @@ const { getNextSequence } = require('./counter.service');
  * PR 2: Atomic Counter Implementation
  * - Uses MongoDB atomic counters to eliminate race conditions
  * - Firm-scoped for multi-tenancy
- * - Daily sequence reset (counter name includes date)
+ * - Daily sequences via date-specific counter names
  * 
  * Rules:
- * - Sequence resets daily
+ * - New counter per day (not reset, but new counter name)
  * - Generated using server time
  * - Zero-padded to 5 digits (xxxxx)
  * - Primary external identifier for cases

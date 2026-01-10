@@ -65,16 +65,14 @@ async function getNextSequence(name, firmId) {
   } catch (error) {
     // If this is a duplicate key error during upsert, retry once
     // This can happen in rare concurrent initialization scenarios
+    // The counter should exist after the first attempt, so we don't need upsert
     if (error.code === 11000) {
       try {
-        // Retry the operation with same options
+        // Retry without upsert - counter should exist now
         const counter = await Counter.findOneAndUpdate(
           { name, firmId },
           { $inc: { seq: 1 } },
-          { 
-            new: true,
-            upsert: true,  // Keep upsert in retry for consistency
-          }
+          { new: true }
         );
         
         if (!counter || typeof counter.seq !== 'number') {
