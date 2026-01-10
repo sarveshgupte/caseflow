@@ -1,7 +1,8 @@
 const Case = require('../models/Case.model');
 const CaseHistory = require('../models/CaseHistory.model');
 const CaseAudit = require('../models/CaseAudit.model');
-const { CASE_STATUS } = require('../config/constants');
+const { CASE_STATUS, CASE_ACTION_TYPES } = require('../config/constants');
+const { logCaseHistory } = require('./auditLog.service');
 
 /**
  * Case Assignment Service
@@ -83,10 +84,10 @@ const assignCaseToUser = async (caseId, user) => {
     }
   }
   
-  // Create CaseAudit entry (new, xID-based)
+  // Create CaseAudit entry (xID-based)
   await CaseAudit.create({
     caseId,
-    actionType: 'CASE_ASSIGNED',
+    actionType: CASE_ACTION_TYPES.CASE_ASSIGNED,
     description: `Case pulled from global worklist and assigned to ${user.xID}`,
     performedByXID: user.xID,
     metadata: {
@@ -96,13 +97,21 @@ const assignCaseToUser = async (caseId, user) => {
     },
   });
   
-  // Create CaseHistory entry (legacy, email-based)
-  await CaseHistory.create({
+  // Create CaseHistory entry with enhanced audit logging
+  await logCaseHistory({
     caseId,
-    actionType: 'CASE_ASSIGNED',
+    firmId: caseData.firmId,
+    actionType: CASE_ACTION_TYPES.CASE_ASSIGNED,
+    actionLabel: `Case assigned to ${user.name || user.xID}`,
     description: `Case pulled from global worklist and assigned to ${user.xID}`,
-    performedBy: user.email.toLowerCase(),
-    performedByXID: user.xID.toUpperCase(), // Canonical identifier (uppercase)
+    performedBy: user.email,
+    performedByXID: user.xID,
+    actorRole: user.role === 'Admin' ? 'ADMIN' : 'USER',
+    metadata: {
+      queueType: 'PERSONAL',
+      status: CASE_STATUS.OPEN,
+      assignedTo: user.xID,
+    },
   });
   
   return {

@@ -231,13 +231,28 @@ const createCase = async (req, res) => {
     
     await newCase.save();
     
-    // Create case history entry
-    await CaseHistory.create({
+    // Create case history entry with enhanced audit logging
+    const { logCaseHistory } = require('../services/auditLog.service');
+    const { CASE_ACTION_TYPES } = require('../config/constants');
+    
+    await logCaseHistory({
       caseId: newCase.caseId,
-      actionType: 'Created',
-      description: `Case created with status: UNASSIGNED, Client: ${finalClientId}`,
-      performedBy: req.user.email || req.user.xID, // Display email or xID
-      performedByXID: createdByXID.toUpperCase(), // Canonical identifier (uppercase)
+      firmId: newCase.firmId,
+      actionType: CASE_ACTION_TYPES.CASE_CREATED,
+      actionLabel: `Case created by ${req.user.name || req.user.xID}`,
+      description: `Case created with status: UNASSIGNED, Client: ${finalClientId}, Category: ${actualCategory}`,
+      performedBy: req.user.email,
+      performedByXID: createdByXID,
+      actorRole: req.user.role === 'Admin' ? 'ADMIN' : 'USER',
+      metadata: {
+        category: actualCategory,
+        clientId: finalClientId,
+        priority: priority || 'Medium',
+        slaDueDate: newCase.slaDueDate,
+        assignedToXID: newCase.assignedToXID,
+        duplicateOverridden: !!systemComment,
+      },
+      req,
     });
     
     // Add system comment if duplicate was overridden
@@ -1433,7 +1448,7 @@ const unassignCase = async (req, res) => {
     // Prepare audit log entry (validate before mutating case)
     const auditEntry = {
       caseId,
-      actionType: 'CASE_UNASSIGNED',
+      actionType: CASE_ACTION_TYPES.CASE_MOVED_TO_WORKBASKET,
       description: `Case moved to Global Worklist by admin ${user.xID}${previousAssignedToXID ? ` (was assigned to ${previousAssignedToXID})` : ''}`,
       performedByXID: user.xID,
       metadata: {
@@ -1459,13 +1474,25 @@ const unassignCase = async (req, res) => {
     // Now create the audit log entry (validation already passed)
     await auditDoc.save();
     
-    // Also add to CaseHistory for backward compatibility
-    await CaseHistory.create({
+    // Also add to CaseHistory with enhanced logging
+    const { logCaseHistory } = require('../services/auditLog.service');
+    const { CASE_ACTION_TYPES } = require('../config/constants');
+    
+    await logCaseHistory({
       caseId,
-      actionType: 'CASE_UNASSIGNED',
-      description: `Case moved to Global Worklist by ${user.email}${previousAssignedToXID ? ` (was assigned to ${previousAssignedToXID})` : ''}`,
+      firmId: caseData.firmId,
+      actionType: CASE_ACTION_TYPES.CASE_MOVED_TO_WORKBASKET,
+      actionLabel: `Case moved to workbasket by ${user.name || user.xID}`,
+      description: `Case moved to Global Worklist by admin ${user.xID}${previousAssignedToXID ? ` (was assigned to ${previousAssignedToXID})` : ''}`,
       performedBy: user.email,
       performedByXID: user.xID,
+      actorRole: 'ADMIN',
+      metadata: {
+        previousAssignedToXID,
+        previousStatus,
+        actionReason: 'Admin moved case to global worklist',
+      },
+      req,
     });
     
     res.json({
