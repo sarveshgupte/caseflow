@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticate } = require('../middleware/auth.middleware');
 const { requireAdmin } = require('../middleware/permission.middleware');
 const { optionalFirmResolution } = require('../middleware/firmResolution.middleware');
+const { authLimiter } = require('../middleware/rateLimiters');
 const {
   login,
   logout,
@@ -31,10 +32,11 @@ const {
 
 // Public authentication endpoints - NO authentication required
 // Login supports optional firm resolution for firm-scoped login
-router.post('/login', optionalFirmResolution, login);
-router.post('/set-password', setPassword);
-router.post('/reset-password-with-token', resetPasswordWithToken);
-router.post('/forgot-password', forgotPassword);
+// Rate limited to prevent brute-force attacks
+router.post('/login', authLimiter, optionalFirmResolution, login);
+router.post('/set-password', authLimiter, setPassword);
+router.post('/reset-password-with-token', authLimiter, resetPasswordWithToken);
+router.post('/forgot-password', authLimiter, forgotPassword);
 router.post('/refresh', refreshAccessToken); // NEW: JWT token refresh
 
 // Protected authentication endpoints - require authentication

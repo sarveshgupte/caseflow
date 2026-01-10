@@ -5,6 +5,7 @@ const { requireSuperadmin } = require('../middleware/permission.middleware');
 const { authorize } = require('../middleware/authorize');
 const SuperAdminPolicy = require('../policies/superadmin.policy');
 const FirmPolicy = require('../policies/firm.policy');
+const { superadminLimiter } = require('../middleware/rateLimiters');
 const {
   createFirm,
   listFirms,
@@ -18,6 +19,7 @@ const {
  * 
  * Platform-level management routes for Superadmin only
  * All routes require authentication and SUPER_ADMIN role
+ * Rate limited to prevent abuse even from privileged accounts
  * 
  * Superadmin can:
  * - Create and manage firms
@@ -31,14 +33,14 @@ const {
  */
 
 // Platform statistics
-router.get('/stats', authenticate, authorize(SuperAdminPolicy.canViewPlatformStats), getPlatformStats);
+router.get('/stats', authenticate, authorize(SuperAdminPolicy.canViewPlatformStats), superadminLimiter, getPlatformStats);
 
 // Firm management
-router.post('/firms', authenticate, authorize(FirmPolicy.canCreate), createFirm);
-router.get('/firms', authenticate, authorize(FirmPolicy.canView), listFirms);
-router.patch('/firms/:id', authenticate, authorize(FirmPolicy.canManageStatus), updateFirmStatus);
+router.post('/firms', authenticate, authorize(FirmPolicy.canCreate), superadminLimiter, createFirm);
+router.get('/firms', authenticate, authorize(FirmPolicy.canView), superadminLimiter, listFirms);
+router.patch('/firms/:id', authenticate, authorize(FirmPolicy.canManageStatus), superadminLimiter, updateFirmStatus);
 
 // Firm admin creation
-router.post('/firms/:firmId/admin', authenticate, authorize(FirmPolicy.canCreateAdmin), createFirmAdmin);
+router.post('/firms/:firmId/admin', authenticate, authorize(FirmPolicy.canCreateAdmin), superadminLimiter, createFirmAdmin);
 
 module.exports = router;
