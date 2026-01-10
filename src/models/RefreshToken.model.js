@@ -24,17 +24,19 @@ const refreshTokenSchema = new mongoose.Schema({
   },
   
   // User ID (MongoDB ObjectId)
+  // For SuperAdmin, this can be null (SuperAdmin not in DB)
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false, // Allow null for SuperAdmin
     index: true,
   },
   
   // Firm/Organization ID for multi-tenancy
+  // For SuperAdmin, this can be null (platform-level access)
   firmId: {
     type: String,
-    required: true,
+    required: false, // Allow null for SuperAdmin
     index: true,
   },
   

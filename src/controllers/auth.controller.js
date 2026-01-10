@@ -50,10 +50,95 @@ const login = async (req, res) => {
       });
     }
     
+    // ============================================================
+    // SUPERADMIN AUTHENTICATION (FROM .ENV - NEVER FROM MONGODB)
+    // ============================================================
+    // SuperAdmin credentials are ONLY in .env, never in database
+    // This is the authoritative authentication path for SuperAdmin
+    const superadminXID = process.env.SUPERADMIN_XID;
+    
+    if (normalizedXID === superadminXID) {
+      console.log('[AUTH] SuperAdmin login attempt detected');
+      
+      // Authenticate against .env ONLY (do NOT query MongoDB)
+      const superadminPassword = process.env.SUPERADMIN_PASSWORD;
+      
+      if (!superadminPassword) {
+        console.error('[AUTH] SUPERADMIN_PASSWORD not configured in environment');
+        return res.status(500).json({
+          success: false,
+          message: 'SuperAdmin authentication not configured',
+        });
+      }
+      
+      // Verify password (plain text comparison for SuperAdmin from .env)
+      if (password !== superadminPassword) {
+        console.warn('[AUTH] SuperAdmin login failed - invalid password');
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid xID or password',
+        });
+      }
+      
+      console.log('[AUTH] SuperAdmin login successful');
+      
+      // Generate JWT with NO firmId, NO defaultClientId
+      const accessToken = jwtService.generateAccessToken({
+        userId: 'SUPERADMIN', // Special identifier (not a MongoDB _id)
+        role: 'SuperAdmin',
+        // NO firmId
+        // NO defaultClientId
+      });
+      
+      // Generate refresh token
+      const refreshToken = jwtService.generateRefreshToken();
+      const refreshTokenHash = jwtService.hashRefreshToken(refreshToken);
+      
+      // Store refresh token (with null userId for SuperAdmin)
+      await RefreshToken.create({
+        tokenHash: refreshTokenHash,
+        userId: null, // SuperAdmin has no MongoDB user document
+        firmId: null, // SuperAdmin has no firm
+        expiresAt: jwtService.getRefreshTokenExpiry(),
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      // Return successful login response
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        accessToken,
+        refreshToken,
+        data: {
+          xID: superadminXID,
+          role: 'SuperAdmin',
+          // NO firmId
+          // NO defaultClientId
+        },
+      });
+    }
+    
+    // ============================================================
+    // NORMAL USER AUTHENTICATION (FROM MONGODB)
+    // ============================================================
+    
     // Find user by xID only
     const user = await User.findOne({ xID: normalizedXID });
     
     if (!user) {
+      // Check if system has been initialized (any users exist)
+      const userCount = await User.countDocuments();
+      
+      if (userCount === 0) {
+        // System not initialized - no users exist
+        console.warn('[AUTH] Login attempt but system not initialized (no users exist)');
+        return res.status(503).json({
+          success: false,
+          message: 'System not initialized. Please contact SuperAdmin.',
+        });
+      }
+      
       // Log failed login attempt (no firmId available as user doesn't exist)
       try {
         await AuthAudit.create({
@@ -73,6 +158,24 @@ const login = async (req, res) => {
         success: false,
         message: 'Invalid xID or password',
       });
+    }
+    
+    // Validate Admin user has required fields (firmId and defaultClientId)
+    if (user.role === 'Admin') {
+      if (!user.firmId) {
+        console.error(`[AUTH] Admin user ${user.xID} missing firmId - data integrity violation`);
+        return res.status(500).json({
+          success: false,
+          message: 'Account configuration error. Please contact administrator.',
+        });
+      }
+      if (!user.defaultClientId) {
+        console.error(`[AUTH] Admin user ${user.xID} missing defaultClientId - data integrity violation`);
+        return res.status(500).json({
+          success: false,
+          message: 'Account configuration error. Please contact administrator.',
+        });
+      }
     }
     
     // Check if user is active

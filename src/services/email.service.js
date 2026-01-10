@@ -484,6 +484,233 @@ Docketra Team
   });
 };
 
+// ============================================================
+// TIER-1 EMAILS (CRITICAL LIFECYCLE EVENTS)
+// ============================================================
+// These emails are sent ONLY for firm provisioning and system integrity
+// Rate-limited to prevent email budget exhaustion (300/day Brevo limit)
+
+// In-memory rate limiting guard
+const sentEmailKeys = new Set();
+
+/**
+ * Send email once per key (rate limiting)
+ * @param {string} key - Unique identifier for this email event
+ * @param {Function} fn - Function that sends the email
+ * @returns {Promise<Object>} Result object
+ */
+const sendOnce = async (key, fn) => {
+  if (sentEmailKeys.has(key)) {
+    console.log(`[EMAIL] Rate limit: Email key "${key}" already sent in this session`);
+    return { success: true, rateLimited: true };
+  }
+  sentEmailKeys.add(key);
+  return await fn();
+};
+
+/**
+ * Send Firm Created SUCCESS email to SuperAdmin
+ * Tier-1: Sent once per firm
+ * @param {string} superadminEmail - SuperAdmin email
+ * @param {Object} data - Firm creation data
+ * @returns {Promise<Object>} Result object
+ */
+const sendFirmCreatedEmail = async (superadminEmail, data) => {
+  const key = `firm-created-${data.firmId}`;
+  return await sendOnce(key, async () => {
+    const subject = `Firm Created: ${data.firmName}`;
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>✅ Firm Created Successfully</h2>
+        <p>A new firm has been provisioned in the Docketra system.</p>
+        <p><strong>Firm Details:</strong></p>
+        <ul>
+          <li><strong>Firm ID:</strong> ${data.firmId}</li>
+          <li><strong>Firm Name:</strong> ${data.firmName}</li>
+          <li><strong>Default Client ID:</strong> ${data.defaultClientId}</li>
+        </ul>
+        <p><strong>Default Admin:</strong></p>
+        <ul>
+          <li><strong>Admin xID:</strong> ${data.adminXID}</li>
+          <li><strong>Admin Email:</strong> ${maskEmail(data.adminEmail)}</li>
+          <li><strong>Status:</strong> Invite email sent</li>
+        </ul>
+        <p>The firm is now operational. The admin will receive credentials via email.</p>
+        <p>Timestamp: ${new Date().toISOString()}</p>
+        <p>Best regards,<br>Docketra Platform</p>
+      </div>
+    `;
+    
+    const textContent = `
+✅ Firm Created Successfully
+
+A new firm has been provisioned in the Docketra system.
+
+Firm Details:
+- Firm ID: ${data.firmId}
+- Firm Name: ${data.firmName}
+- Default Client ID: ${data.defaultClientId}
+
+Default Admin:
+- Admin xID: ${data.adminXID}
+- Admin Email: ${maskEmail(data.adminEmail)}
+- Status: Invite email sent
+
+The firm is now operational. The admin will receive credentials via email.
+
+Timestamp: ${new Date().toISOString()}
+
+Best regards,
+Docketra Platform
+    `.trim();
+    
+    return await sendEmail({
+      to: superadminEmail,
+      subject,
+      html: htmlContent,
+      text: textContent,
+    });
+  });
+};
+
+/**
+ * Send Firm Creation FAILED email to SuperAdmin
+ * Tier-1: Sent once per failure
+ * @param {string} superadminEmail - SuperAdmin email
+ * @param {Object} data - Failure data
+ * @returns {Promise<Object>} Result object
+ */
+const sendFirmCreationFailedEmail = async (superadminEmail, data) => {
+  const key = `firm-failed-${data.firmName}-${Date.now()}`;
+  return await sendOnce(key, async () => {
+    const subject = `🚨 Firm Provisioning Failed`;
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #d32f2f;">🚨 Firm Provisioning Failed</h2>
+        <p>An error occurred while creating a new firm.</p>
+        <p><strong>Attempted Firm Name:</strong> ${data.firmName}</p>
+        <p><strong>Failure Step:</strong> ${data.failureStep}</p>
+        <p><strong>Error Message:</strong></p>
+        <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 4px;">${data.errorMessage}</pre>
+        <p>The transaction was rolled back. No partial data was created.</p>
+        <p><strong>Action Required:</strong> Investigate the error and retry firm creation.</p>
+        <p>Timestamp: ${new Date().toISOString()}</p>
+        <p>Best regards,<br>Docketra Platform</p>
+      </div>
+    `;
+    
+    const textContent = `
+🚨 Firm Provisioning Failed
+
+An error occurred while creating a new firm.
+
+Attempted Firm Name: ${data.firmName}
+Failure Step: ${data.failureStep}
+Error Message: ${data.errorMessage}
+
+The transaction was rolled back. No partial data was created.
+
+Action Required: Investigate the error and retry firm creation.
+
+Timestamp: ${new Date().toISOString()}
+
+Best regards,
+Docketra Platform
+    `.trim();
+    
+    return await sendEmail({
+      to: superadminEmail,
+      subject,
+      html: htmlContent,
+      text: textContent,
+    });
+  });
+};
+
+/**
+ * Send System Integrity Violation email to SuperAdmin
+ * Tier-1: Sent once per process start if violations exist
+ * @param {string} superadminEmail - SuperAdmin email
+ * @param {Object} violations - Integrity violations
+ * @returns {Promise<Object>} Result object
+ */
+const sendSystemIntegrityEmail = async (superadminEmail, violations) => {
+  const key = `integrity-${process.pid}`;
+  return await sendOnce(key, async () => {
+    const subject = `⚠️ System Integrity Warning`;
+    
+    let violationsHtml = '';
+    let violationsText = '';
+    
+    if (violations.firmsWithoutDefaultClient && violations.firmsWithoutDefaultClient.length > 0) {
+      violationsHtml += `<p><strong>Firms without defaultClientId (${violations.firmsWithoutDefaultClient.length}):</strong></p><ul>`;
+      violationsText += `\nFirms without defaultClientId (${violations.firmsWithoutDefaultClient.length}):\n`;
+      violations.firmsWithoutDefaultClient.forEach(firm => {
+        violationsHtml += `<li>${firm.firmId} - ${firm.name}</li>`;
+        violationsText += `  - ${firm.firmId} - ${firm.name}\n`;
+      });
+      violationsHtml += `</ul>`;
+    }
+    
+    if (violations.clientsWithoutFirm && violations.clientsWithoutFirm.length > 0) {
+      violationsHtml += `<p><strong>Clients without firmId (${violations.clientsWithoutFirm.length}):</strong></p><ul>`;
+      violationsText += `\nClients without firmId (${violations.clientsWithoutFirm.length}):\n`;
+      violations.clientsWithoutFirm.forEach(client => {
+        violationsHtml += `<li>${client.clientId} - ${client.businessName}</li>`;
+        violationsText += `  - ${client.clientId} - ${client.businessName}\n`;
+      });
+      violationsHtml += `</ul>`;
+    }
+    
+    if (violations.adminsWithoutFirmOrClient && violations.adminsWithoutFirmOrClient.length > 0) {
+      violationsHtml += `<p><strong>Admins without firmId/defaultClientId (${violations.adminsWithoutFirmOrClient.length}):</strong></p><ul>`;
+      violationsText += `\nAdmins without firmId/defaultClientId (${violations.adminsWithoutFirmOrClient.length}):\n`;
+      violations.adminsWithoutFirmOrClient.forEach(admin => {
+        violationsHtml += `<li>${admin.xID} - ${admin.name} (missing: ${admin.missing.join(', ')})</li>`;
+        violationsText += `  - ${admin.xID} - ${admin.name} (missing: ${admin.missing.join(', ')})\n`;
+      });
+      violationsHtml += `</ul>`;
+    }
+    
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #ff9800;">⚠️ System Integrity Warning</h2>
+        <p>Data integrity violations detected on system startup:</p>
+        ${violationsHtml}
+        <p><strong>Impact:</strong> These violations may cause operational issues.</p>
+        <p><strong>Action Required:</strong> Run data migration to fix hierarchy.</p>
+        <p>The system is still operational but may exhibit unexpected behavior.</p>
+        <p>Timestamp: ${new Date().toISOString()}</p>
+        <p>Best regards,<br>Docketra Platform</p>
+      </div>
+    `;
+    
+    const textContent = `
+⚠️ System Integrity Warning
+
+Data integrity violations detected on system startup:
+${violationsText}
+
+Impact: These violations may cause operational issues.
+Action Required: Run data migration to fix hierarchy.
+
+The system is still operational but may exhibit unexpected behavior.
+
+Timestamp: ${new Date().toISOString()}
+
+Best regards,
+Docketra Platform
+    `.trim();
+    
+    return await sendEmail({
+      to: superadminEmail,
+      subject,
+      html: htmlContent,
+      text: textContent,
+    });
+  });
+};
+
 module.exports = {
   generateSecureToken,
   hashToken,
@@ -494,4 +721,8 @@ module.exports = {
   sendTestEmail,
   maskEmail,
   parseSender,
+  // Tier-1 emails
+  sendFirmCreatedEmail,
+  sendFirmCreationFailedEmail,
+  sendSystemIntegrityEmail,
 };

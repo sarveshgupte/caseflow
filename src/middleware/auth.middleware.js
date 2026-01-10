@@ -48,6 +48,39 @@ const authenticate = async (req, res, next) => {
       });
     }
     
+    // ============================================================
+    // SUPERADMIN TOKEN HANDLING (NO DATABASE LOOKUP)
+    // ============================================================
+    // SuperAdmin tokens have role: 'SuperAdmin' and userId: 'SUPERADMIN'
+    // They never have firmId or defaultClientId
+    if (decoded.role === 'SuperAdmin' && decoded.userId === 'SUPERADMIN') {
+      console.log('[AUTH] SuperAdmin token authenticated');
+      
+      // Attach SuperAdmin pseudo-user to request
+      req.user = {
+        xID: process.env.SUPERADMIN_XID || 'SUPERADMIN',
+        email: process.env.SUPERADMIN_EMAIL || 'superadmin@docketra.local',
+        role: 'SuperAdmin',
+        _id: 'SUPERADMIN', // Pseudo ID for consistency
+        isActive: true,
+        // NO firmId
+        // NO defaultClientId
+      };
+      
+      // Attach decoded JWT data
+      req.jwt = {
+        userId: 'SUPERADMIN',
+        role: 'SuperAdmin',
+        firmId: null,
+      };
+      
+      return next();
+    }
+    
+    // ============================================================
+    // NORMAL USER TOKEN HANDLING (DATABASE LOOKUP)
+    // ============================================================
+    
     // Find user by ID from token
     const user = await User.findById(decoded.userId);
     
