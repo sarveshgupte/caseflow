@@ -220,9 +220,10 @@ const fileCase = async (req, res) => {
  * Returns all cases that:
  * - Are assigned to current user's xID
  * - Have status = PENDED
- * - Were pended by current user's xID
  * 
  * This is the "My Pending Cases" dashboard query.
+ * 
+ * Before returning results, auto-reopens any cases where pendingUntil has elapsed.
  * 
  * @param {object} req - Express request
  * @param {object} res - Express response
@@ -237,11 +238,15 @@ const getMyPendingCases = async (req, res) => {
       });
     }
     
+    // Auto-reopen expired pending cases for this user
+    await caseActionService.autoReopenExpiredPendingCases(req.user.xID);
+    
     // CANONICAL QUERY for "My Pending Cases"
+    // A case appears here if it's assigned to me AND has PENDED status
+    // We do NOT filter by pendedByXID - any pended case assigned to me should appear
     const query = {
       assignedToXID: req.user.xID,
       status: CASE_STATUS.PENDED,
-      pendedByXID: req.user.xID,
     };
     
     const cases = await Case.find(query)
@@ -252,7 +257,7 @@ const getMyPendingCases = async (req, res) => {
     // Log case list view for audit
     await logCaseListViewed({
       viewerXID: req.user.xID,
-      filters: { status: CASE_STATUS.PENDED, pendedByXID: req.user.xID },
+      filters: { status: CASE_STATUS.PENDED },
       listType: 'MY_PENDING_CASES',
       resultCount: cases.length,
     });
