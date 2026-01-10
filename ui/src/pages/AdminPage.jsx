@@ -659,6 +659,7 @@ export const AdminPage = () => {
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
+                    <th>Firm</th>
                     <th>Status</th>
                     <th>Password Set</th>
                     <th>Actions</th>
@@ -675,6 +676,7 @@ export const AdminPage = () => {
                           {user.role}
                         </Badge>
                       </td>
+                      <td>{user.firmId?.name || 'N/A'}</td>
                       <td>
                         <Badge status={user.isActive ? 'Approved' : 'Rejected'}>
                           {user.isActive ? 'Active' : 'Inactive'}

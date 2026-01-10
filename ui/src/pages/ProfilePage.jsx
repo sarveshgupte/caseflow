@@ -152,6 +152,15 @@ export const ProfilePage = () => {
               readOnly
               disabled
             />
+            
+            {profileData?.firm && (
+              <Input
+                label="Firm (managed by Admin)"
+                value={profileData.firm.name || ''}
+                readOnly
+                disabled
+              />
+            )}
           </div>
 
           <div className="profile__section">

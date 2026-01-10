@@ -46,10 +46,12 @@ const userSchema = new mongoose.Schema({
   
   // Firm/Organization ID for multi-tenancy
   // All users belong to a firm - enforces data isolation
+  // IMMUTABLE - Users cannot change firms
   firmId: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Firm',
     required: [true, 'Firm ID is required'],
-    default: 'FIRM001', // Default firm for single-tenant deployment
+    immutable: true,
     index: true,
   },
   
@@ -210,6 +212,29 @@ const userSchema = new mongoose.Schema({
   inviteSentAt: {
     type: Date,
     default: null,
+  },
+  
+  /**
+   * Client Access Restrictions (Admin-Managed Deny-List)
+   * Array of client IDs (C123456 format) that this user CANNOT access
+   * Default: empty array (user can access all clients)
+   * Admin-only: Only admins can modify this field
+   * 
+   * Enforcement:
+   * - Blocks case creation with restricted clients
+   * - Filters restricted clients from case lists
+   * - Prevents deep link access to restricted client cases
+   * - Fully audited changes
+   */
+  restrictedClientIds: {
+    type: [String],
+    default: [],
+    validate: {
+      validator: function(arr) {
+        return arr.every(id => /^C\d{6}$/.test(id));
+      },
+      message: 'All client IDs must be in format C123456',
+    },
   },
   
   // Audit trail for user account creation
