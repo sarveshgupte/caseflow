@@ -30,7 +30,12 @@ const submitCase = async (req, res) => {
       });
     }
     
-    const caseData = await Case.findOne({ caseId });
+    // Fetch case with firmId scoping for multi-tenancy
+    const query = { caseId };
+    if (req.user?.firmId) {
+      query.firmId = req.user.firmId;
+    }
+    const caseData = await Case.findOne(query);
     
     if (!caseData) {
       return res.status(404).json({
@@ -101,7 +106,12 @@ const moveToUnderReview = async (req, res) => {
       });
     }
     
-    const caseData = await Case.findOne({ caseId });
+    // Fetch case with firmId scoping for multi-tenancy
+    const query = { caseId };
+    if (req.user?.firmId) {
+      query.firmId = req.user.firmId;
+    }
+    const caseData = await Case.findOne(query);
     
     if (!caseData) {
       return res.status(404).json({
@@ -162,7 +172,12 @@ const closeCase = async (req, res) => {
       });
     }
     
-    const caseData = await Case.findOne({ caseId });
+    // Fetch case with firmId scoping for multi-tenancy
+    const query = { caseId };
+    if (req.user?.firmId) {
+      query.firmId = req.user.firmId;
+    }
+    const caseData = await Case.findOne(query);
     
     if (!caseData) {
       return res.status(404).json({
@@ -235,7 +250,12 @@ const reopenCase = async (req, res) => {
       });
     }
     
-    const caseData = await Case.findOne({ caseId });
+    // Fetch case with firmId scoping for multi-tenancy
+    const query = { caseId };
+    if (req.user?.firmId) {
+      query.firmId = req.user.firmId;
+    }
+    const caseData = await Case.findOne(query);
     
     if (!caseData) {
       return res.status(404).json({

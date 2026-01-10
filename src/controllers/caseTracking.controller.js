@@ -56,8 +56,12 @@ const trackCaseOpen = async (req, res) => {
       });
     }
     
-    // Verify case exists
-    const caseData = await Case.findOne({ caseId });
+    // Verify case exists - with firmId scoping for multi-tenancy
+    const query = { caseId };
+    if (user.firmId) {
+      query.firmId = user.firmId;
+    }
+    const caseData = await Case.findOne(query);
     if (!caseData) {
       return res.status(404).json({
         success: false,
@@ -131,8 +135,12 @@ const trackCaseView = async (req, res) => {
       });
     }
     
-    // Verify case exists
-    const caseData = await Case.findOne({ caseId });
+    // Verify case exists - with firmId scoping for multi-tenancy
+    const query = { caseId };
+    if (user.firmId) {
+      query.firmId = user.firmId;
+    }
+    const caseData = await Case.findOne(query);
     if (!caseData) {
       return res.status(404).json({
         success: false,
@@ -207,7 +215,12 @@ const trackCaseExit = async (req, res) => {
     }
     
     // Verify case exists (lighter check, don't fail if case not found during exit)
-    const caseData = await Case.findOne({ caseId }).select('caseId firmId createdByXID assignedToXID');
+    // Add firmId scoping for multi-tenancy
+    const query = { caseId };
+    if (user.firmId) {
+      query.firmId = user.firmId;
+    }
+    const caseData = await Case.findOne(query).select('caseId firmId createdByXID assignedToXID');
     if (!caseData) {
       // Case might have been deleted, but still log the exit attempt
       console.warn(`[TRACKING] Case ${caseId} not found during exit tracking`);
@@ -288,8 +301,12 @@ const getCaseHistory = async (req, res) => {
       });
     }
     
-    // Verify case exists
-    const caseData = await Case.findOne({ caseId });
+    // Verify case exists - with firmId scoping for multi-tenancy
+    const query = { caseId };
+    if (user.firmId) {
+      query.firmId = user.firmId;
+    }
+    const caseData = await Case.findOne(query);
     if (!caseData) {
       return res.status(404).json({
         success: false,
