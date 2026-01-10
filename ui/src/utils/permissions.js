@@ -4,6 +4,10 @@
 
 import { USER_ROLES } from './constants.js';
 
+export const isSuperadmin = (user) => {
+  return user?.role === USER_ROLES.SUPER_ADMIN;
+};
+
 export const isAdmin = (user) => {
   return user?.role === USER_ROLES.ADMIN;
 };

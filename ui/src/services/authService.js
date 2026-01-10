@@ -7,15 +7,23 @@ import { STORAGE_KEYS } from '../utils/constants';
 
 export const authService = {
   /**
-   * Login with xID and password
-   * Backend expects payload key as 'xID' (uppercase 'D')
+   * Login with xID and password (or email for Superadmin)
+   * Backend expects payload key as 'xID' (uppercase 'D') or 'email'
    */
-  login: async (xID, password) => {
+  login: async (identifier, password) => {
     // Ensure password is always included in the request, even if empty
+    // Detect if identifier is email (for Superadmin) or xID
+    const isEmail = identifier.includes('@');
     const payload = {
-      xID,
       password: password || ''
     };
+    
+    if (isEmail) {
+      payload.email = identifier;
+    } else {
+      payload.xID = identifier;
+    }
+    
     const response = await api.post('/auth/login', payload);
     
     if (response.data.success) {
@@ -26,7 +34,7 @@ export const authService = {
       localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
       
       // Store user data
-      localStorage.setItem(STORAGE_KEYS.X_ID, userData.xID);
+      localStorage.setItem(STORAGE_KEYS.X_ID, userData.xID || 'SUPERADMIN');
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
     }
     // Don't store anything if login fails or requires password change

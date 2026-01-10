@@ -17,6 +17,7 @@ import { CaseDetailPage } from './pages/CaseDetailPage';
 import { CreateCasePage } from './pages/CreateCasePage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AdminPage } from './pages/AdminPage';
+import { SuperadminDashboard } from './pages/SuperadminDashboard';
 import { ReportsDashboard } from './pages/reports/ReportsDashboard';
 import { DetailedReports } from './pages/reports/DetailedReports';
 import { FilteredCasesPage } from './pages/FilteredCasesPage';
@@ -108,6 +109,15 @@ export const Router = () => {
           element={
             <ProtectedRoute requireAdmin>
               <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/superadmin"
+          element={
+            <ProtectedRoute requireSuperadmin>
+              <SuperadminDashboard />
             </ProtectedRoute>
           }
         />

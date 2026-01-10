@@ -12,7 +12,7 @@ import { validateXID, validatePassword } from '../utils/validators';
 import './LoginPage.css';
 
 export const LoginPage = () => {
-  const [xID, setXID] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,9 +29,11 @@ export const LoginPage = () => {
     e.preventDefault();
     setError('');
 
-    // Validation
-    if (!validateXID(xID)) {
-      setError('Please enter a valid xID');
+    // Validation - accept email or xID
+    const isEmail = identifier.includes('@');
+    
+    if (!isEmail && !validateXID(identifier)) {
+      setError('Please enter a valid xID or email');
       return;
     }
 
@@ -43,19 +45,26 @@ export const LoginPage = () => {
     setLoading(true);
 
     try {
-      const response = await login(xID, password);
+      const response = await login(identifier, password);
 
       if (response.success) {
-        // Successful login - navigate to dashboard
-        navigate('/dashboard');
+        // Check if user is Superadmin - redirect to superadmin dashboard
+        if (response.data.role === 'SUPER_ADMIN') {
+          navigate('/superadmin');
+        } else {
+          // Regular users go to dashboard
+          navigate('/dashboard');
+        }
       }
     } catch (err) {
       const errorData = err.response?.data;
       
-      // Check if password change is required
-      if (errorData?.mustChangePassword) {
-        // Redirect to change password page with xID
-        navigate('/change-password', { state: { xID } });
+      // Check if firm is suspended
+      if (errorData?.code === 'FIRM_SUSPENDED') {
+        setError(errorData?.message || 'Your firm has been suspended. Please contact support.');
+      } else if (errorData?.mustChangePassword) {
+        // Redirect to change password page with identifier
+        navigate('/change-password', { state: { xID: identifier } });
       } else if (errorData?.passwordSetupRequired) {
         // User needs to set password via email link
         setError('Please set your password using the link sent to your email. If you haven\'t received it, contact your administrator.');
@@ -80,12 +89,12 @@ export const LoginPage = () => {
 
         <form onSubmit={handleLogin}>
           <Input
-            label="xID"
+            label="xID or Email"
             type="text"
-            value={xID}
-            onChange={(e) => setXID(e.target.value)}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             required
-            placeholder="Enter your xID"
+            placeholder="Enter your xID or email"
             autoFocus
           />
 

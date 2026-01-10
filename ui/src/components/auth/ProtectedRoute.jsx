@@ -8,9 +8,9 @@ import { useAuth } from '../../hooks/useAuth.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { Loading } from '../common/Loading';
 
-export const ProtectedRoute = ({ children, requireAdmin = false }) => {
+export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadmin = false }) => {
   const { isAuthenticated, loading } = useAuth();
-  const { isAdmin } = usePermissions();
+  const { isAdmin, isSuperadmin } = usePermissions();
 
   if (loading) {
     return <Loading message="Loading..." />;
@@ -18,6 +18,10 @@ export const ProtectedRoute = ({ children, requireAdmin = false }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requireSuperadmin && !isSuperadmin) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   if (requireAdmin && !isAdmin) {

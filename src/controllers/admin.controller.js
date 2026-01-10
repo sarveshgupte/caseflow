@@ -131,13 +131,16 @@ const resendInviteEmail = async (req, res) => {
     // Get admin from authenticated request
     const admin = req.user;
     
-    // Find target user by xID
-    const user = await User.findOne({ xID: xID.toUpperCase() });
+    // Find target user by xID (same-firm only, prevent Superadmin access)
+    const user = await User.findOne({ 
+      xID: xID.toUpperCase(),
+      firmId: admin.firmId,
+    });
     
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
+        message: 'User not found in your firm',
       });
     }
     

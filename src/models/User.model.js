@@ -47,18 +47,22 @@ const userSchema = new mongoose.Schema({
   // Firm/Organization ID for multi-tenancy
   // All users belong to a firm - enforces data isolation
   // IMMUTABLE - Users cannot change firms
+  // NOTE: SUPER_ADMIN role has null firmId (platform-level access)
   firmId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Firm',
-    required: [true, 'Firm ID is required'],
+    required: function() {
+      // firmId is required for Admin and Employee, but not for SUPER_ADMIN
+      return this.role !== 'SUPER_ADMIN';
+    },
     immutable: true,
     index: true,
   },
   
-  // Determines access level: Admin has full system access, Employee has category-restricted access
+  // Determines access level: SUPER_ADMIN manages platform, Admin has full firm access, Employee has category-restricted access
   role: {
     type: String,
-    enum: ['Admin', 'Employee'],
+    enum: ['SUPER_ADMIN', 'Admin', 'Employee'],
     default: 'Employee',
     required: true,
   },

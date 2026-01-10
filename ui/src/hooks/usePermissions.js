@@ -9,6 +9,7 @@ export const usePermissions = () => {
   const { user } = useAuth();
   
   return {
+    isSuperadmin: permissions.isSuperadmin(user),
     isAdmin: permissions.isAdmin(user),
     isEmployee: permissions.isEmployee(user),
     canEditCase: (caseData) => permissions.canEditCase(user, caseData),

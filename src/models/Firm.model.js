@@ -43,11 +43,12 @@ const firmSchema = new mongoose.Schema({
   /**
    * Firm status for lifecycle management
    * ACTIVE - Firm is operational
+   * SUSPENDED - Firm is temporarily blocked from login (Superadmin action)
    * INACTIVE - Firm is disabled (soft delete)
    */
   status: {
     type: String,
-    enum: ['ACTIVE', 'INACTIVE'],
+    enum: ['ACTIVE', 'SUSPENDED', 'INACTIVE'],
     default: 'ACTIVE',
   },
   

@@ -29,42 +29,54 @@ const FORGOT_PASSWORD_TOKEN_EXPIRY_MINUTES = 30; // 30 minutes for forgot passwo
 const login = async (req, res) => {
   try {
     // Accept both xID and XID from request payload, normalize internally
-    const { xID, XID, password } = req.body;
+    // Also accept email for Superadmin login
+    const { xID, XID, email, password } = req.body;
     
     // Normalize xID: accept either xID or XID, trim whitespace, convert to uppercase
     const normalizedXID = (xID || XID)?.trim().toUpperCase();
+    const normalizedEmail = email?.trim().toLowerCase();
     
-    if (!normalizedXID || !password) {
+    // Must have either xID or email
+    if ((!normalizedXID && !normalizedEmail) || !password) {
       console.warn('[AUTH] Missing credentials in login attempt', {
         hasXID: !!normalizedXID,
+        hasEmail: !!normalizedEmail,
         hasPassword: !!password,
         ip: req.ip,
       });
       
       return res.status(400).json({
         success: false,
-        message: 'xID and password are required',
+        message: 'xID/email and password are required',
       });
     }
     
-    // Find user by xID
-    const user = await User.findOne({ xID: normalizedXID });
+    // Find user by xID or email
+    let user;
+    if (normalizedEmail) {
+      // Email-based login (for Superadmin)
+      user = await User.findOne({ email: normalizedEmail });
+    } else {
+      // xID-based login (for Admin/Employee)
+      user = await User.findOne({ xID: normalizedXID });
+    }
     
     if (!user) {
       // Log failed login attempt (no firmId available as user doesn't exist)
+      const identifier = normalizedEmail || normalizedXID;
       await AuthAudit.create({
-        xID: normalizedXID,
+        xID: normalizedXID || 'UNKNOWN',
         firmId: 'UNKNOWN', // User not found, so firmId unknown
         actionType: 'LoginFailed',
-        description: `Login failed: User not found`,
-        performedBy: normalizedXID,
+        description: `Login failed: User not found (attempted with: ${normalizedEmail ? 'email' : 'xID'})`,
+        performedBy: identifier,
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });
       
       return res.status(401).json({
         success: false,
-        message: 'Invalid xID or password',
+        message: 'Invalid credentials',
       });
     }
     
@@ -76,8 +88,22 @@ const login = async (req, res) => {
       });
     }
     
+    // Check if user's firm is suspended (skip for SUPER_ADMIN)
+    if (user.role !== 'SUPER_ADMIN' && user.firmId) {
+      const Firm = require('../models/Firm.model');
+      const firm = await Firm.findById(user.firmId);
+      if (firm && firm.status === 'SUSPENDED') {
+        return res.status(403).json({
+          success: false,
+          message: 'Your firm has been suspended. Please contact support.',
+          code: 'FIRM_SUSPENDED',
+        });
+      }
+    }
+    
     // Check if user status is ACTIVE (invited users cannot login)
-    if (user.status !== 'ACTIVE') {
+    // Skip for SUPER_ADMIN (they don't have invite flow)
+    if (user.role !== 'SUPER_ADMIN' && user.status !== 'ACTIVE') {
       return res.status(403).json({
         success: false,
         message: 'Please complete your account setup using the invite link sent to your email',
@@ -94,8 +120,8 @@ const login = async (req, res) => {
       });
     }
     
-    // Check if password has been set
-    if (!user.passwordSet || !user.passwordHash) {
+    // Check if password has been set (skip for SUPER_ADMIN)
+    if (user.role !== 'SUPER_ADMIN' && (!user.passwordSet || !user.passwordHash)) {
       return res.status(403).json({
         success: false,
         message: 'Please set your password using the link sent to your email',
@@ -104,8 +130,8 @@ const login = async (req, res) => {
     }
     
     // PR 32: Check if user must change password (invite not completed)
-    // Block login until password is set via invite link
-    if (user.mustChangePassword) {
+    // Block login until password is set via invite link (skip for SUPER_ADMIN)
+    if (user.role !== 'SUPER_ADMIN' && user.mustChangePassword) {
       return res.status(403).json({
         success: false,
         message: 'Please complete your account setup using the invite link sent to your email',
@@ -259,20 +285,21 @@ const login = async (req, res) => {
     
     // Log successful login
     await AuthAudit.create({
-      xID: user.xID,
-      firmId: user.firmId,
+      xID: user.xID || 'SUPERADMIN',
+      firmId: user.firmId || 'PLATFORM',
       userId: user._id,
       actionType: 'Login',
       description: `User logged in successfully`,
-      performedBy: user.xID,
+      performedBy: user.xID || user.email,
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
     });
     
     // Generate JWT access token
+    // For SUPER_ADMIN, firmId is null/undefined (not included in token)
     const accessToken = jwtService.generateAccessToken({
       userId: user._id.toString(),
-      firmId: user.firmId,
+      firmId: user.firmId ? user.firmId.toString() : undefined,
       role: user.role,
     });
     
@@ -284,7 +311,7 @@ const login = async (req, res) => {
     await RefreshToken.create({
       tokenHash: refreshTokenHash,
       userId: user._id,
-      firmId: user.firmId,
+      firmId: user.firmId || null,
       expiresAt: jwtService.getRefreshTokenExpiry(),
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
@@ -302,7 +329,7 @@ const login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        firmId: user.firmId,
+        firmId: user.firmId ? user.firmId.toString() : null,
         allowedCategories: user.allowedCategories,
         isActive: user.isActive,
       },
@@ -783,6 +810,14 @@ const updateProfile = async (req, res) => {
 const createUser = async (req, res) => {
   try {
     const { name, role, allowedCategories, email } = req.body;
+    
+    // Prevent creation of SUPER_ADMIN users
+    if (role === 'SUPER_ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot create Superadmin users',
+      });
+    }
     
     // xID is NOT accepted from request - it will be auto-generated
     if (!name || !email) {
