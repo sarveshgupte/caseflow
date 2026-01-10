@@ -46,7 +46,7 @@ const login = async (req, res) => {
       
       return res.status(400).json({
         success: false,
-        message: 'xID is required',
+        message: 'xID and password are required',
       });
     }
     
@@ -312,7 +312,7 @@ const login = async (req, res) => {
         userId: user._id,
         actionType: 'Login',
         description: `User logged in successfully`,
-        performedBy: user.xID || user.email,
+        performedBy: user.xID,
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
       });
