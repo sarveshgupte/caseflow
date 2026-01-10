@@ -3,6 +3,7 @@ const Comment = require('../models/Comment.model');
 const Attachment = require('../models/Attachment.model');
 const { CASE_STATUS } = require('../config/constants');
 const { logCaseListViewed } = require('../services/auditLog.service');
+const caseActionService = require('../services/caseAction.service');
 
 /**
  * Search Controller for Global Search and Worklists
@@ -10,6 +11,7 @@ const { logCaseListViewed } = require('../services/auditLog.service');
  * 
  * PR: Hard Cutover to xID - Removed User model import (no longer needed),
  * added CASE_STATUS import for canonical status constants
+ * PR: Fix Pended Case Visibility - Added caseActionService import for auto-reopen
  */
 
 /**
@@ -302,11 +304,14 @@ const categoryWorklist = async (req, res) => {
  * - FILED cases (these are hidden from employees)
  * - UNASSIGNED cases (these are in global worklist)
  * 
+ * Before returning results, auto-reopens any cases where pendingUntil has elapsed.
+ * 
  * Dashboard "My Open Cases" count MUST use the exact same query.
  * 
  * PR #42: Updated to query by xID instead of email
  * PR: Case Lifecycle - Fixed to use status = OPEN (not != Pending)
  * PR: Hard Cutover to xID - Removed email parameter, use req.user only
+ * PR: Fix Pended Case Visibility - Added auto-reopen before querying
  */
 const employeeWorklist = async (req, res) => {
   try {
@@ -319,6 +324,9 @@ const employeeWorklist = async (req, res) => {
         message: 'Authentication required - user identity not found',
       });
     }
+    
+    // Auto-reopen expired pending cases for this user
+    await caseActionService.autoReopenExpiredPendingCases(user.xID);
     
     // CANONICAL QUERY: assignedToXID = xID AND status = OPEN
     // This is the ONLY correct query for "My Worklist"

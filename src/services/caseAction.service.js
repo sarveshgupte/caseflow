@@ -371,7 +371,89 @@ const unpendCase = async (caseId, comment, user) => {
 };
 
 /**
- * Auto-reopen pended cases
+ * Helper function to perform auto-reopen logic on a single case
+ * 
+ * @param {object} caseData - Case document to reopen
+ * @private
+ */
+const performAutoReopen = async (caseData) => {
+  const previousStatus = caseData.status;
+  const previousPendingUntil = caseData.pendingUntil;
+  const now = new Date();
+  
+  // Update status back to OPEN
+  caseData.status = CASE_STATUS.OPEN;
+  caseData.pendingUntil = null; // Clear pending date
+  caseData.lastActionByXID = 'SYSTEM'; // System auto-reopen
+  caseData.lastActionAt = now;
+  
+  await caseData.save();
+  
+  // Add system comment
+  await Comment.create({
+    caseId: caseData.caseId,
+    text: `Case automatically reopened after pending period expired (was pended until: ${previousPendingUntil})`,
+    createdBy: 'SYSTEM', // Use uppercase for consistency
+    createdByXID: 'SYSTEM',
+    note: 'Auto-reopen system action',
+  });
+  
+  // Record action in audit trail
+  await recordAction(
+    caseData.caseId,
+    'CASE_AUTO_REOPENED', // Consistent with CaseAudit model
+    `Case automatically reopened by system. Previous status: ${previousStatus}. Was pended until: ${previousPendingUntil}`,
+    'SYSTEM',
+    'SYSTEM', // Use uppercase for consistency
+    {
+      previousStatus,
+      newStatus: CASE_STATUS.OPEN,
+      pendingUntil: previousPendingUntil,
+      autoReopened: true,
+      reason: 'pending_until elapsed',
+      reopened_at: now.toISOString(),
+    }
+  );
+};
+
+/**
+ * Auto-reopen expired pending cases for a specific user
+ * 
+ * Finds all cases assigned to userXid with status PENDED where pendingUntil <= now
+ * and changes their status back to OPEN.
+ * 
+ * This is called at read time (worklist, dashboard) to ensure data correctness
+ * even without a background job scheduler.
+ * 
+ * @param {string} userXid - User's xID to scope the auto-reopen
+ * @returns {object} Results with count of reopened cases
+ */
+const autoReopenExpiredPendingCases = async (userXid) => {
+  const now = new Date();
+  
+  // Find all pended cases for this user where pendingUntil has passed
+  const pendedCases = await Case.find({
+    status: CASE_STATUS.PENDED,
+    pendingUntil: { $lte: now },
+    assignedToXID: userXid,
+  });
+  
+  const reopenedCases = [];
+  
+  for (const caseData of pendedCases) {
+    await performAutoReopen(caseData);
+    reopenedCases.push(caseData.caseId);
+  }
+  
+  return {
+    success: true,
+    count: reopenedCases.length,
+    cases: reopenedCases,
+  };
+};
+
+/**
+ * Auto-reopen pended cases (global)
  * 
  * Finds all cases with status PENDED where pendingUntil <= now
  * and changes their status back to OPEN.
@@ -392,38 +474,7 @@ const autoReopenPendedCases = async () => {
   const reopenedCases = [];
   
   for (const caseData of pendedCases) {
-    const previousStatus = caseData.status;
-    
-    // Update status back to OPEN
-    caseData.status = CASE_STATUS.OPEN;
-    caseData.lastActionByXID = 'SYSTEM'; // System auto-reopen
-    caseData.lastActionAt = new Date();
-    
-    await caseData.save();
-    
-    // Add system comment
-    await Comment.create({
-      caseId: caseData.caseId,
-      text: `Case automatically reopened after pending period expired (pending until: ${caseData.pendingUntil})`,
-      createdBy: 'system',
-      note: 'Auto-reopen system action',
-    });
-    
-    // Record action in audit trail
-    await recordAction(
-      caseData.caseId,
-      'CASE_AUTO_REOPENED',
-      `Case automatically reopened by system. Previous status: ${previousStatus}. Was pended until: ${caseData.pendingUntil}`,
-      'SYSTEM',
-      'system',
-      {
-        previousStatus,
-        newStatus: CASE_STATUS.OPEN,
-        pendingUntil: caseData.pendingUntil,
-        autoReopened: true,
-      }
-    );
-    
+    await performAutoReopen(caseData);
     reopenedCases.push(caseData.caseId);
   }
   
@@ -440,6 +491,7 @@ module.exports = {
   fileCase,
   unpendCase,
   autoReopenPendedCases,
+  autoReopenExpiredPendingCases,
   validateComment,
   recordAction,
 };
