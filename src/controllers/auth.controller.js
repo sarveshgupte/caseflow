@@ -207,6 +207,25 @@ const login = async (req, res) => {
       }
     }
     
+    // PR-2: Check firm bootstrap status for Admin users
+    // Block login if firm bootstrap is not completed
+    if (user.role === 'Admin' && user.firmId) {
+      try {
+        const firm = await Firm.findById(user.firmId);
+        if (firm && firm.bootstrapStatus !== 'COMPLETED') {
+          console.warn(`[AUTH] Login blocked for ${user.xID} - firm bootstrap not completed (status: ${firm.bootstrapStatus})`);
+          return res.status(403).json({
+            success: false,
+            message: 'Firm setup incomplete. Please contact support.',
+            bootstrapStatus: firm.bootstrapStatus,
+          });
+        }
+      } catch (firmError) {
+        console.error(`[AUTH] Error checking firm bootstrap status:`, firmError.message);
+        // Continue - don't block login on lookup failure
+      }
+    }
+    
     // Validate Admin user has required fields (firmId and defaultClientId)
     if (user.role === 'Admin') {
       if (!user.firmId) {

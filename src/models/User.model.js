@@ -60,18 +60,21 @@ const userSchema = new mongoose.Schema({
   
   /**
    * Default Client ID for multi-tenancy
-   * Every Admin and Employee MUST have a default client
-   * For Admins, this is always the Firm's default client (represents the firm itself)
-   * REQUIRED for Admin and Employee roles
-   * SUPER_ADMIN has null defaultClientId (platform-level access)
+   * 
+   * PR-2: Bootstrap Atomicity & Identity Decoupling
+   * - OPTIONAL during firm bootstrap (allows admin creation before default client)
+   * - Can be null temporarily during firm onboarding
+   * - Must be set before admin can login (enforced in auth flow)
+   * - SUPER_ADMIN always has null defaultClientId (platform-level access)
+   * 
+   * For Admins, this should eventually point to the Firm's default client
+   * For Employees, this points to their assigned default client
    */
   defaultClientId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Client',
-    required: function() {
-      // defaultClientId is required for Admin and Employee, but not for SUPER_ADMIN
-      return this.role !== 'SUPER_ADMIN';
-    },
+    required: false, // Made optional to support atomic firm bootstrap
+    default: null,
     immutable: true, // Cannot change default client after creation
     index: true,
   },

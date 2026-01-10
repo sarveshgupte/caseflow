@@ -74,23 +74,67 @@ const runPreflightChecks = async () => {
     
     console.log(`ℹ️  Found ${totalFirms} firm(s) in database. Validating integrity...`);
     
-    // Check for firms without defaultClientId
+    // PR-2: Backward compatibility - Set bootstrapStatus for existing firms
+    const firmsWithoutBootstrapStatus = await Firm.find({ 
+      $or: [
+        { bootstrapStatus: { $exists: false } },
+        { bootstrapStatus: null }
+      ]
+    }).select('firmId name defaultClientId');
+    
+    if (firmsWithoutBootstrapStatus.length > 0) {
+      console.log(`ℹ️  Found ${firmsWithoutBootstrapStatus.length} firm(s) without bootstrapStatus - applying backward compatibility...`);
+      
+      for (const firm of firmsWithoutBootstrapStatus) {
+        // Firms with defaultClientId are considered COMPLETED (legacy firms)
+        // Firms without defaultClientId are considered PENDING (need recovery)
+        const status = firm.defaultClientId ? 'COMPLETED' : 'PENDING';
+        await Firm.updateOne(
+          { _id: firm._id },
+          { $set: { bootstrapStatus: status } }
+        );
+        console.log(`   ✓ Set ${firm.firmId} bootstrapStatus to ${status}`);
+      }
+    }
+    
+    // PR-2: Check for firms with incomplete bootstrap
+    const pendingFirms = await Firm.find({ 
+      bootstrapStatus: 'PENDING' 
+    }).select('firmId name bootstrapStatus');
+    
+    if (pendingFirms.length > 0) {
+      hasViolations = true;
+      violations.pendingBootstrapFirms = pendingFirms.map(f => ({
+        firmId: f.firmId,
+        name: f.name,
+        bootstrapStatus: f.bootstrapStatus
+      }));
+      console.warn(`⚠️  WARNING: Found ${pendingFirms.length} firm(s) with incomplete bootstrap:`);
+      pendingFirms.forEach(firm => {
+        console.warn(`   - Firm: ${firm.firmId} (${firm.name}) - Status: ${firm.bootstrapStatus}`);
+      });
+      console.warn(`   → These firms may need manual recovery via recoverFirmBootstrap()`);
+    }
+    
+    // Check for firms without defaultClientId (excluding PENDING firms)
     const firmsWithoutDefaultClient = await Firm.find({ 
+      bootstrapStatus: { $ne: 'PENDING' }, // Exclude PENDING firms
       $or: [
         { defaultClientId: { $exists: false } },
         { defaultClientId: null }
       ]
-    }).select('firmId name');
+    }).select('firmId name bootstrapStatus');
     
     if (firmsWithoutDefaultClient.length > 0) {
       hasViolations = true;
       violations.firmsWithoutDefaultClient = firmsWithoutDefaultClient.map(f => ({
         firmId: f.firmId,
-        name: f.name
+        name: f.name,
+        bootstrapStatus: f.bootstrapStatus
       }));
       console.warn(`⚠️  WARNING: Found ${firmsWithoutDefaultClient.length} firm(s) without defaultClientId:`);
       firmsWithoutDefaultClient.forEach(firm => {
-        console.warn(`   - Firm: ${firm.firmId} (${firm.name})`);
+        console.warn(`   - Firm: ${firm.firmId} (${firm.name}) - Status: ${firm.bootstrapStatus || 'N/A'}`);
       });
     }
     
@@ -174,6 +218,180 @@ const runPreflightChecks = async () => {
 };
 
 /**
+ * Recover firm bootstrap for a specific firm
+ * 
+ * PR-2: Bootstrap Atomicity & Identity Decoupling
+ * 
+ * This function attempts to recover a firm that may have incomplete bootstrap:
+ * - Detects missing admin
+ * - Detects missing default client
+ * - Re-creates missing pieces (in a transaction)
+ * - Finalizes bootstrap by setting bootstrapStatus = COMPLETED
+ * 
+ * This allows manual recovery via SuperAdmin tools or automated cron recovery.
+ * 
+ * @param {string|ObjectId} firmId - Firm MongoDB _id or firmId string
+ * @returns {Object} Recovery result with status and details
+ */
+const recoverFirmBootstrap = async (firmId) => {
+  const mongoose = require('mongoose');
+  const { generateNextClientId } = require('./clientIdGenerator');
+  const { generateNextXID } = require('./xIDGenerator');
+  
+  try {
+    console.log(`[BOOTSTRAP_RECOVERY] Starting recovery for firm: ${firmId}`);
+    
+    // Find firm (by _id or firmId string)
+    let firm;
+    if (mongoose.Types.ObjectId.isValid(firmId)) {
+      firm = await Firm.findById(firmId);
+    } else {
+      firm = await Firm.findOne({ firmId: firmId });
+    }
+    
+    if (!firm) {
+      return {
+        success: false,
+        message: 'Firm not found',
+      };
+    }
+    
+    // Check if already completed
+    if (firm.bootstrapStatus === 'COMPLETED') {
+      console.log(`[BOOTSTRAP_RECOVERY] Firm ${firm.firmId} already completed`);
+      return {
+        success: true,
+        message: 'Firm bootstrap already completed',
+        firmId: firm.firmId,
+      };
+    }
+    
+    // Start recovery transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
+    try {
+      const recoveryActions = [];
+      
+      // Check 1: Does firm have a default client?
+      let defaultClient = null;
+      if (!firm.defaultClientId) {
+        console.log(`[BOOTSTRAP_RECOVERY] Missing default client for firm ${firm.firmId}`);
+        
+        // Check if a client exists but isn't linked
+        defaultClient = await Client.findOne({ 
+          firmId: firm._id, 
+          isInternal: true 
+        }).session(session);
+        
+        if (!defaultClient) {
+          // Create default client
+          const clientId = await generateNextClientId(firm._id, session);
+          defaultClient = new Client({
+            clientId,
+            businessName: firm.name,
+            businessAddress: 'Default Address',
+            primaryContactNumber: '0000000000',
+            businessEmail: `${firm.firmId.toLowerCase()}@system.local`,
+            firmId: firm._id,
+            isSystemClient: true,
+            isInternal: true,
+            createdBySystem: true,
+            isActive: true,
+            status: 'ACTIVE',
+            createdByXid: 'SUPERADMIN',
+            createdBy: process.env.SUPERADMIN_EMAIL || 'superadmin@system.local',
+          });
+          await defaultClient.save({ session });
+          console.log(`[BOOTSTRAP_RECOVERY] Created default client: ${clientId}`);
+          recoveryActions.push(`Created default client ${clientId}`);
+        }
+        
+        // Link firm to default client
+        firm.defaultClientId = defaultClient._id;
+        await firm.save({ session });
+        console.log(`[BOOTSTRAP_RECOVERY] Linked firm to default client`);
+        recoveryActions.push('Linked firm to default client');
+      } else {
+        defaultClient = await Client.findById(firm.defaultClientId).session(session);
+        if (!defaultClient) {
+          throw new Error('Firm has defaultClientId reference but client does not exist');
+        }
+      }
+      
+      // Check 2: Does firm have at least one admin?
+      const adminCount = await User.countDocuments({ 
+        firmId: firm._id, 
+        role: 'Admin',
+        isSystem: true 
+      }).session(session);
+      
+      if (adminCount === 0) {
+        console.log(`[BOOTSTRAP_RECOVERY] Missing system admin for firm ${firm.firmId}`);
+        throw new Error('Missing system admin - manual intervention required (cannot auto-create without email)');
+      }
+      
+      // Check 3: Do all admins have defaultClientId set?
+      const adminsWithoutClient = await User.find({
+        firmId: firm._id,
+        role: 'Admin',
+        $or: [
+          { defaultClientId: { $exists: false } },
+          { defaultClientId: null }
+        ]
+      }).session(session);
+      
+      if (adminsWithoutClient.length > 0) {
+        console.log(`[BOOTSTRAP_RECOVERY] Found ${adminsWithoutClient.length} admin(s) without defaultClientId`);
+        
+        // Link admins to default client
+        for (const admin of adminsWithoutClient) {
+          await User.updateOne(
+            { _id: admin._id },
+            { $set: { defaultClientId: defaultClient._id } },
+            { session }
+          );
+          console.log(`[BOOTSTRAP_RECOVERY] Linked admin ${admin.xID} to default client`);
+          recoveryActions.push(`Linked admin ${admin.xID} to default client`);
+        }
+      }
+      
+      // Mark bootstrap as completed
+      firm.bootstrapStatus = 'COMPLETED';
+      await firm.save({ session });
+      console.log(`[BOOTSTRAP_RECOVERY] Marked firm ${firm.firmId} as COMPLETED`);
+      recoveryActions.push('Marked bootstrap as COMPLETED');
+      
+      // Commit transaction
+      await session.commitTransaction();
+      session.endSession();
+      
+      console.log(`[BOOTSTRAP_RECOVERY] ✓ Recovery successful for firm ${firm.firmId}`);
+      
+      return {
+        success: true,
+        message: 'Firm bootstrap recovered successfully',
+        firmId: firm.firmId,
+        recoveryActions,
+      };
+      
+    } catch (error) {
+      await session.abortTransaction();
+      session.endSession();
+      throw error;
+    }
+    
+  } catch (error) {
+    console.error(`[BOOTSTRAP_RECOVERY] ✗ Recovery failed for firm ${firmId}:`, error.message);
+    return {
+      success: false,
+      message: 'Recovery failed',
+      error: error.message,
+    };
+  }
+};
+
+/**
  * Run all bootstrap operations
  * 
  * This function is called on server startup after MongoDB connection.
@@ -216,4 +434,5 @@ const runBootstrap = async () => {
 
 module.exports = {
   runBootstrap,
+  recoverFirmBootstrap,
 };

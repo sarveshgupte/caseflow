@@ -112,7 +112,7 @@ const createFirm = async (req, res) => {
     console.log(`[FIRM_CREATE] Starting atomic transaction for firm: ${name}`);
     
     // ============================================================
-    // STEP 1: Generate Firm ID, Firm Slug, and Create Firm
+    // STEP 1: Generate Firm ID, Firm Slug, and Create Firm (bootstrapStatus=PENDING)
     // ============================================================
     // Query latest firm within transaction to generate next ID
     // Bootstrap-safe: returns FIRM001 when no firms exist
@@ -142,12 +142,52 @@ const createFirm = async (req, res) => {
       name: name.trim(),
       firmSlug,
       status: 'ACTIVE',
+      bootstrapStatus: 'PENDING', // PR-2: Start in PENDING state
     });
     
+    // Save firm first (without defaultClientId - will be set later)
+    await firm.save({ session });
+    console.log(`[FIRM_CREATE] ✓ Firm created in PENDING state: ${firmId}`);
     console.log(`[FIRM_CREATE] Generated firmSlug: ${firmSlug}`);
     
     // ============================================================
-    // STEP 2: Generate Client ID and Create Default Client
+    // STEP 2: Create Admin User (defaultClientId = null initially)
+    // ============================================================
+    // PR-2: Create admin BEFORE default client to decouple dependencies
+    // Admin will have null defaultClientId initially, updated after client creation
+    // Pass firm ObjectId for transactional ID generation
+    // Bootstrap-safe: returns X000001 when no users exist
+    const xIDGenerator = require('../services/xIDGenerator');
+    const adminXID = await xIDGenerator.generateNextXID(firm._id, session);
+    
+    // Generate password setup token
+    const crypto = require('crypto');
+    const setupToken = crypto.randomBytes(32).toString('hex');
+    const setupTokenHash = crypto.createHash('sha256').update(setupToken).digest('hex');
+    const setupExpires = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+    
+    const adminUser = new User({
+      xID: adminXID,
+      name: adminName.trim(),
+      email: adminEmail.toLowerCase(),
+      firmId: firm._id, // Link to firm
+      defaultClientId: null, // PR-2: Null initially, will be set after client creation
+      role: 'Admin',
+      status: 'INVITED',
+      isActive: true,
+      isSystem: true, // Mark as system user - cannot be deleted or deactivated
+      passwordSet: false,
+      mustChangePassword: true,
+      passwordSetupTokenHash: setupTokenHash,
+      passwordSetupExpires: setupExpires,
+      inviteSentAt: new Date(),
+    });
+    
+    await adminUser.save({ session });
+    console.log(`[FIRM_CREATE] ✓ Admin user created (defaultClientId=null): ${adminXID}`);
+    
+    // ============================================================
+    // STEP 3: Generate Client ID and Create Default Client
     // ============================================================
     // Pass firm ObjectId for transactional ID generation
     // Bootstrap-safe: returns C000001 when no clients exist
@@ -192,46 +232,35 @@ const createFirm = async (req, res) => {
     console.log(`[FIRM_CREATE] ✓ Default client created: ${clientId}`);
     
     // ============================================================
-    // STEP 3: Persist Firm with defaultClientId linkage
+    // STEP 4: Link Firm → defaultClientId
     // ============================================================
     firm.defaultClientId = defaultClient._id;
     await firm.save({ session });
-    console.log(`[FIRM_CREATE] defaultClientId linked: ${defaultClient._id}`);
-    console.log(`[FIRM_CREATE] ✓ Firm created: ${firmId}`);
+    console.log(`[FIRM_CREATE] ✓ Firm defaultClientId linked: ${defaultClient._id}`);
     
     // ============================================================
-    // STEP 4: Generate xID and Create Default Admin User
+    // STEP 5: Link Admin → defaultClientId
     // ============================================================
-    // Pass firm ObjectId for transactional ID generation
-    // Bootstrap-safe: returns X000001 when no users exist
-    const xIDGenerator = require('../services/xIDGenerator');
-    const adminXID = await xIDGenerator.generateNextXID(firm._id, session);
+    // PR-2: Update admin's defaultClientId now that client exists
+    // NOTE: We must use updateOne since defaultClientId is immutable
+    // Cannot use adminUser.defaultClientId = ... and save() due to immutability
+    await User.updateOne(
+      { _id: adminUser._id },
+      { $set: { defaultClientId: defaultClient._id } },
+      { session }
+    );
+    console.log(`[FIRM_CREATE] ✓ Admin defaultClientId linked: ${defaultClient._id}`);
     
-    // Generate password setup token
-    const crypto = require('crypto');
-    const setupToken = crypto.randomBytes(32).toString('hex');
-    const setupTokenHash = crypto.createHash('sha256').update(setupToken).digest('hex');
-    const setupExpires = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+    // Reload admin user to get updated defaultClientId for response
+    const updatedAdminUser = await User.findById(adminUser._id).session(session);
     
-    const adminUser = new User({
-      xID: adminXID,
-      name: adminName.trim(),
-      email: adminEmail.toLowerCase(),
-      firmId: firm._id, // Link to firm
-      defaultClientId: defaultClient._id, // Link to firm's default client
-      role: 'Admin',
-      status: 'INVITED',
-      isActive: true,
-      isSystem: true, // Mark as system user - cannot be deleted or deactivated
-      passwordSet: false,
-      mustChangePassword: true,
-      passwordSetupTokenHash: setupTokenHash,
-      passwordSetupExpires: setupExpires,
-      inviteSentAt: new Date(),
-    });
-    
-    await adminUser.save({ session });
-    console.log(`[FIRM_CREATE] ✓ Default admin created: ${adminXID}`);
+    // ============================================================
+    // STEP 6: Mark Firm bootstrapStatus = COMPLETED
+    // ============================================================
+    // PR-2: Bootstrap complete - firm is now fully operational
+    firm.bootstrapStatus = 'COMPLETED';
+    await firm.save({ session });
+    console.log(`[FIRM_CREATE] ✓ Firm bootstrap completed: ${firmId}`);
     
     // ============================================================
     // COMMIT TRANSACTION
@@ -306,6 +335,7 @@ const createFirm = async (req, res) => {
           firmSlug: firm.firmSlug,
           name: firm.name,
           status: firm.status,
+          bootstrapStatus: firm.bootstrapStatus, // PR-2: Include bootstrap status
           defaultClientId: firm.defaultClientId,
           createdAt: firm.createdAt,
         },
@@ -316,12 +346,13 @@ const createFirm = async (req, res) => {
           isSystemClient: defaultClient.isSystemClient,
         },
         defaultAdmin: {
-          _id: adminUser._id,
-          xID: adminUser.xID,
-          name: adminUser.name,
-          email: adminUser.email,
-          role: adminUser.role,
-          status: adminUser.status,
+          _id: updatedAdminUser._id,
+          xID: updatedAdminUser.xID,
+          name: updatedAdminUser.name,
+          email: updatedAdminUser.email,
+          role: updatedAdminUser.role,
+          status: updatedAdminUser.status,
+          defaultClientId: updatedAdminUser.defaultClientId, // PR-2: Include linked defaultClientId
         },
       },
     });

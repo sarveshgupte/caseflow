@@ -86,6 +86,26 @@ const firmSchema = new mongoose.Schema({
   },
   
   /**
+   * Bootstrap status for firm onboarding lifecycle
+   * 
+   * PR-2: Bootstrap Atomicity & Identity Decoupling
+   * Tracks the completion state of firm initialization
+   * 
+   * PENDING - Firm is being created, not ready for use
+   * COMPLETED - Firm fully initialized (has default client and admin)
+   * FAILED - Firm creation failed, requires manual intervention
+   * 
+   * Admin login is blocked until bootstrapStatus = COMPLETED
+   * This prevents ghost firms and ensures data integrity
+   */
+  bootstrapStatus: {
+    type: String,
+    enum: ['PENDING', 'COMPLETED', 'FAILED'],
+    default: 'PENDING',
+    index: true,
+  },
+  
+  /**
    * Audit trail for firm creation
    */
   createdAt: {
