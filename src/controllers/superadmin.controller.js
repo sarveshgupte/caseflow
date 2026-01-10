@@ -111,9 +111,11 @@ const createFirm = async (req, res) => {
     console.log(`[FIRM_CREATE] Starting atomic transaction for firm: ${name}`);
     
     // ============================================================
-    // STEP 1: Create Firm (without defaultClientId initially)
+    // STEP 1: Generate Firm ID and Create Firm
     // ============================================================
-    const lastFirm = await Firm.findOne().sort({ createdAt: -1 }).session(session);
+    // Query latest firm within transaction to generate next ID
+    // Bootstrap-safe: returns FIRM001 when no firms exist
+    const lastFirm = await Firm.findOne({}, {}, { session }).sort({ createdAt: -1 });
     let firmNumber = 1;
     if (lastFirm && lastFirm.firmId) {
       const match = lastFirm.firmId.match(/FIRM(\d+)/);
@@ -133,9 +135,11 @@ const createFirm = async (req, res) => {
     console.log(`[FIRM_CREATE] ✓ Firm created: ${firmId}`);
     
     // ============================================================
-    // STEP 2: Create Default Client for the Firm
+    // STEP 2: Generate Client ID and Create Default Client
     // ============================================================
-    const clientId = await generateNextClientId();
+    // Pass session for transactional ID generation
+    // Bootstrap-safe: returns C000001 when no clients exist
+    const clientId = await generateNextClientId(firmId, session);
     
     const defaultClient = new Client({
       clientId,
@@ -162,10 +166,12 @@ const createFirm = async (req, res) => {
     console.log(`[FIRM_CREATE] ✓ Firm.defaultClientId linked to ${clientId}`);
     
     // ============================================================
-    // STEP 4: Create Default Admin User
+    // STEP 4: Generate xID and Create Default Admin User
     // ============================================================
+    // Pass session for transactional ID generation
+    // Bootstrap-safe: returns X000001 when no users exist
     const xIDGenerator = require('../services/xIDGenerator');
-    const adminXID = await xIDGenerator.generateNextXID(firmId);
+    const adminXID = await xIDGenerator.generateNextXID(firmId, session);
     
     // Generate password setup token
     const crypto = require('crypto');
@@ -292,9 +298,13 @@ const createFirm = async (req, res) => {
     
     // Determine failure step for detailed error reporting
     let failureStep = 'Unknown';
-    if (error.message.includes('Firm')) failureStep = 'Firm Creation';
-    else if (error.message.includes('Client')) failureStep = 'Default Client Creation';
-    else if (error.message.includes('User')) failureStep = 'Admin User Creation';
+    if (error.message.includes('firmId') || error.message.includes('Firm')) {
+      failureStep = 'Firm ID Generation or Creation';
+    } else if (error.message.includes('clientId') || error.message.includes('Client')) {
+      failureStep = 'Client ID Generation or Creation';
+    } else if (error.message.includes('xID') || error.message.includes('User')) {
+      failureStep = 'Admin User ID Generation or Creation';
+    }
     
     // Send Tier-1 email: Firm Creation FAILED to SuperAdmin
     try {
