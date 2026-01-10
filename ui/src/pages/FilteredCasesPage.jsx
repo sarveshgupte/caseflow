@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { Layout } from '../components/common/Layout';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
@@ -25,6 +25,7 @@ export const FilteredCasesPage = () => {
   const { isAdmin } = usePermissions();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { firmSlug } = useParams();
   
   const [loading, setLoading] = useState(true);
   const [cases, setCases] = useState([]);
@@ -75,7 +76,8 @@ export const FilteredCasesPage = () => {
   };
 
   const handleCaseClick = (caseId) => {
-    navigate(`/cases/${caseId}`);
+    const slug = firmSlug || user?.firmSlug;
+    navigate(slug ? `/${slug}/cases/${caseId}` : `/cases/${caseId}`);
   };
   
   // Get page title and description

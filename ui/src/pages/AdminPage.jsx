@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '../components/common/Layout';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
@@ -12,6 +12,7 @@ import { Input } from '../components/common/Input';
 import { Select } from '../components/common/Select';
 import { Modal } from '../components/common/Modal';
 import { Loading } from '../components/common/Loading';
+import { useAuth } from '../hooks/useAuth';
 import { adminService } from '../services/adminService';
 import { categoryService } from '../services/categoryService';
 import { clientService } from '../services/clientService';
@@ -20,6 +21,8 @@ import './AdminPage.css';
 
 export const AdminPage = () => {
   const navigate = useNavigate();
+  const { firmSlug } = useParams();
+  const { user } = useAuth();
   const { showToast } = useToast();
   
   const [loading, setLoading] = useState(true);
@@ -137,7 +140,8 @@ export const AdminPage = () => {
   };
 
   const handleCaseClick = (caseId) => {
-    navigate(`/cases/${caseId}`);
+    const slug = firmSlug || user?.firmSlug;
+    navigate(slug ? `/${slug}/cases/${caseId}` : `/cases/${caseId}`);
   };
 
   const handleCreateUser = async (e) => {
@@ -629,7 +633,10 @@ export const AdminPage = () => {
           </Button>
           <Button
             variant={activeTab === 'reports' ? 'primary' : 'default'}
-            onClick={() => navigate('/admin/reports')}
+            onClick={() => {
+              const slug = firmSlug || user?.firmSlug;
+              navigate(slug ? `/${slug}/admin/reports` : '/admin/reports');
+            }}
           >
             Reports & MIS
           </Button>
