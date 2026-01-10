@@ -393,7 +393,7 @@ const performAutoReopen = async (caseData) => {
   await Comment.create({
     caseId: caseData.caseId,
     text: `Case automatically reopened after pending period expired (was pended until: ${previousPendingUntil})`,
-    createdBy: 'system',
+    createdBy: 'SYSTEM', // Use uppercase for consistency
     createdByXID: 'SYSTEM',
     note: 'Auto-reopen system action',
   });
@@ -401,10 +401,10 @@ const performAutoReopen = async (caseData) => {
   // Record action in audit trail
   await recordAction(
     caseData.caseId,
-    'AUTO_REOPENED',
+    'CASE_AUTO_REOPENED', // Consistent with CaseAudit model
     `Case automatically reopened by system. Previous status: ${previousStatus}. Was pended until: ${previousPendingUntil}`,
     'SYSTEM',
-    'system',
+    'SYSTEM', // Use uppercase for consistency
     {
       previousStatus,
       newStatus: CASE_STATUS.OPEN,
