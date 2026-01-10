@@ -65,10 +65,10 @@ const login = async (req, res) => {
       // Log failed login attempt (no firmId available as user doesn't exist)
       const identifier = normalizedEmail || normalizedXID;
       await AuthAudit.create({
-        xID: normalizedXID || 'EMAIL_LOGIN',
+        xID: normalizedXID || 'UNKNOWN',
         firmId: 'UNKNOWN', // User not found, so firmId unknown
         actionType: 'LoginFailed',
-        description: `Login failed: User not found`,
+        description: `Login failed: User not found (attempted with: ${normalizedEmail ? 'email' : 'xID'})`,
         performedBy: identifier,
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),

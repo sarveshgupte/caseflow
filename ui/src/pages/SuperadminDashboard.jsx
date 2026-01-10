@@ -193,7 +193,7 @@ export const SuperadminDashboard = () => {
                   value={selectedFirm?._id || ''}
                   onChange={(e) => {
                     const firm = firms.find(f => f._id === e.target.value);
-                    setSelectedFirm(firm);
+                    setSelectedFirm(firm || null);
                   }}
                   required
                   className="form-select"

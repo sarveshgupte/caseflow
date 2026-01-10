@@ -45,7 +45,7 @@ const createFirm = async (req, res) => {
     }
     
     // Generate firmId (FIRM001, FIRM002, etc.)
-    const lastFirm = await Firm.findOne().sort({ firmId: -1 });
+    const lastFirm = await Firm.findOne().sort({ createdAt: -1 });
     let firmNumber = 1;
     if (lastFirm && lastFirm.firmId) {
       const match = lastFirm.firmId.match(/FIRM(\d+)/);
