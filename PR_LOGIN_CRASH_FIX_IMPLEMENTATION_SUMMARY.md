@@ -103,9 +103,10 @@ if (user.role !== 'SUPER_ADMIN' && user.firmId) {
 ### Files Modified
 
 1. **src/controllers/auth.controller.js** (Backend)
+   - **Removed**: Lines 86-98 (defensive firmId validation)
+   - **Removed**: All SUPER_ADMIN conditional checks in login
    - **Removed**: Lines 100-111 (Firm.findById check)
-   - **Kept**: Defensive firmId validation (lines 86-98)
-   - **Result**: -13 lines
+   - **Result**: -30 lines total, pure authentication only
 
 2. **ui/src/pages/LoginPage.jsx** (Frontend)
    - **Removed**: FIRM_SUSPENDED error handling
@@ -114,9 +115,9 @@ if (user.role !== 'SUPER_ADMIN' && user.firmId) {
 
 ### Diff Summary
 ```
-src/controllers/auth.controller.js | 13 -------------
+src/controllers/auth.controller.js | 30 -------------
 ui/src/pages/LoginPage.jsx         |  7 ++-----
-2 files changed, 2 insertions(+), 18 deletions(-)
+2 files changed, 2 insertions(+), 35 deletions(-)
 ```
 
 ## Testing & Validation
