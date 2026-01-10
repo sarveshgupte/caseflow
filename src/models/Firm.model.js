@@ -50,9 +50,8 @@ const firmSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Client',
     required: function() {
-      // Required for all firms except during initial creation
-      // Will be set in the same transaction as firm creation
-      return false; // Allow creation without defaultClientId initially, will be set in transaction
+      // Allow initial creation inside a transaction, enforce thereafter
+      return !this.isNew;
     },
     index: true,
   },
