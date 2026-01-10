@@ -236,4 +236,59 @@ export const caseService = {
     link.remove();
     window.URL.revokeObjectURL(url);
   },
+
+  /**
+   * Track case opened
+   * PR: Comprehensive CaseHistory & Audit Trail
+   * Logs when user opens case detail page
+   * Fails silently if logging fails
+   */
+  trackCaseOpen: async (caseId) => {
+    try {
+      await api.post(`/cases/${caseId}/track-open`);
+    } catch (error) {
+      // Fail silently - tracking failures should not affect UX
+      console.debug('[Tracking] Failed to track case open:', error.message);
+    }
+  },
+
+  /**
+   * Track case viewed
+   * PR: Comprehensive CaseHistory & Audit Trail
+   * Logs when user actively views case (debounced)
+   * Fails silently if logging fails
+   */
+  trackCaseView: async (caseId) => {
+    try {
+      await api.post(`/cases/${caseId}/track-view`);
+    } catch (error) {
+      // Fail silently - tracking failures should not affect UX
+      console.debug('[Tracking] Failed to track case view:', error.message);
+    }
+  },
+
+  /**
+   * Track case exit
+   * PR: Comprehensive CaseHistory & Audit Trail
+   * Logs when user exits case detail page
+   * Fails silently if logging fails
+   */
+  trackCaseExit: async (caseId) => {
+    try {
+      await api.post(`/cases/${caseId}/track-exit`);
+    } catch (error) {
+      // Fail silently - tracking failures should not affect UX
+      console.debug('[Tracking] Failed to track case exit:', error.message);
+    }
+  },
+
+  /**
+   * Get case history
+   * PR: Comprehensive CaseHistory & Audit Trail
+   * Returns chronological audit trail for a case
+   */
+  getCaseHistory: async (caseId) => {
+    const response = await api.get(`/cases/${caseId}/history`);
+    return response.data;
+  },
 };
