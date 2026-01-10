@@ -52,3 +52,4 @@ uploads/
 # Test scripts (temporary)
 test_atomic_counters.js
 test_counter_service.js
+test_firm_onboarding.js
