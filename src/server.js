@@ -27,6 +27,7 @@ const clientRoutes = require('./routes/client.routes');  // Client management ro
 const reportsRoutes = require('./routes/reports.routes');  // Reports routes
 const categoryRoutes = require('./routes/category.routes');  // Category routes
 const adminRoutes = require('./routes/admin.routes');  // Admin routes (PR #41)
+const superadminRoutes = require('./routes/superadmin.routes');  // Superadmin routes
 const debugRoutes = require('./routes/debug.routes');  // Debug routes (PR #43)
 const inboundRoutes = require('./routes/inbound.routes');  // Inbound email routes
 
@@ -150,6 +151,7 @@ app.get('/api', (req, res) => {
       reports: '/api/reports',
       categories: '/api/categories',
       admin: '/api/admin',
+      superadmin: '/api/superadmin',
       debug: '/api/debug',
       inbound: '/api/inbound',
     },
@@ -164,6 +166,9 @@ app.use('/api/categories', categoryRoutes);
 
 // Admin routes (PR #41) - require authentication and admin role
 app.use('/api/admin', adminRoutes);
+
+// Superadmin routes - require authentication and superadmin role
+app.use('/api/superadmin', superadminRoutes);
 
 // Debug routes (PR #43) - require authentication and admin role
 app.use('/api/debug', debugRoutes);

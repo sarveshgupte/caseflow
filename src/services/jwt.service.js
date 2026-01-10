@@ -16,8 +16,8 @@ const REFRESH_TOKEN_EXPIRY_DAYS = 7; // 7 days
  * Generate access token (JWT)
  * @param {Object} payload - Token payload
  * @param {string} payload.userId - MongoDB _id of user
- * @param {string} payload.firmId - Firm/Organization ID
- * @param {string} payload.role - User role (Admin/Employee)
+ * @param {string} [payload.firmId] - Firm/Organization ID (null for SUPER_ADMIN)
+ * @param {string} payload.role - User role (SUPER_ADMIN/Admin/Employee)
  * @returns {string} JWT access token
  */
 const generateAccessToken = (payload) => {
@@ -28,13 +28,20 @@ const generateAccessToken = (payload) => {
   }
   
   // Create JWT with standard claims
+  // Note: firmId is optional for SUPER_ADMIN role
+  const tokenPayload = {
+    userId: payload.userId,
+    role: payload.role,
+    type: 'access',
+  };
+  
+  // Only include firmId if it's provided (not null/undefined)
+  if (payload.firmId) {
+    tokenPayload.firmId = payload.firmId;
+  }
+  
   return jwt.sign(
-    {
-      userId: payload.userId,
-      firmId: payload.firmId,
-      role: payload.role,
-      type: 'access',
-    },
+    tokenPayload,
     secret,
     {
       expiresIn: ACCESS_TOKEN_EXPIRY,

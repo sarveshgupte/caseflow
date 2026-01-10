@@ -2,8 +2,9 @@
  * Bootstrap Service for Docketra
  * 
  * Automatically ensures required system entities exist on startup:
- * 1. System Admin (X000001) - for first-run usability
- * 2. Default Client (C000001) - for case creation
+ * 1. Superadmin - platform operator (from env vars)
+ * 2. System Admin (X000001) - for first-run usability (legacy)
+ * 3. Default Client (C000001) - for case creation
  * 
  * Features:
  * - Runs automatically on server startup (after MongoDB connection)
@@ -15,6 +16,73 @@
 
 const User = require('../models/User.model');
 const Client = require('../models/Client.model');
+const bcrypt = require('bcrypt');
+
+const SALT_ROUNDS = 10;
+
+/**
+ * Seed Superadmin from environment variables
+ * 
+ * Creates the Superadmin user if none exists with role SUPER_ADMIN.
+ * Uses SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD from environment.
+ * 
+ * Superadmin properties:
+ * - email: from SUPERADMIN_EMAIL env var
+ * - password: from SUPERADMIN_PASSWORD env var (hashed)
+ * - role: SUPER_ADMIN
+ * - firmId: null (platform-level access)
+ * - isActive: true
+ * - status: ACTIVE
+ * - passwordSet: true (allows immediate login)
+ * - mustChangePassword: false (allows full system access)
+ */
+const seedSuperadmin = async () => {
+  try {
+    // Check for required env vars
+    const superadminEmail = process.env.SUPERADMIN_EMAIL;
+    const superadminPassword = process.env.SUPERADMIN_PASSWORD;
+    
+    if (!superadminEmail || !superadminPassword) {
+      console.log('⚠️  SUPERADMIN_EMAIL or SUPERADMIN_PASSWORD not set - skipping Superadmin creation');
+      return;
+    }
+    
+    // Check if Superadmin already exists
+    const existingSuperadmin = await User.findOne({ role: 'SUPER_ADMIN' });
+    
+    if (existingSuperadmin) {
+      console.log('✓ Superadmin already exists (email: ' + existingSuperadmin.email + ')');
+      return;
+    }
+    
+    // Hash the password
+    const passwordHash = await bcrypt.hash(superadminPassword, SALT_ROUNDS);
+    
+    // Create Superadmin
+    const superadmin = new User({
+      xID: 'SUPERADMIN', // Special xID for Superadmin
+      name: 'Platform Superadmin',
+      email: superadminEmail,
+      role: 'SUPER_ADMIN',
+      firmId: null, // No firm - platform-level access
+      status: 'ACTIVE',
+      passwordHash,
+      passwordSet: true, // Allow immediate login
+      mustChangePassword: false, // Allow full system access
+      passwordLastChangedAt: new Date(),
+      passwordExpiresAt: new Date('2099-12-31T23:59:59.999Z'), // Far future date
+      isActive: true,
+    });
+    
+    await superadmin.save();
+    console.log('✓ Superadmin created successfully');
+    console.log('  Email: ' + superadminEmail);
+    console.log('  ⚠️  Please secure your SUPERADMIN_PASSWORD environment variable');
+  } catch (error) {
+    console.error('✗ Error seeding Superadmin:', error.message);
+    throw error;
+  }
+};
 
 /**
  * Seed System Admin (X000001)
@@ -34,11 +102,10 @@ const Client = require('../models/Client.model');
  * - passwordExpiresAt: far future (2099)
  * - isActive: true
  * - createdByXid: SYSTEM
+ * - firmId: Required - will use first available firm or create default firm
  */
 const seedSystemAdmin = async () => {
   try {
-    const bcrypt = require('bcrypt');
-    const SALT_ROUNDS = 10;
     const DEFAULT_PASSWORD = 'ChangeMe@123';
     
     // Check if admin already exists (by xID or by role)
@@ -53,6 +120,20 @@ const seedSystemAdmin = async () => {
       console.log('✓ System Admin already exists (xID: ' + existingAdmin.xID + ')');
       return;
     }
+    
+    // Get or create a default firm for the admin
+    const Firm = require('../models/Firm.model');
+    let defaultFirm = await Firm.findOne({ firmId: 'FIRM001' });
+    
+    if (!defaultFirm) {
+      defaultFirm = new Firm({
+        firmId: 'FIRM001',
+        name: 'Default Firm',
+        status: 'ACTIVE',
+      });
+      await defaultFirm.save();
+      console.log('✓ Default Firm created (firmId: FIRM001)');
+    }
 
     // Hash the default password
     const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, SALT_ROUNDS);
@@ -63,6 +144,7 @@ const seedSystemAdmin = async () => {
       name: 'System Admin',
       email: 'admin@system.local',
       role: 'Admin',
+      firmId: defaultFirm._id,
       status: 'ACTIVE',
       passwordHash,
       passwordSet: true, // Allow immediate login
@@ -136,14 +218,18 @@ const seedDefaultClient = async () => {
  * It ensures all required system entities exist.
  * 
  * Order matters:
- * 1. System Admin first (for administrative access)
- * 2. Default Client second (for case creation)
+ * 1. Superadmin first (platform-level control)
+ * 2. System Admin second (for administrative access)
+ * 3. Default Client third (for case creation)
  */
 const runBootstrap = async () => {
   try {
     console.log('\n╔════════════════════════════════════════════╗');
     console.log('║  Running Bootstrap Checks...               ║');
     console.log('╚════════════════════════════════════════════╝\n');
+
+    // Seed Superadmin
+    await seedSuperadmin();
 
     // Seed System Admin
     await seedSystemAdmin();
@@ -162,6 +248,7 @@ const runBootstrap = async () => {
 
 module.exports = {
   runBootstrap,
+  seedSuperadmin,
   seedSystemAdmin,
   seedDefaultClient,
 };

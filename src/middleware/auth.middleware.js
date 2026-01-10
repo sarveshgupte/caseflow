@@ -67,11 +67,27 @@ const authenticate = async (req, res, next) => {
     }
     
     // Verify firmId matches (multi-tenancy check)
-    if (user.firmId !== decoded.firmId) {
-      return res.status(403).json({
-        success: false,
-        message: 'Firm access violation detected.',
-      });
+    // Skip this check for SUPER_ADMIN (they have no firmId)
+    if (user.role !== 'SUPER_ADMIN') {
+      if (user.firmId && decoded.firmId && user.firmId.toString() !== decoded.firmId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Firm access violation detected.',
+        });
+      }
+    }
+    
+    // Check if user's firm is suspended (Superadmin exempt)
+    if (user.role !== 'SUPER_ADMIN' && user.firmId) {
+      const Firm = require('../models/Firm.model');
+      const firm = await Firm.findById(user.firmId);
+      if (firm && firm.status === 'SUSPENDED') {
+        return res.status(403).json({
+          success: false,
+          message: 'Your firm has been suspended. Please contact support.',
+          code: 'FIRM_SUSPENDED',
+        });
+      }
     }
     
     // Special case: allow change-password and profile endpoints even if mustChangePassword is true
@@ -102,7 +118,7 @@ const authenticate = async (req, res, next) => {
     // Also attach decoded JWT data for convenience
     req.jwt = {
       userId: decoded.userId,
-      firmId: decoded.firmId,
+      firmId: decoded.firmId || null, // May be null for SUPER_ADMIN
       role: decoded.role,
     };
     
