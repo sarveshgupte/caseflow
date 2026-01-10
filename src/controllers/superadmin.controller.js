@@ -136,6 +136,24 @@ const createFirm = async (req, res) => {
     // ============================================================
     // Pass firm ObjectId for transactional ID generation
     // Bootstrap-safe: returns C000001 when no clients exist
+    
+    // GUARDRAIL: Check if firm already has an internal client
+    const existingInternalClient = await Client.findOne({ 
+      firmId: firm._id, 
+      isInternal: true 
+    }).session(session);
+    
+    if (existingInternalClient) {
+      await session.abortTransaction();
+      session.endSession();
+      console.error(`[FIRM_CREATE] Firm ${firmId} already has an internal client: ${existingInternalClient.clientId}`);
+      return res.status(409).json({
+        success: false,
+        message: 'Firm already has an internal client',
+        existingClientId: existingInternalClient.clientId,
+      });
+    }
+    
     const clientId = await generateNextClientId(firm._id, session);
     
     const defaultClient = new Client({

@@ -415,5 +415,11 @@ clientSchema.index({ businessName: 1 });
 clientSchema.index({ createdByXid: 1 }); // CANONICAL - xID-based creator queries
 clientSchema.index({ firmId: 1 }); // Multi-tenancy queries
 clientSchema.index({ firmId: 1, status: 1 }); // Firm-scoped status queries
+// Enforce one internal client per firm - critical for firm onboarding integrity
+clientSchema.index({ firmId: 1, isInternal: 1 }, { 
+  unique: true, 
+  partialFilterExpression: { isInternal: true },
+  name: 'firm_internal_client_unique'
+});
 
 module.exports = mongoose.model('Client', clientSchema);
