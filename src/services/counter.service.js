@@ -45,8 +45,8 @@ async function getNextSequence(name, firmId) {
   
   try {
     // Atomic increment operation
-    // $inc: { seq: 1 } - atomically increments the sequence
-    // upsert: true - creates counter if it doesn't exist (starting at 0, then incremented to 1)
+    // $inc: { seq: 1 } - atomically increments the sequence by 1
+    // upsert: true - creates counter with seq: 1 if it doesn't exist
     // new: true - returns the document after update (with incremented value)
     const counter = await Counter.findOneAndUpdate(
       { name, firmId },
@@ -67,11 +67,14 @@ async function getNextSequence(name, firmId) {
     // This can happen in rare concurrent initialization scenarios
     if (error.code === 11000) {
       try {
-        // Retry the operation once
+        // Retry the operation with same options
         const counter = await Counter.findOneAndUpdate(
           { name, firmId },
           { $inc: { seq: 1 } },
-          { new: true }
+          { 
+            new: true,
+            upsert: true,  // Keep upsert in retry for consistency
+          }
         );
         
         if (!counter || typeof counter.seq !== 'number') {
