@@ -9,6 +9,10 @@ const User = require('../models/User.model');
 /**
  * Require Admin role
  * Must be used after authenticate middleware
+ * 
+ * @deprecated Use policy-based authorization instead: authorize(AdminPolicy.isAdmin)
+ * This middleware is kept for backward compatibility but should be replaced
+ * with declarative policy guards in new code.
  */
 const requireAdmin = async (req, res, next) => {
   try {
@@ -36,6 +40,10 @@ const requireAdmin = async (req, res, next) => {
  * Require Superadmin role
  * Must be used after authenticate middleware
  * Superadmin has platform-level access, no firmId
+ * 
+ * @deprecated Use policy-based authorization instead: authorize(SuperAdminPolicy.isSuperAdmin)
+ * This middleware is kept for backward compatibility but should be replaced
+ * with declarative policy guards in new code.
  */
 const requireSuperadmin = async (req, res, next) => {
   try {
