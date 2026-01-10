@@ -965,7 +965,7 @@ const createUser = async (req, res) => {
     }
     
     // Generate next xID automatically (server-side only)
-    const xID = await xIDGenerator.generateNextXID();
+    const xID = await xIDGenerator.generateNextXID(admin.firmId);
     
     // Mask email for logging (show first 2 and domain only)
     const emailParts = email.split('@');

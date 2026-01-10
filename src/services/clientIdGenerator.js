@@ -22,17 +22,21 @@ const Client = require('../models/Client.model');
  * Generate the next available clientId within a transaction
  * Queries the latest client and increments, bootstrap-safe for empty collections
  * 
- * @param {string} firmId - Firm ID for tenant scoping (optional, for future use)
+ * @param {string} firmId - Firm ID for tenant scoping (required for firm-isolated IDs)
  * @param {object} session - MongoDB session for transactional reads (required for atomicity)
  * @returns {Promise<string>} Next clientId in format C000001
  */
-const generateNextClientId = async (firmId = 'FIRM001', session = null) => {
+const generateNextClientId = async (firmId, session = null) => {
+  if (!firmId) {
+    throw new Error('firmId is required for client ID generation');
+  }
   try {
     // Query the latest client within the transaction session
     // Sort by createdAt descending to get the most recent
+    // Scope by firmId to ensure firm-isolated ID generation
     const queryOptions = session ? { session } : {};
     const lastClient = await Client
-      .findOne({}, {}, queryOptions)
+      .findOne({ firmId }, {}, queryOptions)
       .sort({ createdAt: -1 });
     
     // Bootstrap case: no clients exist yet

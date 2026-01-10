@@ -22,17 +22,21 @@ const User = require('../models/User.model');
  * Generate the next available xID within a transaction
  * Queries the latest user and increments, bootstrap-safe for empty collections
  * 
- * @param {string} firmId - Firm ID for tenant scoping (optional, for future use)
+ * @param {string} firmId - Firm ID for tenant scoping (required for firm-isolated IDs)
  * @param {object} session - MongoDB session for transactional reads (required for atomicity)
  * @returns {Promise<string>} Next xID in format X000001
  */
-const generateNextXID = async (firmId = 'FIRM001', session = null) => {
+const generateNextXID = async (firmId, session = null) => {
+  if (!firmId) {
+    throw new Error('firmId is required for xID generation');
+  }
   try {
     // Query the latest user within the transaction session
     // Sort by createdAt descending to get the most recent
+    // Scope by firmId to ensure firm-isolated ID generation
     const queryOptions = session ? { session } : {};
     const lastUser = await User
-      .findOne({}, {}, queryOptions)
+      .findOne({ firmId }, {}, queryOptions)
       .sort({ createdAt: -1 });
     
     // Bootstrap case: no users exist yet

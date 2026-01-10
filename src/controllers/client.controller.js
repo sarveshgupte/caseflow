@@ -246,7 +246,7 @@ const createClient = async (req, res) => {
     }
     
     // STEP 7: Generate clientId server-side
-    const clientId = await generateNextClientId();
+    const clientId = await generateNextClientId(userFirmId);
     
     // STEP 8: Create new client with explicit field mapping
     const client = new Client({
