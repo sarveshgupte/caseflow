@@ -367,6 +367,8 @@ const getMyResolvedCases = async (req, res) => {
  * Trigger auto-reopen for pended cases (Admin/System endpoint)
  * POST /api/cases/auto-reopen-pended
  * 
+ * Authorization: Handled by AdminPolicy.isAdmin guard at route level
+ * 
  * Finds all PENDED cases where pendingUntil has passed and reopens them.
  * Should be called by a scheduler or admin.
  * 
@@ -375,14 +377,6 @@ const getMyResolvedCases = async (req, res) => {
  */
 const triggerAutoReopen = async (req, res) => {
   try {
-    // Only admins can trigger this manually
-    if (!req.user || req.user.role !== 'Admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required',
-      });
-    }
-    
     const result = await caseActionService.autoReopenPendedCases();
     
     res.json({

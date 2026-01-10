@@ -1490,6 +1490,8 @@ const pullCases = async (req, res) => {
  * POST /api/cases/:caseId/unassign
  * Admin only - moves case back to global worklist
  * 
+ * Authorization: Handled by CasePolicy.canAssign guard at route level
+ * 
  * This endpoint:
  * - Sets assignedToXID = null
  * - Sets queueType = GLOBAL
@@ -1507,14 +1509,6 @@ const unassignCase = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Authentication required - user identity not found',
-      });
-    }
-    
-    // Check if user is admin
-    if (user.role !== 'Admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Forbidden - Only admins can move cases to global worklist',
       });
     }
     
