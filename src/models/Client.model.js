@@ -353,7 +353,7 @@ clientSchema.pre('save', async function() {
  * When a client is marked as isSystemClient=true, it must be the default client for its firm.
  * This validation runs on save operations.
  */
-clientSchema.pre('save', async function(next) {
+clientSchema.pre('save', async function() {
   // Only validate if isSystemClient is true
   if (this.isSystemClient === true && this.firmId) {
     try {
@@ -365,15 +365,18 @@ clientSchema.pre('save', async function(next) {
         if (firm.defaultClientId.toString() !== this._id.toString()) {
           const error = new Error('A system client must be the firm\'s default client');
           error.name = 'ValidationError';
-          return next(error);
+          throw error;
         }
       }
     } catch (error) {
-      // If we can't verify, allow the save but log a warning
+      // Re-throw validation errors to stop the save
+      if (error.name === 'ValidationError') {
+        throw error;
+      }
+      // For other errors (network/DB), log and allow the save to continue
       console.warn('[Client Validation] Could not verify isSystemClient constraint:', error.message);
     }
   }
-  next();
 });
 
 /**

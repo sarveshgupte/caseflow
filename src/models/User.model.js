@@ -273,7 +273,7 @@ const userSchema = new mongoose.Schema({
  * Validation: Admin defaultClientId must match Firm's defaultClientId
  * Ensures the hierarchy is correct: Firm → Default Client → Admin
  */
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function() {
   // Only validate for Admin role with both firmId and defaultClientId
   if (this.role === 'Admin' && this.firmId && this.defaultClientId) {
     try {
@@ -285,15 +285,18 @@ userSchema.pre('save', async function(next) {
         if (firm.defaultClientId.toString() !== this.defaultClientId.toString()) {
           const error = new Error('Admin user\'s defaultClientId must match the Firm\'s defaultClientId');
           error.name = 'ValidationError';
-          return next(error);
+          throw error;
         }
       }
     } catch (error) {
-      // If we can't verify, allow the save but log a warning
+      // Re-throw validation errors to stop the save
+      if (error.name === 'ValidationError') {
+        throw error;
+      }
+      // For other errors (network/DB), log and allow the save to continue
       console.warn('[User Validation] Could not verify Admin defaultClientId constraint:', error.message);
     }
   }
-  next();
 });
 
 // Indexes for performance
