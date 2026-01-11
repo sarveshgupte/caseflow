@@ -723,6 +723,16 @@ const sendSystemIntegrityEmail = async (superadminEmail, violations) => {
       violationsHtml += `</ul>`;
     }
     
+    if (violations.superAdminsMissingContext && violations.superAdminsMissingContext.length > 0) {
+      violationsHtml += `<p><strong>SUPER_ADMIN accounts missing firm/defaultClient (allowed) (${violations.superAdminsMissingContext.length}):</strong></p><ul>`;
+      violationsText += `\nSUPER_ADMIN accounts missing firm/defaultClient (allowed) (${violations.superAdminsMissingContext.length}):\n`;
+      violations.superAdminsMissingContext.forEach(sa => {
+        violationsHtml += `<li>${sa.xID} - ${sa.name} (missing: ${sa.missing.join(', ')})</li>`;
+        violationsText += `  - ${sa.xID} - ${sa.name} (missing: ${sa.missing.join(', ')})\n`;
+      });
+      violationsHtml += `</ul>`;
+    }
+    
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #ff9800;">⚠️ System Integrity Warning</h2>
