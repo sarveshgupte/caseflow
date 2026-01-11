@@ -28,6 +28,8 @@ const {
   unassignCase,
   viewAttachment,
   downloadAttachment,
+  getClientFactSheetForCase,
+  viewClientFactSheetFile,
 } = require('../controllers/case.controller');
 
 // PR #44: Import xID ownership validation middleware
@@ -203,5 +205,12 @@ router.post('/:caseId/file', authorize(CasePolicy.canPerformActions), userWriteL
 
 // POST /api/cases/:caseId/unassign - Move case to global worklist (Admin only)
 router.post('/:caseId/unassign', authorize(CasePolicy.canAssign), userWriteLimiter, unassignCase);
+
+// Client Fact Sheet routes (Read-Only from Case view)
+// GET /api/cases/:caseId/client-fact-sheet - Get client fact sheet for a case (read-only)
+router.get('/:caseId/client-fact-sheet', authorize(CasePolicy.canView), userReadLimiter, checkCaseClientAccess, getClientFactSheetForCase);
+
+// GET /api/cases/:caseId/client-fact-sheet/files/:fileId/view - View client fact sheet file (view-only, no download)
+router.get('/:caseId/client-fact-sheet/files/:fileId/view', authenticate, authorize(CasePolicy.canView), attachmentLimiter, checkCaseClientAccess, viewClientFactSheetFile);
 
 module.exports = router;

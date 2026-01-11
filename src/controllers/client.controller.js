@@ -2,6 +2,15 @@ const Client = require('../models/Client.model');
 const Case = require('../models/Case.model');
 const { generateNextClientId } = require('../services/clientIdGenerator');
 const { CLIENT_STATUS } = require('../config/constants');
+const { 
+  logFactSheetCreated, 
+  logFactSheetUpdated, 
+  logFactSheetFileAdded, 
+  logFactSheetFileRemoved 
+} = require('../services/clientFactSheetAudit.service');
+const { getMimeType } = require('../utils/fileUtils');
+const path = require('path');
+const fs = require('fs').promises;
 
 /**
  * Client Controller for Direct Client Management
@@ -603,10 +612,282 @@ const changeLegalName = async (req, res) => {
         reason: reason.trim(),
       },
     });
+  }
+};
+
+/**
+ * Update Client Fact Sheet (Admin Only)
+ * PUT /api/clients/:clientId/fact-sheet
+ * 
+ * Allows admin to update description and notes for client fact sheet
+ * Files are managed via separate endpoints
+ */
+const updateClientFactSheet = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { description, notes } = req.body;
+    
+    // Get firmId from authenticated user
+    const userFirmId = req.user?.firmId;
+    const performedByXID = req.user?.xID;
+    
+    if (!userFirmId) {
+      return res.status(403).json({
+        success: false,
+        message: 'User must belong to a firm to update clients',
+      });
+    }
+    
+    if (!performedByXID) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required - user xID not found',
+      });
+    }
+    
+    // Find client with firmId scoping
+    const client = await Client.findOne({ clientId, firmId: userFirmId });
+    
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: 'Client not found',
+      });
+    }
+    
+    // Initialize clientFactSheet if it doesn't exist
+    if (!client.clientFactSheet) {
+      client.clientFactSheet = { files: [] };
+    }
+    
+    // Track if this is creation or update for audit logging
+    const isCreation = !client.clientFactSheet.description && !client.clientFactSheet.notes;
+    
+    // Update description and notes
+    if (description !== undefined) {
+      client.clientFactSheet.description = description;
+    }
+    if (notes !== undefined) {
+      client.clientFactSheet.notes = notes;
+    }
+    
+    await client.save();
+    
+    // Log audit event
+    if (isCreation) {
+      await logFactSheetCreated({
+        clientId,
+        firmId: userFirmId,
+        performedByXID,
+        metadata: {
+          hasDescription: !!description,
+          hasNotes: !!notes,
+        },
+      });
+    } else {
+      await logFactSheetUpdated({
+        clientId,
+        firmId: userFirmId,
+        performedByXID,
+        metadata: {
+          updatedDescription: description !== undefined,
+          updatedNotes: notes !== undefined,
+        },
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: client.clientFactSheet,
+      message: 'Client Fact Sheet updated successfully',
+    });
   } catch (error) {
-    res.status(400).json({
+    console.error('Error updating client fact sheet:', error);
+    res.status(500).json({
       success: false,
-      message: 'Error changing client legal name',
+      message: 'Error updating client fact sheet',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Upload file to Client Fact Sheet (Admin Only)
+ * POST /api/clients/:clientId/fact-sheet/files
+ * 
+ * Requires multer middleware for file upload
+ */
+const uploadFactSheetFile = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    
+    // Get firmId and xID from authenticated user
+    const userFirmId = req.user?.firmId;
+    const performedByXID = req.user?.xID;
+    const userId = req.user?._id;
+    
+    if (!userFirmId || !performedByXID || !userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+    
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded',
+      });
+    }
+    
+    // Find client with firmId scoping
+    const client = await Client.findOne({ clientId, firmId: userFirmId });
+    
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: 'Client not found',
+      });
+    }
+    
+    // Initialize clientFactSheet if it doesn't exist
+    if (!client.clientFactSheet) {
+      client.clientFactSheet = { description: '', notes: '', files: [] };
+    }
+    if (!client.clientFactSheet.files) {
+      client.clientFactSheet.files = [];
+    }
+    
+    // Get MIME type
+    const mimeType = getMimeType(req.file.originalname) || req.file.mimetype || 'application/octet-stream';
+    
+    // Add file to client fact sheet
+    const newFile = {
+      fileName: req.file.originalname,
+      mimeType,
+      storagePath: req.file.path,
+      uploadedBy: userId,
+      uploadedAt: new Date(),
+    };
+    
+    client.clientFactSheet.files.push(newFile);
+    await client.save();
+    
+    // Get the newly added file (with generated fileId)
+    const addedFile = client.clientFactSheet.files[client.clientFactSheet.files.length - 1];
+    
+    // Log audit event
+    await logFactSheetFileAdded({
+      clientId,
+      firmId: userFirmId,
+      performedByXID,
+      fileName: req.file.originalname,
+      metadata: {
+        fileId: addedFile.fileId.toString(),
+        mimeType,
+        fileSize: req.file.size,
+      },
+    });
+    
+    res.status(201).json({
+      success: true,
+      data: addedFile,
+      message: 'File uploaded successfully',
+    });
+  } catch (error) {
+    console.error('Error uploading fact sheet file:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading file',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Delete file from Client Fact Sheet (Admin Only)
+ * DELETE /api/clients/:clientId/fact-sheet/files/:fileId
+ */
+const deleteFactSheetFile = async (req, res) => {
+  try {
+    const { clientId, fileId } = req.params;
+    
+    // Get firmId and xID from authenticated user
+    const userFirmId = req.user?.firmId;
+    const performedByXID = req.user?.xID;
+    
+    if (!userFirmId || !performedByXID) {
+      return res.status(403).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+    
+    // Find client with firmId scoping
+    const client = await Client.findOne({ clientId, firmId: userFirmId });
+    
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: 'Client not found',
+      });
+    }
+    
+    // Check if clientFactSheet exists
+    if (!client.clientFactSheet || !client.clientFactSheet.files) {
+      return res.status(404).json({
+        success: false,
+        message: 'No files found',
+      });
+    }
+    
+    // Find file to delete
+    const fileIndex = client.clientFactSheet.files.findIndex(
+      f => f.fileId.toString() === fileId
+    );
+    
+    if (fileIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found',
+      });
+    }
+    
+    const fileToDelete = client.clientFactSheet.files[fileIndex];
+    
+    // Delete physical file
+    try {
+      await fs.unlink(fileToDelete.storagePath);
+    } catch (error) {
+      console.error('Error deleting physical file:', error);
+      // Continue even if physical file deletion fails
+    }
+    
+    // Remove file from array
+    client.clientFactSheet.files.splice(fileIndex, 1);
+    await client.save();
+    
+    // Log audit event
+    await logFactSheetFileRemoved({
+      clientId,
+      firmId: userFirmId,
+      performedByXID,
+      fileName: fileToDelete.fileName,
+      metadata: {
+        fileId,
+      },
+    });
+    
+    res.json({
+      success: true,
+      message: 'File deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting fact sheet file:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting file',
       error: error.message,
     });
   }
@@ -619,4 +900,7 @@ module.exports = {
   updateClient,
   toggleClientStatus,
   changeLegalName,
+  updateClientFactSheet,
+  uploadFactSheetFile,
+  deleteFactSheetFile,
 };

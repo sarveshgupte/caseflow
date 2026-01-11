@@ -65,10 +65,79 @@ const clientSchema = new mongoose.Schema({
   },
   
   /**
-   * Client Description (Client Fact Sheet)
+   * Client Fact Sheet - Description
    * Admin-managed context about the client
    * Read-only reference visible in all cases for this client
    * Used for providing client background, notes, guidelines
+   * Rich text field for detailed client information
+   */
+  clientFactSheet: {
+    description: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    /**
+     * Client Fact Sheet - Internal Notes
+     * Admin-only internal notes about the client
+     * Used for internal context, guidelines, or sensitive information
+     * Rich text field
+     */
+    notes: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    /**
+     * Client Fact Sheet - Files
+     * Array of file references attached at client level
+     * Admin-managed, visible as read-only in all cases
+     * Not copied into individual cases
+     * 
+     * Each file contains:
+     * - fileId: MongoDB ObjectId for the file
+     * - fileName: Original file name
+     * - mimeType: File MIME type
+     * - storagePath: Path to file in storage
+     * - uploadedBy: xID of user who uploaded
+     * - uploadedAt: Timestamp
+     */
+    files: [{
+      fileId: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: () => new mongoose.Types.ObjectId(),
+      },
+      fileName: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+      mimeType: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+      storagePath: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+      uploadedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+      },
+      uploadedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    }],
+  },
+  
+  /**
+   * DEPRECATED: Legacy description field
+   * Kept for backward compatibility
+   * Use clientFactSheet.description instead
    */
   description: {
     type: String,
@@ -77,16 +146,9 @@ const clientSchema = new mongoose.Schema({
   },
   
   /**
-   * Client-Level Documents (Client Fact Sheet)
-   * Array of document references attached at client level
-   * Admin-managed, visible as read-only in all cases
-   * Not copied into individual cases
-   * 
-   * Each document contains:
-   * - name: Document file name
-   * - url: Storage URL or path
-   * - uploadedAt: Timestamp
-   * - uploadedByXid: Who uploaded it
+   * DEPRECATED: Legacy documents field
+   * Kept for backward compatibility
+   * Use clientFactSheet.files instead
    */
   documents: [{
     name: {

@@ -1866,6 +1866,227 @@ const downloadAttachment = async (req, res) => {
   }
 };
 
+/**
+ * Get Client Fact Sheet for a Case (Read-Only)
+ * GET /api/cases/:caseId/client-fact-sheet
+ * 
+ * Allows any case-accessible user to view the client fact sheet
+ * Returns sanitized, read-only data
+ * No download of files - view-only access
+ * 
+ * PR: Client Fact Sheet Foundation
+ */
+const getClientFactSheetForCase = async (req, res) => {
+  try {
+    const { caseId } = req.params;
+    
+    // Validate authentication
+    if (!req.user?.xID || !req.user?.firmId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+    
+    // PR: Case Identifier Semantics - Resolve identifier to internal ID
+    let caseData;
+    try {
+      const internalId = await resolveCaseIdentifier(req.user.firmId, caseId);
+      caseData = await CaseRepository.findByInternalId(req.user.firmId, internalId);
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
+    
+    if (!caseData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
+    
+    // Check if user has access to this case
+    if (!checkCaseAccess(caseData, req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have access to this case',
+      });
+    }
+    
+    // Get client for this case
+    const client = await Client.findOne({ 
+      clientId: caseData.clientId,
+      firmId: req.user.firmId 
+    });
+    
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: 'Client not found for this case',
+      });
+    }
+    
+    // Check if client has fact sheet
+    if (!client.clientFactSheet) {
+      return res.json({
+        success: true,
+        data: {
+          clientId: client.clientId,
+          businessName: client.businessName,
+          description: '',
+          notes: '',
+          files: [],
+        },
+        message: 'No fact sheet available for this client',
+      });
+    }
+    
+    // Return read-only fact sheet data (exclude internal file paths)
+    const factSheetData = {
+      clientId: client.clientId,
+      businessName: client.businessName,
+      description: client.clientFactSheet.description || '',
+      notes: client.clientFactSheet.notes || '',
+      files: (client.clientFactSheet.files || []).map(file => ({
+        fileId: file.fileId,
+        fileName: file.fileName,
+        mimeType: file.mimeType,
+        uploadedAt: file.uploadedAt,
+        // Note: storagePath is intentionally excluded for security
+      })),
+    };
+    
+    // Log audit event for viewing
+    const { logFactSheetViewed } = require('../services/clientFactSheetAudit.service');
+    await logFactSheetViewed({
+      clientId: client.clientId,
+      firmId: req.user.firmId,
+      performedByXID: req.user.xID,
+      caseId: caseData.caseId, // Use display caseId
+      metadata: {
+        fileCount: factSheetData.files.length,
+      },
+    });
+    
+    res.json({
+      success: true,
+      data: factSheetData,
+    });
+  } catch (error) {
+    console.error('[getClientFactSheetForCase] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving client fact sheet',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * View Client Fact Sheet File (View-Only, No Download)
+ * GET /api/cases/:caseId/client-fact-sheet/files/:fileId/view
+ * 
+ * Allows case-accessible users to view client fact sheet files
+ * Sets Content-Disposition to inline (no download)
+ * 
+ * PR: Client Fact Sheet Foundation
+ */
+const viewClientFactSheetFile = async (req, res) => {
+  try {
+    const { caseId, fileId } = req.params;
+    
+    // Validate authentication
+    if (!req.user?.xID || !req.user?.firmId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+    
+    // PR: Case Identifier Semantics - Resolve identifier to internal ID
+    let caseData;
+    try {
+      const internalId = await resolveCaseIdentifier(req.user.firmId, caseId);
+      caseData = await CaseRepository.findByInternalId(req.user.firmId, internalId);
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
+    
+    if (!caseData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Case not found',
+      });
+    }
+    
+    // Check if user has access to this case
+    if (!checkCaseAccess(caseData, req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have access to this case',
+      });
+    }
+    
+    // Get client for this case
+    const client = await Client.findOne({ 
+      clientId: caseData.clientId,
+      firmId: req.user.firmId 
+    });
+    
+    if (!client || !client.clientFactSheet || !client.clientFactSheet.files) {
+      return res.status(404).json({
+        success: false,
+        message: 'Client fact sheet or files not found',
+      });
+    }
+    
+    // Find file
+    const file = client.clientFactSheet.files.find(
+      f => f.fileId.toString() === fileId
+    );
+    
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found',
+      });
+    }
+    
+    // Check if file exists on disk
+    try {
+      await fs.access(file.storagePath);
+    } catch (err) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found on server',
+      });
+    }
+    
+    // Determine MIME type and sanitize filename
+    const mimeType = file.mimeType || getMimeType(file.fileName);
+    const safeFilename = sanitizeFilename(file.fileName);
+    
+    // Set headers for INLINE viewing ONLY (no download)
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+    
+    // Send file
+    res.sendFile(path.resolve(file.storagePath));
+  } catch (error) {
+    console.error('[viewClientFactSheetFile] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error viewing file',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createCase,
   addComment,
@@ -1882,4 +2103,6 @@ module.exports = {
   unassignCase,
   viewAttachment,
   downloadAttachment,
+  getClientFactSheetForCase,
+  viewClientFactSheetFile,
 };
