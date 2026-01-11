@@ -50,11 +50,14 @@ export const DashboardPage = () => {
     loadDashboardData();
     
     // Check if this is the first login and user should see bookmark prompt
-    const hasSeenBookmarkPrompt = localStorage.getItem(`bookmarkPrompt_${user?.xID}`);
-    if (!hasSeenBookmarkPrompt && isAdmin && firmSlug) {
-      setShowBookmarkPrompt(true);
+    // Only show if user data is loaded, user is admin, and has firmSlug
+    if (user?.xID && isAdmin && firmSlug) {
+      const hasSeenBookmarkPrompt = localStorage.getItem(`bookmarkPrompt_${user.xID}`);
+      if (!hasSeenBookmarkPrompt) {
+        setShowBookmarkPrompt(true);
+      }
     }
-  }, []);
+  }, [user, isAdmin, firmSlug]);
 
   const handleDismissBookmarkPrompt = () => {
     setShowBookmarkPrompt(false);
