@@ -17,6 +17,7 @@ import { Loading } from '../components/common/Loading';
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
 import { CASE_STATUS } from '../utils/constants';
+import { formatDate } from '../utils/formatters';
 import api from '../services/api';
 import './FilteredCasesPage.css';
 
@@ -167,8 +168,8 @@ export const FilteredCasesPage = () => {
                     <td>
                       <Badge status={caseItem.status}>{caseItem.status}</Badge>
                     </td>
-                    <td>{new Date(caseItem.createdAt).toLocaleDateString()}</td>
-                    <td>{new Date(caseItem.updatedAt).toLocaleDateString()}</td>
+                    <td>{formatDate(caseItem.createdAt)}</td>
+                    <td>{formatDate(caseItem.updatedAt)}</td>
                   </tr>
                 ))}
               </tbody>

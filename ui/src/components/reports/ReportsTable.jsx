@@ -5,14 +5,10 @@
 
 import React from 'react';
 import { Badge } from '../common/Badge';
+import { formatDateTime } from '../../utils/formatters';
 import './ReportsTable.css';
 
 export const ReportsTable = ({ cases, onCaseClick, pagination, onPageChange }) => {
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-  };
-
   return (
     <div className="reports-table">
       {cases.length === 0 ? (
@@ -51,7 +47,7 @@ export const ReportsTable = ({ cases, onCaseClick, pagination, onPageChange }) =
                     <td>{caseItem.category}</td>
                     <td>{caseItem.clientName}</td>
                     <td>{caseItem.assignedTo || 'Workbasket'}</td>
-                    <td>{formatDate(caseItem.createdAt)}</td>
+                    <td>{formatDateTime(caseItem.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>

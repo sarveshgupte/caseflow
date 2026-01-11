@@ -11,6 +11,7 @@ import { Button } from '../components/common/Button';
 import { Loading } from '../components/common/Loading';
 import { useAuth } from '../hooks/useAuth';
 import { worklistService } from '../services/worklistService';
+import { formatDate } from '../utils/formatters';
 import './WorkbasketPage.css';
 
 export const WorkbasketPage = () => {
@@ -154,12 +155,6 @@ export const WorkbasketPage = () => {
       sortBy: field,
       sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc',
     }));
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
   };
 
   const getSLAStatusClass = (daysRemaining) => {

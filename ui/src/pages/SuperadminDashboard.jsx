@@ -12,6 +12,7 @@ import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { useToast } from '../hooks/useToast';
 import { USER_ROLES } from '../utils/constants';
+import { formatDate } from '../utils/formatters';
 import './SuperadminDashboard.css';
 
 export const SuperadminDashboard = () => {
@@ -275,7 +276,7 @@ export const SuperadminDashboard = () => {
                           {firm.status}
                         </span>
                       </td>
-                      <td>{new Date(firm.createdAt).toLocaleDateString()}</td>
+                      <td>{formatDate(firm.createdAt)}</td>
                       <td>
                         {firm.status === 'ACTIVE' ? (
                           <Button

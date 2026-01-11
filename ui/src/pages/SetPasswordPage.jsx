@@ -9,6 +9,7 @@ import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
 import { authService } from '../services/authService';
+import { APP_NAME } from '../utils/constants';
 import './SetPasswordPage.css';
 
 export const SetPasswordPage = () => {
@@ -114,7 +115,7 @@ export const SetPasswordPage = () => {
         <div className="set-password-header">
           <h1>Set Your Password</h1>
           <p className="text-secondary">
-            Welcome to Caseflow! Please set your password to activate your account.
+            Welcome to {APP_NAME}! Please set your password to activate your account.
           </p>
         </div>
 

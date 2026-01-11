@@ -14,6 +14,7 @@ import { Input } from '../components/common/Input';
 import { Loading } from '../components/common/Loading';
 import { useToast } from '../hooks/useToast';
 import { USER_ROLES } from '../utils/constants';
+import { formatDate } from '../utils/formatters';
 import './FirmsManagement.css';
 
 export const FirmsManagement = () => {
@@ -237,7 +238,7 @@ export const FirmsManagement = () => {
                         </td>
                         <td>{firm.clientCount}</td>
                         <td>{firm.userCount}</td>
-                        <td>{new Date(firm.createdAt).toLocaleDateString()}</td>
+                        <td>{formatDate(firm.createdAt)}</td>
                         <td>
                           {firm.status === 'ACTIVE' ? (
                             <Button

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 /**
- * Client Model for Caseflow Case Management System
+ * Client Model for Docketra Case Management System
  * 
  * Enterprise-grade immutable client identity system with audit-safe management.
  * Clients are immutable after creation - edits must happen through "Client - Edit" cases.

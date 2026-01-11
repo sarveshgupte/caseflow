@@ -17,6 +17,7 @@ import { adminService } from '../services/adminService';
 import { categoryService } from '../services/categoryService';
 import { clientService } from '../services/clientService';
 import { useToast } from '../hooks/useToast';
+import { formatDate } from '../utils/formatters';
 import './AdminPage.css';
 
 export const AdminPage = () => {
@@ -787,7 +788,7 @@ export const AdminPage = () => {
                           {client.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                         </Badge>
                       </td>
-                      <td>{new Date(client.createdAt).toLocaleDateString()}</td>
+                      <td>{formatDate(client.createdAt)}</td>
                       <td className="admin__actions">
                         <Button
                           size="small"
@@ -953,7 +954,7 @@ export const AdminPage = () => {
                       <td>{caseItem.caseName}</td>
                       <td>{caseItem.category}</td>
                       <td>{caseItem.clientId || 'N/A'}</td>
-                      <td>{new Date(caseItem.createdAt).toLocaleDateString()}</td>
+                      <td>{formatDate(caseItem.createdAt)}</td>
                       <td>
                         <Badge status={caseItem.status}>{caseItem.status}</Badge>
                       </td>

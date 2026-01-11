@@ -4,26 +4,34 @@
 
 import { CLIENT_STATUS } from './constants';
 
+/**
+ * Format date as DD/MM/YYYY
+ * Centralized formatter to ensure consistency across the application
+ */
 export const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  if (isNaN(date.getTime())) return 'N/A';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 };
 
+/**
+ * Format date and time as DD/MM/YYYY HH:MM
+ * Centralized formatter to ensure consistency across the application
+ */
 export const formatDateTime = (dateString) => {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  if (isNaN(date.getTime())) return 'N/A';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
 
 export const formatCaseName = (caseName) => {

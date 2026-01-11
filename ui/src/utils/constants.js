@@ -2,6 +2,8 @@
  * Application Constants
  */
 
+export const APP_NAME = 'Docketra';
+
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 export const CASE_STATUS = {

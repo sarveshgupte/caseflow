@@ -21,6 +21,7 @@ import { Button } from '../components/common/Button';
 import { useAuth } from '../hooks/useAuth';
 import { worklistService } from '../services/worklistService';
 import { CASE_STATUS } from '../utils/constants';
+import { formatDate } from '../utils/formatters';
 import api from '../services/api';
 import './WorklistPage.css';
 
@@ -148,13 +149,11 @@ export const WorklistPage = () => {
                     </td>
                     {isPendingView && (
                       <td>
-                        {caseItem.pendingUntil 
-                          ? new Date(caseItem.pendingUntil).toLocaleDateString() 
-                          : 'N/A'}
+                        {formatDate(caseItem.pendingUntil)}
                       </td>
                     )}
-                    <td>{new Date(caseItem.createdAt).toLocaleDateString()}</td>
-                    <td>{new Date(caseItem.updatedAt).toLocaleDateString()}</td>
+                    <td>{formatDate(caseItem.createdAt)}</td>
+                    <td>{formatDate(caseItem.updatedAt)}</td>
                   </tr>
                 ))}
               </tbody>

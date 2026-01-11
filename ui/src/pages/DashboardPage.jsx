@@ -23,6 +23,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { caseService } from '../services/caseService';
 import { worklistService } from '../services/worklistService';
 import { adminService } from '../services/adminService';
+import { formatDate } from '../utils/formatters';
 import api from '../services/api';
 import './DashboardPage.css';
 
@@ -314,7 +315,7 @@ export const DashboardPage = () => {
                       <td>
                         <Badge status={caseItem.status}>{caseItem.status}</Badge>
                       </td>
-                      <td>{new Date(caseItem.updatedAt).toLocaleDateString()}</td>
+                      <td>{formatDate(caseItem.updatedAt)}</td>
                     </tr>
                   ))}
                 </tbody>

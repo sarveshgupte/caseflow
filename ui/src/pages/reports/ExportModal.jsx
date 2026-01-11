@@ -6,6 +6,7 @@
 import React from 'react';
 import { Modal } from '../../components/common/Modal';
 import { Button } from '../../components/common/Button';
+import { formatDate } from '../../utils/formatters';
 import './ExportModal.css';
 
 export const ExportModal = ({
@@ -32,12 +33,12 @@ export const ExportModal = ({
               <ul>
                 {filters.fromDate && (
                   <li>
-                    <strong>From Date:</strong> {new Date(filters.fromDate).toLocaleDateString()}
+                    <strong>From Date:</strong> {formatDate(filters.fromDate)}
                   </li>
                 )}
                 {filters.toDate && (
                   <li>
-                    <strong>To Date:</strong> {new Date(filters.toDate).toLocaleDateString()}
+                    <strong>To Date:</strong> {formatDate(filters.toDate)}
                   </li>
                 )}
                 {filters.status && (
