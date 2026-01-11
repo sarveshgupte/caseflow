@@ -10,19 +10,26 @@
  * - Tokens/Authorization headers -> prefix + last 2 characters preserved
  */
 
-const PAN_REGEX = /([A-Z]{5})(\d{4})([A-Z])/i;
-const AADHAAR_REGEX = /(\d{8})(\d{4})$/;
+const PAN_REGEX = /^([A-Z]{5})(\d{4})([A-Z])$/i;
+const AADHAAR_REGEX = /^(\d{8})(\d{4})$/;
 const JWT_REGEX = /[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+/;
 const MASK_SEGMENT_LENGTH = 4;
 const MIN_JWT_LENGTH = 20;
 const MIN_TOKEN_MASK_LENGTH = 6;
 
 const maskEmail = (value) => {
-  if (typeof value !== 'string' || !value.includes('@')) return value;
+  if (typeof value !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return value;
   const [local, domain] = value.split('@');
   const prefix = local.slice(0, 2);
   const maskedLocal = local.length > 2 ? `${prefix}***` : '***';
-  return `${maskedLocal}@${domain}`;
+  const domainParts = domain.split('.');
+  const tld = domainParts.pop() || '';
+  const domainName = domainParts.join('.') || '';
+  const maskedDomain =
+    domainName && domainName.length > 0
+      ? `${domainName.charAt(0)}***${domainName.length > 1 ? domainName.slice(-1) : ''}.${tld}`
+      : `${domain.charAt(0)}***.${tld || domain}`;
+  return `${maskedLocal}@${maskedDomain}`;
 };
 
 const maskPhone = (value) => {
@@ -81,12 +88,14 @@ const maskValue = (key, value, seen = new WeakSet()) => {
 
 const maskSensitiveObject = (input, seen = new WeakSet()) => {
   if (input === null || input === undefined) return input;
-  if (typeof input === 'object') {
+  if (Array.isArray(input)) {
     if (seen.has(input)) return '[Circular]';
     seen.add(input);
+    return input.map((item) => maskSensitiveObject(item, seen));
   }
-  if (Array.isArray(input)) return input.map((item) => maskSensitiveObject(item, seen));
   if (typeof input !== 'object') return input;
+  if (seen.has(input)) return '[Circular]';
+  seen.add(input);
 
   return Object.entries(input).reduce((acc, [key, value]) => {
     acc[key] = maskValue(key, value, seen);
