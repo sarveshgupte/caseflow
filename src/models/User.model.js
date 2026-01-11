@@ -375,6 +375,8 @@ userSchema.pre('save', async function() {
     this.passwordSetAt = null;
   } else if (this.passwordSetAt) {
     this.passwordSet = true;
+  } else {
+    this.passwordSet = false;
   }
 });
 

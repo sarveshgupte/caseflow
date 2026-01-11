@@ -127,7 +127,6 @@ const authenticate = async (req, res, next) => {
 
     // Hard guard: block all authenticated routes until password is set
     const path = req.originalUrl || req.path || '';
-    const isProfileEndpoint = path.endsWith('/profile');
     const isPasswordSetupAllowed = MUST_SET_ALLOWED_PATHS.some(p => path.endsWith(p));
     if (user.mustSetPassword && !isPasswordSetupAllowed) {
       return res.status(403).json({
