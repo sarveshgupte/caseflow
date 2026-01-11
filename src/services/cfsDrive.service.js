@@ -23,8 +23,6 @@
  * - Always uses folder IDs for authorization
  */
 
-const { StorageProviderFactory } = require('./storage/StorageProviderFactory');
-
 class CFSDriveService {
   /**
    * CFS subfolder names
@@ -55,12 +53,16 @@ class CFSDriveService {
    * @param {string} firmId - Firm identifier
    * @returns {Promise<string>} Firm folder ID
    */
-  async ensureFirmFolder(firmId, providerInstance = null) {
+  async ensureFirmFolder(firmId, providerInstance) {
     if (!firmId) {
       throw new Error('Firm ID is required');
     }
 
-    const provider = providerInstance || await StorageProviderFactory.getProvider();
+    if (!providerInstance) {
+      throw new Error('Storage provider instance is required');
+    }
+
+    const provider = providerInstance;
     const folderName = `firm_${firmId}`;
     const folderId = await provider.getOrCreateFolder(folderName, null);
     
@@ -82,12 +84,15 @@ class CFSDriveService {
    * @returns {Promise<Object>} Folder IDs
    * @throws {Error} If folder creation fails
    */
-  async createCFSFolderStructure(firmId, caseId, providerInstance = null) {
+  async createCFSFolderStructure(firmId, caseId, providerInstance) {
     if (!firmId || !caseId) {
       throw new Error('Firm ID and Case ID are required');
     }
 
-    const provider = providerInstance || await StorageProviderFactory.getProvider();
+    if (!providerInstance) {
+      throw new Error('Storage provider instance is required');
+    }
+    const provider = providerInstance;
     // Guard folder ID logging in production
     const isDevelopment = process.env.NODE_ENV !== 'production';
     if (isDevelopment) {
@@ -212,12 +217,15 @@ class CFSDriveService {
    * @returns {Promise<Object>} Folder IDs
    * @throws {Error} If folder creation fails
    */
-  async createClientCFSFolderStructure(firmId, clientId, providerInstance = null) {
+  async createClientCFSFolderStructure(firmId, clientId, providerInstance) {
     if (!firmId || !clientId) {
       throw new Error('Firm ID and Client ID are required');
     }
 
-    const provider = providerInstance || await StorageProviderFactory.getProvider();
+    if (!providerInstance) {
+      throw new Error('Storage provider instance is required');
+    }
+    const provider = providerInstance;
     // Guard folder ID logging in production
     const isDevelopment = process.env.NODE_ENV !== 'production';
     if (isDevelopment) {

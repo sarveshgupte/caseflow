@@ -10,11 +10,13 @@ const OneDriveProvider = require('./providers/OneDriveProvider');
  */
 class StorageProviderFactory {
   static async getProvider(firmOrId) {
+    if (!firmOrId) {
+      throw new Error('Firm context is required to resolve storage provider');
+    }
+
     let firm = firmOrId;
 
-    if (!firmOrId) {
-      firm = null;
-    } else if (typeof firmOrId === 'string') {
+    if (typeof firmOrId === 'string') {
       const isObjectId = mongoose.Types.ObjectId.isValid(firmOrId);
       if (isObjectId) {
         firm = await Firm.findById(firmOrId);
