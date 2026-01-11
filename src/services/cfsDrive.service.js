@@ -159,13 +159,17 @@ class CFSDriveService {
   }
 
   /**
-   * Validate CFS folder structure exists
-   * Can be used to check if folders were properly created
+   * Validates presence of Case CFS folder IDs in database.
+   * 
+   * NOTE:
+   * This does NOT validate that folders exist in Google Drive.
+   * It only ensures required folder IDs are present in the Case document.
+   * Drive existence checks may be added as a future enhancement.
    * 
    * @param {Object} folderIds - CFS folder IDs object
-   * @returns {Promise<boolean>} True if all folders are valid
+   * @returns {Promise<boolean>} True if all required folder IDs are present
    */
-  async validateCFSStructure(folderIds) {
+  async validateCFSMetadata(folderIds) {
     if (!folderIds) {
       return false;
     }
@@ -297,12 +301,17 @@ class CFSDriveService {
   }
 
   /**
-   * Validate Client CFS folder structure exists
+   * Validates presence of Client CFS folder IDs in database.
+   * 
+   * NOTE:
+   * This does NOT validate that folders exist in Google Drive.
+   * It only ensures required folder IDs are present in the Client document.
+   * Drive existence checks may be added as a future enhancement.
    * 
    * @param {Object} folderIds - Client CFS folder IDs object
-   * @returns {Promise<boolean>} True if all folders are valid
+   * @returns {Promise<boolean>} True if all required folder IDs are present
    */
-  async validateClientCFSStructure(folderIds) {
+  async validateClientCFSMetadata(folderIds) {
     if (!folderIds) {
       return false;
     }

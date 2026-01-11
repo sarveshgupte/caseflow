@@ -980,9 +980,9 @@ const uploadClientCFSFile = async (req, res) => {
       });
     }
 
-    // Validate client has CFS folder structure
+    // Validate client has CFS folder structure metadata
     const cfsDriveService = require('../services/cfsDrive.service');
-    const isValidStructure = await cfsDriveService.validateClientCFSStructure(client.drive);
+    const isValidStructure = await cfsDriveService.validateClientCFSMetadata(client.drive);
     
     if (!isValidStructure) {
       // Try to create the structure if it doesn't exist
@@ -1004,19 +1004,14 @@ const uploadClientCFSFile = async (req, res) => {
     // Get the appropriate folder ID for the file type
     const folderId = cfsDriveService.getClientFolderIdForFileType(client.drive, fileType);
 
-    // Upload file to Google Drive
+    // Upload file to Google Drive (from memory buffer)
     const driveService = require('../services/drive.service');
-    const fs = require('fs').promises;
-    const fileBuffer = await fs.readFile(req.file.path);
     const driveFile = await driveService.uploadFile(
-      fileBuffer,
+      req.file.buffer,
       req.file.originalname,
       req.file.mimetype,
       folderId
     );
-
-    // Clean up temporary file
-    await fs.unlink(req.file.path);
 
     // Create attachment record
     const Attachment = require('../models/Attachment.model');
@@ -1056,16 +1051,6 @@ const uploadClientCFSFile = async (req, res) => {
     });
   } catch (error) {
     console.error('Error uploading client CFS file:', error);
-    
-    // Clean up temporary file if it exists
-    if (req.file && req.file.path) {
-      try {
-        const fs = require('fs').promises;
-        await fs.unlink(req.file.path);
-      } catch (cleanupError) {
-        console.error('Error cleaning up temp file:', cleanupError);
-      }
-    }
 
     res.status(500).json({
       success: false,

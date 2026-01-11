@@ -29,26 +29,12 @@ const {
 } = require('../controllers/client.controller');
 
 /**
- * Configure multer for client fact sheet file uploads
- * Store files in uploads/client-fact-sheets directory
+ * Configure multer for client fact sheet and CFS file uploads
+ * Uses memory storage for compatibility with ephemeral filesystems (e.g., Render)
+ * Files are streamed directly to Google Drive without disk I/O
  */
-const uploadDir = path.join(__dirname, '../../uploads/client-fact-sheets');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.random().toString(36).substring(7);
-    cb(null, 'cfs-' + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
 const upload = multer({ 
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 25 * 1024 * 1024, // 25MB limit
   },
