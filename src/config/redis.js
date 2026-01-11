@@ -40,10 +40,16 @@ const getRedisClient = () => {
   try {
     // Create Redis client from URL
     redisClient = new Redis(redisUrl, {
-      maxRetriesPerRequest: 3,
+      maxRetriesPerRequest: null, // Allow unlimited retries per request
       enableReadyCheck: true,
       connectTimeout: 10000,
       lazyConnect: false,
+      retryStrategy: (times) => {
+        // Retry with exponential backoff, max 30 seconds
+        const delay = Math.min(times * 100, 30000);
+        console.log(`[REDIS] Retry attempt ${times}, waiting ${delay}ms`);
+        return delay;
+      },
     });
     
     // Handle connection events

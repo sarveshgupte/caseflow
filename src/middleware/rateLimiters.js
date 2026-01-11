@@ -1,5 +1,5 @@
 const rateLimit = require('express-rate-limit');
-const RedisStore = require('rate-limit-redis');
+const { RedisStore } = require('rate-limit-redis');
 const { getRedisClient } = require('../config/redis');
 
 /**
@@ -19,7 +19,8 @@ const { getRedisClient } = require('../config/redis');
  * - SuperAdmin is also rate limited
  * - Limits are contextual (IP + user + firm-aware)
  * - Abuse attempts are logged
- * - Fail-closed: deny if Redis unavailable (production only)
+ * - Fail-open: allow requests if Redis unavailable (never crash or block)
+ * - Redis is optional infrastructure - app works without it
  * 
  * Categories:
  * 1. Authentication endpoints (IP-based): 5 req/min
@@ -74,58 +75,51 @@ const createRateLimitHandler = (limiterName) => {
 };
 
 /**
- * Create Redis store or use in-memory store
- * Fail-closed in production if Redis unavailable
+ * Create Redis store or use in-memory store (fail-open design)
+ * Never crashes - returns undefined if Redis is unavailable
  * 
  * @returns {Object|undefined} RedisStore instance or undefined for in-memory
  */
 const createStore = () => {
   const redisClient = getRedisClient();
   
+  // Log Redis state for diagnostics
+  const redisUrlPresent = !!process.env.REDIS_URL;
+  const redisReady = redisClient && (redisClient.status === 'ready' || redisClient.status === 'connecting');
+  
+  console.log(`[RATE_LIMIT] REDIS_URL present: ${redisUrlPresent}`);
+  console.log(`[RATE_LIMIT] Redis client ready: ${!!redisReady}`);
+  
+  // Only create Redis store if client exists
+  // Even if not ready, let RedisStore handle reconnections
   if (!redisClient) {
-    // Development mode: use in-memory store (single instance only)
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[RATE_LIMIT] Using in-memory store for rate limiting (development mode)');
-      return undefined; // express-rate-limit will use memory store
-    }
+    console.warn('[RATE_LIMIT] Redis not available - using memory store');
+    console.log('[RATE_LIMIT] Redis store enabled: false');
+    return undefined; // Fall back to memory store
+  }
+  
+  try {
+    // Create Redis store with correct API for rate-limit-redis v4+
+    // RedisStore will handle Redis connection issues internally
+    // Adapter: rate-limit-redis calls sendCommand(cmd, arg1, arg2, ...)
+    // We use ioredis.call() which has the same signature (public API)
+    const store = new RedisStore({
+      sendCommand: (...args) => redisClient.call(...args),
+      prefix: 'ratelimit:',
+    });
     
-    // Production mode: Redis required - fail-closed
-    console.error('[RATE_LIMIT] CRITICAL: Redis unavailable in production - rate limiting will fail-closed');
-    // Return a store that will cause rate limiting to fail-closed
-    return undefined; // Will be handled by skip function
+    console.log('[RATE_LIMIT] Redis store enabled: true');
+    return store;
+  } catch (err) {
+    console.error('[RATE_LIMIT] Redis store init failed:', err.message);
+    console.log('[RATE_LIMIT] Redis store enabled: false');
+    return undefined; // Fall back to memory store
   }
-  
-  // Redis available - use distributed store
-  return new RedisStore({
-    client: redisClient,
-    prefix: 'ratelimit:',
-    sendCommand: (...args) => redisClient.call(...args),
-  });
-};
-
-/**
- * Skip function for fail-closed behavior in production
- * If Redis is unavailable in production, deny all requests to rate-limited endpoints
- * 
- * @param {Object} req - Express request object
- * @returns {boolean} True to skip rate limiting (allow request), false to apply
- */
-const skipIfRedisDown = (req) => {
-  const redisClient = getRedisClient();
-  
-  // If Redis is available or in development, don't skip
-  if (redisClient || process.env.NODE_ENV !== 'production') {
-    return false;
-  }
-  
-  // Production + Redis unavailable = FAIL CLOSED
-  // Don't skip - this will cause the rate limiter to block the request
-  console.error('[RATE_LIMIT] FAIL-CLOSED: Redis unavailable in production, blocking request');
-  return false;
 };
 
 /**
  * Create rate limiter with common configuration
+ * Fail-open design: allows requests if Redis is down, but enforces limits when working
  * 
  * @param {Object} config - Rate limiter configuration
  * @param {number} config.windowMs - Time window in milliseconds
@@ -141,18 +135,16 @@ const createLimiter = ({ windowMs, max, keyGenerator, name }) => {
     windowMs,
     max,
     keyGenerator,
-    store,
+    store, // undefined = memory fallback (fail-open for Redis issues)
     standardHeaders: true,  // Return rate limit info in RateLimit-* headers
     legacyHeaders: false,   // Disable X-RateLimit-* headers
-    handler: createRateLimitHandler(name),
-    skip: skipIfRedisDown,
-    // If store is unavailable and we're in production, fail closed
+    handler: createRateLimitHandler(name), // Standard 429 response when limits exceeded
+    // Never skip rate limiting based on Redis state
+    skip: () => false,
     skipFailedRequests: false,
     skipSuccessfulRequests: false,
-    // Disable validation since we handle IPv6 in our custom key generators
-    validate: {
-      validationsConfig: false,
-    },
+    // Disable IPv6 validation (we handle it in our custom key generators)
+    validate: false,
   });
 };
 
