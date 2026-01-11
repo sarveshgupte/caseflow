@@ -269,7 +269,7 @@ attachmentSchema.pre('findOneAndDelete', function(next) {
 attachmentSchema.index({ caseId: 1, createdAt: -1 });
 attachmentSchema.index({ clientId: 1, createdAt: -1 }); // Client CFS attachments
 attachmentSchema.index({ fileName: 'text' });
-attachmentSchema.index({ firmId: 1 }); // Multi-tenancy queries
+// REMOVED: { firmId: 1 } - redundant with compound indexes below
 attachmentSchema.index({ firmId: 1, caseId: 1 }); // Firm-scoped case attachments
 attachmentSchema.index({ firmId: 1, clientId: 1 }); // Firm-scoped client attachments
 

@@ -325,7 +325,7 @@ userSchema.index({ email: 1 }, { unique: true }); // Email is globally unique
 userSchema.index({ isActive: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ status: 1 });
-userSchema.index({ firmId: 1 }); // Multi-tenancy queries
+// REMOVED: { firmId: 1 } - redundant with compound index (firmId, xID) above
 userSchema.index({ firmId: 1, role: 1 }); // Firm-scoped role queries
 
 // Virtual property to check if account is locked

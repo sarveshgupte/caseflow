@@ -799,7 +799,7 @@ caseSchema.index({ assignedToXID: 1, status: 1 }); // CANONICAL - xID-based work
 caseSchema.index({ queueType: 1, status: 1 }); // Queue-based worklist queries
 caseSchema.index({ pendedByXID: 1, status: 1 }); // Pending cases dashboard queries
 caseSchema.index({ pendingUntil: 1 }); // Auto-reopen scheduler queries
-caseSchema.index({ firmId: 1 }); // Multi-tenancy queries
+// REMOVED: { firmId: 1 } - redundant with compound indexes above (firmId, caseInternalId), (firmId, caseNumber), etc.
 caseSchema.index({ firmId: 1, status: 1 }); // Firm-scoped status queries
 caseSchema.index({ firmId: 1, assignedToXID: 1 }); // Firm-scoped assignment queries
 
