@@ -280,10 +280,17 @@ class CFSDriveService {
       'internal': folderIds.internalFolderId,
     };
 
-    const folderId = folderMap[fileType.toLowerCase()] || folderIds.documentsFolderId;
-
+    // Try to get the requested folder type
+    let folderId = folderMap[fileType.toLowerCase()];
+    
+    // If not found, try to use documents folder as default
     if (!folderId) {
-      throw new Error(`No folder ID found for file type: ${fileType}`);
+      folderId = folderIds.documentsFolderId;
+    }
+    
+    // If still no folder ID, throw error
+    if (!folderId) {
+      throw new Error(`No folder ID found for file type: ${fileType} and no default documents folder available`);
     }
 
     return folderId;

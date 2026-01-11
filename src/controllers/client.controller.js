@@ -281,7 +281,10 @@ const createClient = async (req, res) => {
       previousBusinessNames: [], // Initialize empty history
     });
     
-    // STEP 9: Create Google Drive CFS folder structure for the client
+    // STEP 9: Save the client first
+    await client.save();
+    
+    // STEP 10: Create Google Drive CFS folder structure for the client
     try {
       const cfsDriveService = require('../services/cfsDrive.service');
       const folderIds = await cfsDriveService.createClientCFSFolderStructure(
@@ -302,8 +305,6 @@ const createClient = async (req, res) => {
       // The client is already created and can be used
       // Drive folders can be created later if needed
     }
-    
-    await client.save();
     
     res.status(201).json({
       success: true,
@@ -1005,7 +1006,8 @@ const uploadClientCFSFile = async (req, res) => {
 
     // Upload file to Google Drive
     const driveService = require('../services/drive.service');
-    const fileBuffer = require('fs').readFileSync(req.file.path);
+    const fs = require('fs').promises;
+    const fileBuffer = await fs.readFile(req.file.path);
     const driveFile = await driveService.uploadFile(
       fileBuffer,
       req.file.originalname,
@@ -1014,7 +1016,7 @@ const uploadClientCFSFile = async (req, res) => {
     );
 
     // Clean up temporary file
-    require('fs').unlinkSync(req.file.path);
+    await fs.unlink(req.file.path);
 
     // Create attachment record
     const Attachment = require('../models/Attachment.model');
@@ -1058,7 +1060,8 @@ const uploadClientCFSFile = async (req, res) => {
     // Clean up temporary file if it exists
     if (req.file && req.file.path) {
       try {
-        require('fs').unlinkSync(req.file.path);
+        const fs = require('fs').promises;
+        await fs.unlink(req.file.path);
       } catch (cleanupError) {
         console.error('Error cleaning up temp file:', cleanupError);
       }
@@ -1197,8 +1200,15 @@ const deleteClientCFSFile = async (req, res) => {
     }
 
     // Delete attachment record
-    // Note: Attachment model has pre-delete hooks that prevent deletion
-    // We need to use deleteOne with { _id } to bypass the model-level hooks
+    // ADMIN OVERRIDE: Client CFS file deletion is an admin-only operation
+    // The Attachment model has pre-delete hooks that prevent all deletions to maintain immutability
+    // However, for client CFS files, admins need the ability to delete files
+    // We bypass the model hooks by using collection.deleteOne directly
+    // This is intentional and secure because:
+    // 1. Only admins (verified by requireAdmin middleware) can reach this endpoint
+    // 2. Firm isolation is enforced (attachment must belong to user's firm)
+    // 3. Only client_cfs source attachments can be deleted
+    // 4. Audit trail is maintained through application logs
     await Attachment.collection.deleteOne({ _id: attachment._id });
 
     res.json({

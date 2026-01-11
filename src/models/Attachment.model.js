@@ -203,6 +203,28 @@ const attachmentSchema = new mongoose.Schema({
 });
 
 /**
+ * Pre-save Hook: Validate attachment ownership
+ * 
+ * Ensures that attachments have proper ownership:
+ * - client_cfs attachments MUST have clientId
+ * - Regular attachments SHOULD have caseId (but can be client-only)
+ * - All attachments must have at least one of clientId or caseId
+ */
+attachmentSchema.pre('save', function(next) {
+  // Validate client_cfs attachments must have clientId
+  if (this.source === 'client_cfs' && !this.clientId) {
+    return next(new Error('Client CFS attachments must have a clientId'));
+  }
+  
+  // Validate at least one of clientId or caseId is present
+  if (!this.clientId && !this.caseId) {
+    return next(new Error('Attachment must belong to either a client or a case'));
+  }
+  
+  next();
+});
+
+/**
  * Pre-update Hooks: Prevent Updates
  * 
  * These hooks block any attempt to update existing attachments.
