@@ -8,6 +8,11 @@ const { requireAdmin, blockSuperadmin } = require('../middleware/permission.midd
 const { authorize } = require('../middleware/authorize');
 const ClientPolicy = require('../policies/client.policy');
 const {
+  userReadLimiter,
+  userWriteLimiter,
+  attachmentLimiter,
+} = require('../middleware/rateLimiters');
+const {
   getClients,
   getClientById,
   createClient,
@@ -87,10 +92,10 @@ router.delete('/:clientId/fact-sheet/files/:fileId', authenticate, requireAdmin,
 
 // Client CFS endpoints
 // Admin-only: Upload and delete
-router.post('/:clientId/cfs/files', authenticate, requireAdmin, authorize(ClientPolicy.canUpdate), upload.single('file'), uploadClientCFSFile);
-router.delete('/:clientId/cfs/files/:attachmentId', authenticate, requireAdmin, authorize(ClientPolicy.canUpdate), deleteClientCFSFile);
+router.post('/:clientId/cfs/files', authenticate, requireAdmin, authorize(ClientPolicy.canUpdate), attachmentLimiter, upload.single('file'), uploadClientCFSFile);
+router.delete('/:clientId/cfs/files/:attachmentId', authenticate, requireAdmin, authorize(ClientPolicy.canUpdate), userWriteLimiter, deleteClientCFSFile);
 // All authenticated users: List and download (read-only)
-router.get('/:clientId/cfs/files', authenticate, authorize(ClientPolicy.canView), listClientCFSFiles);
-router.get('/:clientId/cfs/files/:attachmentId/download', authenticate, authorize(ClientPolicy.canView), downloadClientCFSFile);
+router.get('/:clientId/cfs/files', authenticate, authorize(ClientPolicy.canView), userReadLimiter, listClientCFSFiles);
+router.get('/:clientId/cfs/files/:attachmentId/download', authenticate, authorize(ClientPolicy.canView), attachmentLimiter, downloadClientCFSFile);
 
 module.exports = router;
