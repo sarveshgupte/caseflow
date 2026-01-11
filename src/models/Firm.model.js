@@ -126,7 +126,7 @@ firmSchema.index({ status: 1 });
  * Prevents saving firms in COMPLETED status without defaultClientId
  * This guardrail ensures data integrity and prevents incomplete firm hierarchies
  */
-// IMPORTANT: Async Mongoose middleware must NOT use `next` because Mongoose doesn't pass it and calling it will throw
+// IMPORTANT: Async Mongoose middleware should not use `next`; use throw/return to avoid `next is not a function` and double-callback issues
 firmSchema.pre('save', async function() {
   // GUARDRAIL: Firm with COMPLETED bootstrap must have defaultClientId
   if (this.bootstrapStatus === 'COMPLETED' && !this.defaultClientId) {
