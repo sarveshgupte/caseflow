@@ -798,6 +798,7 @@ const changePassword = async (req, res) => {
     user.passwordLastChangedAt = new Date();
     user.passwordExpiresAt = new Date(Date.now() + PASSWORD_EXPIRY_DAYS * 24 * 60 * 60 * 1000); // Update expiry on password change
     user.mustChangePassword = false;
+    user.mustSetPassword = false; // Defensive: ensure onboarding flag cleared for fully onboarded users
     user.passwordSetAt = new Date();
     
     await user.save();
