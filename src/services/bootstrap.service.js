@@ -83,8 +83,16 @@ const runPreflightChecks = async () => {
     if (autoRunBackfill && !adminBackfillRan) {
       adminBackfillRan = true;
       console.log('🔧 RUN_ADMIN_HIERARCHY_MIGRATION_ON_START=true detected. Running backfill...');
-      await runAdminHierarchyBackfill({ useExistingConnection: true });
-      console.log('🔧 Admin hierarchy backfill completed');
+      const backfillTimeoutMs = parseInt(process.env.ADMIN_BACKFILL_TIMEOUT_MS, 10) || 30000;
+      try {
+        await Promise.race([
+          runAdminHierarchyBackfill({ useExistingConnection: true }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error(`Admin backfill exceeded ${backfillTimeoutMs}ms`)), backfillTimeoutMs))
+        ]);
+        console.log('🔧 Admin hierarchy backfill completed');
+      } catch (backfillError) {
+        console.error('⚠️  Admin hierarchy backfill failed or timed out:', backfillError.message);
+      }
     }
     
     // PR-2: Backward compatibility - Set bootstrapStatus for existing firms
@@ -192,6 +200,8 @@ const runPreflightChecks = async () => {
         ].filter(Boolean),
       }));
       violations.superAdminsMissingContext = info.superAdminsMissingContext;
+      violations.byRole = violations.byRole || {};
+      violations.byRole.SUPER_ADMIN = info.superAdminsMissingContext;
       console.info(`ℹ️  ${superAdminsMissingContext.length} SUPER_ADMIN account(s) without firm/defaultClient detected (allowed):`);
       superAdminsMissingContext.forEach(sa => {
         if (!sa.firmId) console.info(`   - ${sa.xID}: missing firmId (allowed for SUPER_ADMIN)`);
@@ -225,11 +235,7 @@ const runPreflightChecks = async () => {
         };
       });
       violations.byRole = violations.byRole || {};
-      violations.byRole.ADMIN = adminsWithoutFirm.map(a => ({
-        xID: a.xID,
-        name: a.name,
-        missing: (!a.firmId ? ['firmId'] : []).concat(!a.defaultClientId ? ['defaultClientId'] : [])
-      }));
+      violations.byRole.ADMIN = violations.adminsWithoutFirmOrClient;
 
       console.error(`❌  ERROR: Found ${adminsWithoutFirm.length} admin/employee account(s) missing firm/defaultClient context:`);
       adminsWithoutFirm.forEach(admin => {
