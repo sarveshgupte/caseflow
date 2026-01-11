@@ -2074,6 +2074,9 @@ const viewClientFactSheetFile = async (req, res) => {
     // Set headers for INLINE viewing ONLY (no download)
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
     
     // Send file
     res.sendFile(path.resolve(file.storagePath));

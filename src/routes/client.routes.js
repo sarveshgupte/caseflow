@@ -77,8 +77,8 @@ router.patch('/:clientId/status', authenticate, authorize(ClientPolicy.canManage
 router.post('/:clientId/change-name', authenticate, authorize(ClientPolicy.canUpdate), changeLegalName);
 
 // Client Fact Sheet endpoints (Admin-only)
-router.put('/:clientId/fact-sheet', authenticate, authorize(ClientPolicy.canUpdate), updateClientFactSheet);
-router.post('/:clientId/fact-sheet/files', authenticate, authorize(ClientPolicy.canUpdate), upload.single('file'), uploadFactSheetFile);
-router.delete('/:clientId/fact-sheet/files/:fileId', authenticate, authorize(ClientPolicy.canUpdate), deleteFactSheetFile);
+router.put('/:clientId/fact-sheet', authenticate, requireAdmin, authorize(ClientPolicy.canUpdate), updateClientFactSheet);
+router.post('/:clientId/fact-sheet/files', authenticate, requireAdmin, authorize(ClientPolicy.canUpdate), upload.single('file'), uploadFactSheetFile);
+router.delete('/:clientId/fact-sheet/files/:fileId', authenticate, requireAdmin, authorize(ClientPolicy.canUpdate), deleteFactSheetFile);
 
 module.exports = router;

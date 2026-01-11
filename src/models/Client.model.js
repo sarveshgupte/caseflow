@@ -89,6 +89,16 @@ const clientSchema = new mongoose.Schema({
       default: '',
     },
     /**
+     * Internal initialization flag
+     * Tracks whether fact sheet has been initialized (for accurate audit logging)
+     * Not exposed via APIs
+     */
+    _initialized: {
+      type: Boolean,
+      default: false,
+      select: false, // Don't include in query results by default
+    },
+    /**
      * Client Fact Sheet - Files
      * Array of file references attached at client level
      * Admin-managed, visible as read-only in all cases

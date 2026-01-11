@@ -667,7 +667,8 @@ const updateClientFactSheet = async (req, res) => {
     }
     
     // Track if this is creation or update for audit logging
-    const isCreation = !client.clientFactSheet.description && !client.clientFactSheet.notes;
+    // Use _initialized flag for accurate detection
+    const isCreation = !client.clientFactSheet._initialized;
     
     // Update description and notes
     if (description !== undefined) {
@@ -676,6 +677,9 @@ const updateClientFactSheet = async (req, res) => {
     if (notes !== undefined) {
       client.clientFactSheet.notes = notes;
     }
+    
+    // Mark as initialized
+    client.clientFactSheet._initialized = true;
     
     await client.save();
     
