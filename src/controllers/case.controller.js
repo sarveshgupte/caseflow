@@ -919,7 +919,7 @@ const getCaseByCaseId = async (req, res) => {
       console.log(`[GET_CASE] Resolved identifier: ${caseId} -> ${internalId}`);
       caseData = await CaseRepository.findByInternalId(req.user.firmId, internalId);
     } catch (error) {
-      console.log(`[GET_CASE] Case not found or identifier resolution failed: caseId=${caseId}, error=${error.message}`);
+      console.error(`[GET_CASE] Case not found or identifier resolution failed: caseId=${caseId}, error=${error.message}`);
       return res.status(404).json({
         success: false,
         message: 'Case not found',
@@ -927,7 +927,7 @@ const getCaseByCaseId = async (req, res) => {
     }
     
     if (!caseData) {
-      console.log(`[GET_CASE] Case not found in database: caseId=${caseId}, firmId=${req.user.firmId}`);
+      console.error(`[GET_CASE] Case not found in database: caseId=${caseId}, firmId=${req.user.firmId}`);
       return res.status(404).json({
         success: false,
         message: 'Case not found',
@@ -942,7 +942,7 @@ const getCaseByCaseId = async (req, res) => {
     // - Case creator (createdByXID matches user xID)
     // - Assigned employee (assignedToXID matches user xID)
     if (!checkCaseAccess(caseData, req.user)) {
-      console.log(`[GET_CASE] Access denied: userXID=${req.user.xID}, createdByXID=${caseData.createdByXID}, assignedToXID=${caseData.assignedToXID}, role=${req.user.role}`);
+      console.error(`[GET_CASE] Access denied: userXID=${req.user.xID}, createdByXID=${caseData.createdByXID}, assignedToXID=${caseData.assignedToXID}, role=${req.user.role}`);
       return res.status(403).json({
         success: false,
         message: 'Access denied: You do not have permission to view this case',

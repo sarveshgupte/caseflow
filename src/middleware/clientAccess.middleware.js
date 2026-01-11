@@ -98,7 +98,7 @@ const checkCaseClientAccess = async (req, res, next) => {
     } catch (error) {
       // Case not found or invalid identifier - let the controller handle it
       // This ensures consistent error handling between middleware and controller
-      console.log(`[CLIENT_ACCESS] Case identifier resolution failed for caseId=${caseId}, firmId=${user.firmId}: ${error.message}`);
+      console.error(`[CLIENT_ACCESS] Case identifier resolution failed for caseId=${caseId}, firmId=${user.firmId}: ${error.message}`);
       return next();
     }
     
