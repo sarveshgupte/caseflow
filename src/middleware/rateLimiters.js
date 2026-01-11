@@ -1,6 +1,7 @@
 const rateLimit = require('express-rate-limit');
 const { RedisStore } = require('rate-limit-redis');
 const { getRedisClient } = require('../config/redis');
+const Redis = require('ioredis');
 
 /**
  * Rate Limiting Middleware for Docketra
@@ -101,8 +102,13 @@ const createStore = () => {
   try {
     // Create Redis store with correct API for rate-limit-redis v4+
     // RedisStore will handle Redis connection issues internally
+    // Adapter: rate-limit-redis calls sendCommand(cmd, arg1, arg2, ...)
+    // We create a Command object for ioredis: new Redis.Command(cmd, [arg1, arg2, ...])
     const store = new RedisStore({
-      sendCommand: (...args) => redisClient.call(...args),
+      sendCommand: (command, ...args) => {
+        const cmd = new Redis.Command(command, args);
+        return redisClient.sendCommand(cmd);
+      },
       prefix: 'ratelimit:',
     });
     
