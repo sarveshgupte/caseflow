@@ -85,7 +85,7 @@ const createStore = () => {
   
   // Log Redis state for diagnostics
   const redisUrlPresent = !!process.env.REDIS_URL;
-  const redisReady = redisClient && (redisClient.status === 'ready' || redisClient.status === 'connect' || redisClient.status === 'connecting');
+  const redisReady = redisClient && (redisClient.status === 'ready' || redisClient.status === 'connecting');
   
   console.log(`[RATE_LIMIT] REDIS_URL present: ${redisUrlPresent}`);
   console.log(`[RATE_LIMIT] Redis client ready: ${!!redisReady}`);
@@ -93,7 +93,7 @@ const createStore = () => {
   // Only create Redis store if client exists
   // Even if not ready, let RedisStore handle reconnections
   if (!redisClient) {
-    console.warn('[RATE_LIMIT] Redis not available — using memory store');
+    console.warn('[RATE_LIMIT] Redis not available - using memory store');
     console.log('[RATE_LIMIT] Redis store enabled: false');
     return undefined; // Fall back to memory store
   }
