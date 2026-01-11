@@ -251,11 +251,8 @@ const login = async (req, res) => {
               { $set: { defaultClientId: firm.defaultClientId } }
             );
             
-            // Reload user document to reflect the persisted change
-            const updatedUser = await User.findById(user._id);
-            if (updatedUser) {
-              user.defaultClientId = updatedUser.defaultClientId;
-            }
+            // Update in-memory user object with persisted value
+            user.defaultClientId = firm.defaultClientId;
             
             console.log(`[AUTH] ✓ Persisted defaultClientId for legacy admin ${user.xID}`);
             console.log(`[AUTH]   Subsequent logins will not trigger auto-repair`);

@@ -22,7 +22,13 @@ const SALT_ROUNDS = 10;
 const logSuperadminAction = async ({ actionType, description, performedBy, performedById, targetEntityType, targetEntityId, metadata = {}, req }) => {
   try {
     // Determine if this is a system-triggered action
-    const isSystemAction = !performedById || performedById === 'SUPERADMIN' || typeof performedById === 'string';
+    // System actions are identified by:
+    // 1. performedById is null/undefined
+    // 2. performedById is the string "SUPERADMIN" (from auth middleware for SuperAdmin user)
+    // 3. performedById is not a valid MongoDB ObjectId
+    const isSystemAction = !performedById || 
+                          performedById === 'SUPERADMIN' || 
+                          (typeof performedById === 'string' && !mongoose.Types.ObjectId.isValid(performedById));
     
     // Build audit log entry
     const auditEntry = {

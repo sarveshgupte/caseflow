@@ -72,9 +72,14 @@ async function connectDB() {
  */
 async function findLegacyAdmins() {
   try {
+    // Query for Admin users where defaultClientId is null, undefined, or missing
+    // Using $or to catch all possible cases of missing defaultClientId
     const admins = await User.find({
       role: 'Admin',
-      defaultClientId: null
+      $or: [
+        { defaultClientId: null },
+        { defaultClientId: { $exists: false } }
+      ]
     }).populate('firmId', 'firmId name defaultClientId bootstrapStatus');
     
     console.log(`\n[MIGRATION] Found ${admins.length} Admin users missing defaultClientId\n`);
@@ -290,7 +295,7 @@ async function migrate() {
       }
       
       // Step 5: Apply migration
-      console.log('[MIGRATION] Step 3: Applying migration...\n');
+      console.log('[MIGRATION] Step 5: Applying migration...\n');
       const results = await applyMigration(report);
       
       // Step 6: Display results
