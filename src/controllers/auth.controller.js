@@ -30,6 +30,9 @@ const DEFAULT_FIRM_ID = 'PLATFORM'; // Default firmId for SUPER_ADMIN and audit 
 const DEFAULT_XID = 'SUPERADMIN'; // Default xID for SUPER_ADMIN in audit logs
 const GOOGLE_SCOPES = ['openid', 'email'];
 const GOOGLE_STATE_TTL_SECONDS = 10 * 60; // 10 minutes
+const ROLE_SUPER_ADMIN = 'SUPER_ADMIN';
+const ROLE_ADMIN = 'Admin';
+const ROLE_EMPLOYEE = 'Employee';
 
 /**
  * Google OAuth client factory (Authorization Code Flow)
@@ -325,7 +328,7 @@ const login = async (req, res) => {
     }
     
     // Validate Admin user has required fields (firmId and defaultClientId)
-    if (user.role === 'Admin') {
+    if (user.role === ROLE_ADMIN) {
       if (!user.firmId) {
         console.error(`[AUTH] Admin user ${user.xID} missing firmId - data integrity violation`);
         return res.status(500).json({
@@ -668,6 +671,10 @@ const logout = async (req, res) => {
       { userId: user._id, isRevoked: false },
       { isRevoked: true }
     );
+
+    const secureCookies = process.env.NODE_ENV === 'production';
+    res.clearCookie('accessToken', { httpOnly: true, secure: secureCookies, sameSite: 'lax', path: '/' });
+    res.clearCookie('refreshToken', { httpOnly: true, secure: secureCookies, sameSite: 'lax', path: '/' });
     
     // Log logout (non-blocking)
     try {
@@ -2066,7 +2073,9 @@ const getAllUsers = async (req, res) => {
  */
 const refreshAccessToken = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken =
+      req.body.refreshToken ||
+      (req.headers.cookie ? req.headers.cookie.split(';').map(c => c.trim().split('=')).find(([k]) => k === 'refreshToken')?.[1] : null);
     
     if (!refreshToken) {
       return res.status(400).json({
@@ -2126,6 +2135,26 @@ const refreshAccessToken = async (req, res) => {
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
     });
+
+    const secureCookies = process.env.NODE_ENV === 'production';
+    const fifteenMinutesMs = 15 * 60 * 1000;
+    const refreshMs = (jwtService.REFRESH_TOKEN_EXPIRY_DAYS || 7) * 24 * 60 * 60 * 1000;
+
+    res.cookie('accessToken', newAccessToken, {
+      httpOnly: true,
+      secure: secureCookies,
+      sameSite: 'lax',
+      maxAge: fifteenMinutesMs,
+      path: '/',
+    });
+
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: secureCookies,
+      sameSite: 'lax',
+      maxAge: refreshMs,
+      path: '/',
+    });
     
     // Log token refresh
     await AuthAudit.create({
@@ -2164,13 +2193,19 @@ const initiateGoogleAuth = (req, res) => {
     const oauthClient = getGoogleOAuthClient();
     const { firmSlug, flow } = req.query;
 
+    if (!firmSlug && flow !== 'activation') {
+      return res.status(403).json({
+        success: false,
+        message: 'Google login not allowed',
+      });
+    }
+
     const state = createOAuthState({
       firmSlug: firmSlug || null,
       flow: flow || 'login',
     });
 
     const authUrl = oauthClient.generateAuthUrl({
-      access_type: 'offline',
       prompt: 'select_account',
       scope: GOOGLE_SCOPES,
       state,
@@ -2202,8 +2237,12 @@ const handleGoogleCallback = async (req, res) => {
     }
 
     let statePayload;
+    let flow = 'login';
+    let firmSlugFromState = null;
     try {
       statePayload = verifyOAuthState(state);
+      flow = statePayload?.flow || 'login';
+      firmSlugFromState = statePayload?.firmSlug || null;
     } catch (stateError) {
       return res.status(400).json({
         success: false,
@@ -2245,17 +2284,26 @@ const handleGoogleCallback = async (req, res) => {
     // Resolution step 2: match by email (invite-only, role limited)
     if (!user) {
       const candidate = await User.findOne({ email });
+      const isActivation = flow === 'activation';
       if (
         candidate &&
-        ['Admin', 'Employee'].includes(candidate.role) &&
+        [ROLE_ADMIN, ROLE_EMPLOYEE].includes(candidate.role) &&
         candidate.isActive !== false &&
         candidate.status !== 'DISABLED'
       ) {
+        if (!isActivation && candidate.status !== 'ACTIVE') {
+          return res.status(403).json({
+            success: false,
+            message: 'Account is not activated. Use your invite link to activate with Google.',
+          });
+        }
         candidate.authProviders = candidate.authProviders || {};
         candidate.authProviders.google = candidate.authProviders.google || {};
         candidate.authProviders.google.googleId = googleId;
         candidate.authProviders.google.linkedAt = new Date();
-        candidate.status = 'ACTIVE'; // activate invited account on first Google login
+        if (isActivation && candidate.status !== 'ACTIVE') {
+          candidate.status = 'ACTIVE';
+        }
         candidate.mustChangePassword = false;
         candidate.forcePasswordReset = false;
         await candidate.save();
@@ -2273,7 +2321,7 @@ const handleGoogleCallback = async (req, res) => {
     }
 
     // Guardrails: SuperAdmin cannot use Google auth
-    if (user.role === 'SUPER_ADMIN' || user.xID === process.env.SUPERADMIN_XID) {
+    if (user.role === ROLE_SUPER_ADMIN || user.xID === process.env.SUPERADMIN_XID) {
       return res.status(403).json({
         success: false,
         message: 'SuperAdmin accounts must use password login',
@@ -2354,18 +2402,31 @@ const handleGoogleCallback = async (req, res) => {
 
     const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
     const redirectUrl = new URL('/google-callback', frontendBase);
-    redirectUrl.searchParams.set('accessToken', accessToken);
-    redirectUrl.searchParams.set('refreshToken', refreshToken);
-    redirectUrl.searchParams.set('xID', user.xID);
-    redirectUrl.searchParams.set('role', user.role);
-    redirectUrl.searchParams.set('name', user.name);
-    redirectUrl.searchParams.set('email', user.email);
 
-    const firmSlugFromState = statePayload?.firmSlug;
     const finalFirmSlug = firmSlugFromState || resolvedSlug || null;
     if (finalFirmSlug) {
       redirectUrl.searchParams.set('firmSlug', finalFirmSlug);
     }
+
+    const secureCookies = process.env.NODE_ENV === 'production';
+    const fifteenMinutesMs = 15 * 60 * 1000;
+    const refreshMs = (jwtService.REFRESH_TOKEN_EXPIRY_DAYS || 7) * 24 * 60 * 60 * 1000;
+
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: secureCookies,
+      sameSite: 'lax',
+      maxAge: fifteenMinutesMs,
+      path: '/',
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: secureCookies,
+      sameSite: 'lax',
+      maxAge: refreshMs,
+      path: '/',
+    });
 
     return res.redirect(redirectUrl.toString());
   } catch (error) {

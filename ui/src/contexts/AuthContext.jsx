@@ -20,9 +20,25 @@ export const AuthProvider = ({ children }) => {
     if (currentUser && xID) {
       setUser(currentUser);
       setIsAuthenticated(true);
+      setLoading(false);
+      return;
     }
-    
-    setLoading(false);
+
+    const bootstrapFromCookie = async () => {
+      try {
+        const response = await authService.getProfile();
+        if (response?.success && response.data) {
+          setUser(response.data);
+          setIsAuthenticated(true);
+        }
+      } catch (err) {
+        // ignore - user not authenticated
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    bootstrapFromCookie();
   }, []);
 
   const login = async (xID, password) => {

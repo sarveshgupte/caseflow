@@ -1,6 +1,15 @@
 const User = require('../models/User.model');
 const jwtService = require('../services/jwt.service');
 
+const getTokenFromCookies = (cookieHeader, name) => {
+  if (!cookieHeader || !name) return null;
+  return cookieHeader
+    .split(';')
+    .map(c => c.trim())
+    .map(c => c.split('='))
+    .find(([key]) => key === name)?.[1] || null;
+};
+
 /**
  * Authentication Middleware for Docketra Case Management System
  * 
@@ -21,7 +30,13 @@ const authenticate = async (req, res, next) => {
   try {
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;
-    const token = jwtService.extractTokenFromHeader(authHeader);
+    let token = jwtService.extractTokenFromHeader(authHeader);
+    
+    // Fallback to accessToken cookie (Google OAuth sets HTTP-only cookies)
+    if (!token) {
+      const cookieHeader = req.headers.cookie;
+      token = getTokenFromCookies(cookieHeader, 'accessToken');
+    }
     
     if (!token) {
       return res.status(401).json({

@@ -41,7 +41,7 @@ router.post('/reset-password-with-token', authLimiter, resetPasswordWithToken);
 router.post('/forgot-password', authLimiter, forgotPassword);
 router.post('/refresh', refreshAccessToken); // NEW: JWT token refresh
 router.get('/google', authLimiter, initiateGoogleAuth);
-router.get('/google/callback', authLimiter, handleGoogleCallback);
+router.get('/google/callback', handleGoogleCallback);
 
 // Protected authentication endpoints - require authentication
 router.post('/logout', authenticate, logout);
