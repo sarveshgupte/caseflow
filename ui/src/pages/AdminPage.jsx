@@ -47,6 +47,7 @@ export const AdminPage = () => {
     provider: null,
   });
   const [savingStorage, setSavingStorage] = useState(false);
+  const [storageLoaded, setStorageLoaded] = useState(false);
   
   // Admin stats (PR #41)
   const [adminStats, setAdminStats] = useState({
@@ -131,6 +132,7 @@ export const AdminPage = () => {
           google: response.data?.google || {},
           onedrive: response.data?.onedrive || {},
         });
+        setStorageLoaded(true);
       }
     } catch (error) {
       console.error('Failed to load storage config:', error);
@@ -162,7 +164,9 @@ export const AdminPage = () => {
           setClients(response.data || []);
         }
       } else if (activeTab === 'storage') {
-        await loadStorageConfig();
+        if (!storageLoaded) {
+          await loadStorageConfig();
+        }
       }
     } catch (error) {
       console.error('Failed to load admin data:', error);

@@ -18,7 +18,7 @@ class StorageProviderFactory {
       if (mongoose.Types.ObjectId.isValid(firmOrId)) {
         firm = await Firm.findById(firmOrId);
       }
-      if (!firm) {
+      if (!firm && !mongoose.Types.ObjectId.isValid(firmOrId)) {
         firm = await Firm.findOne({ firmId: firmOrId });
       }
     }

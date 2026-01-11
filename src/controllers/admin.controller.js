@@ -16,6 +16,7 @@ const { logAdminAction, logCaseListViewed } = require('../services/auditLog.serv
  */
 
 const INVITE_TOKEN_EXPIRY_HOURS = 48; // 48 hours for invite tokens
+const DEFAULT_STORAGE_MODE = 'docketra_managed';
 
 /**
  * Helper function to safely log audit events without throwing
@@ -603,7 +604,7 @@ const updateStorageConfig = async (req, res) => {
     }
 
     const storageConfig = firm.storage || {};
-    const newMode = mode || storageConfig.mode || 'docketra_managed';
+    const newMode = mode || storageConfig.mode || DEFAULT_STORAGE_MODE;
 
     if (newMode === 'firm_connected') {
       if (!provider) {
@@ -628,7 +629,7 @@ const updateStorageConfig = async (req, res) => {
         };
       }
     } else {
-      storageConfig.mode = 'docketra_managed';
+      storageConfig.mode = DEFAULT_STORAGE_MODE;
       storageConfig.provider = null;
     }
 
