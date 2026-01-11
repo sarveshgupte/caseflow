@@ -13,20 +13,39 @@ const SALT_ROUNDS = 10;
 
 /**
  * Log Superadmin action to audit log
+ * 
+ * Supports both human-performed and system-triggered actions:
+ * - For human actions: provide performedById as MongoDB ObjectId
+ * - For system actions: performedById can be "SUPERADMIN" string or null, 
+ *   and performedBySystem will be set to true automatically
  */
 const logSuperadminAction = async ({ actionType, description, performedBy, performedById, targetEntityType, targetEntityId, metadata = {}, req }) => {
   try {
-    await SuperadminAudit.create({
+    // Determine if this is a system-triggered action
+    const isSystemAction = !performedById || performedById === 'SUPERADMIN' || typeof performedById === 'string';
+    
+    // Build audit log entry
+    const auditEntry = {
       actionType,
       description,
       performedBy,
-      performedById,
       targetEntityType,
       targetEntityId,
       ipAddress: req?.ip,
       userAgent: req?.headers?.['user-agent'],
       metadata,
-    });
+    };
+    
+    // Set system flag and performedById based on action type
+    if (isSystemAction) {
+      auditEntry.performedBySystem = true;
+      auditEntry.performedById = null; // Don't pass invalid string to ObjectId field
+    } else {
+      auditEntry.performedById = performedById;
+      auditEntry.performedBySystem = false;
+    }
+    
+    await SuperadminAudit.create(auditEntry);
   } catch (error) {
     console.error('[SUPERADMIN_AUDIT] Failed to log action:', error.message);
     // Don't throw - audit failures shouldn't block the request

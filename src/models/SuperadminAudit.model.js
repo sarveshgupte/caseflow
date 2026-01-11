@@ -40,10 +40,18 @@ const superadminAuditSchema = new mongoose.Schema({
   },
   
   // MongoDB ObjectId of Superadmin user
+  // Optional to support system-triggered actions (e.g., automated firm creation)
   performedById: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false,
+  },
+  
+  // Flag for system-triggered actions (e.g., background jobs, automation)
+  // When true, performedById may be null and performedBy should indicate system origin
+  performedBySystem: {
+    type: Boolean,
+    default: false,
   },
   
   // Target entity type (Firm, User, etc.)
