@@ -15,10 +15,12 @@ import { Textarea } from '../components/common/Textarea';
 import { Input } from '../components/common/Input';
 import { Modal } from '../components/common/Modal';
 import { CaseHistory } from '../components/common/CaseHistory';
+import { ClientFactSheetModal } from '../components/common/ClientFactSheetModal';
 import { useAuth } from '../hooks/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
 import { useToast } from '../hooks/useToast';
 import { caseService } from '../services/caseService';
+import { clientService } from '../services/clientService';
 import { formatDateTime, formatClientDisplay } from '../utils/formatters';
 import { USER_ROLES } from '../utils/constants';
 import './CaseDetailPage.css';
@@ -69,6 +71,12 @@ export const CaseDetailPage = () => {
   const [showUnpendModal, setShowUnpendModal] = useState(false);
   const [unpendComment, setUnpendComment] = useState('');
   const [unpendingCase, setUnpendingCase] = useState(false);
+
+  // State for Client Fact Sheet modal
+  // PR: Client Fact Sheet Foundation
+  const [showClientFactSheet, setShowClientFactSheet] = useState(false);
+  const [clientFactSheet, setClientFactSheet] = useState(null);
+  const [loadingFactSheet, setLoadingFactSheet] = useState(false);
 
   // Track case view session
   // PR: Comprehensive CaseHistory & Audit Trail
@@ -369,6 +377,25 @@ export const CaseDetailPage = () => {
     }
   };
 
+  // Handle Client Fact Sheet
+  // PR: Client Fact Sheet Foundation
+  const handleShowClientFactSheet = async () => {
+    setLoadingFactSheet(true);
+    setShowClientFactSheet(true);
+    try {
+      const response = await clientService.getClientFactSheetForCase(caseId);
+      if (response.success) {
+        setClientFactSheet(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load client fact sheet:', error);
+      showError('Failed to load client fact sheet');
+      setShowClientFactSheet(false);
+    } finally {
+      setLoadingFactSheet(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -426,6 +453,19 @@ export const CaseDetailPage = () => {
             <p className="text-secondary">{caseInfo.category}</p>
           </div>
           <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+            {/* Client Fact Sheet Button - PR: Client Fact Sheet Foundation */}
+            <Button
+              variant="default"
+              onClick={handleShowClientFactSheet}
+              disabled={loadingFactSheet}
+              title="View Client Fact Sheet"
+              style={{ 
+                padding: '0.5rem 1rem',
+                fontSize: '0.9rem'
+              }}
+            >
+              ⓘ Client Fact Sheet
+            </Button>
             {/* Contextual Action Buttons */}
             {showPullButton && (
               <Button
@@ -958,6 +998,19 @@ export const CaseDetailPage = () => {
             />
           </div>
         </Modal>
+        
+        {/* Client Fact Sheet Modal - PR: Client Fact Sheet Foundation */}
+        {showClientFactSheet && (
+          <ClientFactSheetModal
+            isOpen={showClientFactSheet}
+            onClose={() => {
+              setShowClientFactSheet(false);
+              setClientFactSheet(null);
+            }}
+            factSheet={clientFactSheet}
+            caseId={caseId}
+          />
+        )}
         
         {/* Case History - PR: Comprehensive CaseHistory & Audit Trail */}
         {user && user.role !== USER_ROLES.SUPER_ADMIN && (

@@ -9,6 +9,7 @@ import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
+import { Textarea } from '../components/common/Textarea';
 import { Select } from '../components/common/Select';
 import { Modal } from '../components/common/Modal';
 import { Loading } from '../components/common/Loading';
@@ -78,7 +79,14 @@ export const AdminPage = () => {
     GST: '',
     TAN: '',
     CIN: '',
+    // Client Fact Sheet fields
+    description: '',
+    notes: '',
   });
+  
+  // Client Fact Sheet file upload state
+  const [factSheetFiles, setFactSheetFiles] = useState([]);
+  const [uploadingFactSheetFile, setUploadingFactSheetFile] = useState(false);
   
   // Change name form state
   const [changeNameForm, setChangeNameForm] = useState({
@@ -422,7 +430,7 @@ export const AdminPage = () => {
     }
   };
 
-  const handleEditClient = (client) => {
+  const handleEditClient = async (client) => {
     setSelectedClient(client);
     setClientForm({
       businessName: client.businessName,
@@ -434,7 +442,11 @@ export const AdminPage = () => {
       GST: client.GST || '',
       TAN: client.TAN || '',
       CIN: client.CIN || '',
+      description: client.clientFactSheet?.description || '',
+      notes: client.clientFactSheet?.notes || '',
     });
+    // Load existing files
+    setFactSheetFiles(client.clientFactSheet?.files || []);
     setShowClientModal(true);
   };
 
@@ -465,6 +477,15 @@ export const AdminPage = () => {
       const response = await clientService.updateClient(selectedClient.clientId, updateData);
       
       if (response.success) {
+        // Also update fact sheet if description or notes changed
+        if (clientForm.description || clientForm.notes) {
+          await clientService.updateClientFactSheet(
+            selectedClient.clientId,
+            clientForm.description,
+            clientForm.notes
+          );
+        }
+        
         showToast('Client updated successfully', 'success');
         setShowClientModal(false);
         setSelectedClient(null);
@@ -478,7 +499,10 @@ export const AdminPage = () => {
           GST: '',
           TAN: '',
           CIN: '',
+          description: '',
+          notes: '',
         });
+        setFactSheetFiles([]);
         loadAdminData();
       } else {
         showToast(response.message || 'Failed to update client', 'error');
@@ -507,6 +531,53 @@ export const AdminPage = () => {
       }
     } catch (error) {
       showToast(error.response?.data?.message || `Failed to ${action} client`, 'error');
+    }
+  };
+
+  // Client Fact Sheet File Handlers
+  const handleUploadFactSheetFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedClient) return;
+
+    setUploadingFactSheetFile(true);
+    try {
+      const response = await clientService.uploadFactSheetFile(selectedClient.clientId, file);
+      
+      if (response.success) {
+        showToast('File uploaded successfully', 'success');
+        // Add file to list
+        setFactSheetFiles([...factSheetFiles, response.data]);
+        // Clear file input
+        e.target.value = '';
+      } else {
+        showToast(response.message || 'Failed to upload file', 'error');
+      }
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Failed to upload file', 'error');
+    } finally {
+      setUploadingFactSheetFile(false);
+    }
+  };
+
+  const handleDeleteFactSheetFile = async (fileId) => {
+    if (!selectedClient) return;
+    
+    if (!confirm('Are you sure you want to delete this file?')) {
+      return;
+    }
+
+    try {
+      const response = await clientService.deleteFactSheetFile(selectedClient.clientId, fileId);
+      
+      if (response.success) {
+        showToast('File deleted successfully', 'success');
+        // Remove file from list
+        setFactSheetFiles(factSheetFiles.filter(f => f.fileId !== fileId));
+      } else {
+        showToast(response.message || 'Failed to delete file', 'error');
+      }
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Failed to delete file', 'error');
     }
   };
 
@@ -578,7 +649,10 @@ export const AdminPage = () => {
       GST: '',
       TAN: '',
       CIN: '',
+      description: '',
+      notes: '',
     });
+    setFactSheetFiles([]);
   };
   
   const handleCloseChangeNameModal = () => {
@@ -1225,6 +1299,72 @@ export const AdminPage = () => {
             disabled={!!selectedClient}
             title={selectedClient ? 'GST cannot be changed after creation' : ''}
           />
+
+          {/* Client Fact Sheet Section - PR: Client Fact Sheet Foundation */}
+          {selectedClient && (
+            <>
+              <div style={{ marginTop: '2rem', marginBottom: '1rem', borderTop: '2px solid #e0e0e0', paddingTop: '1rem' }}>
+                <h3 style={{ marginBottom: '1rem' }}>Client Fact Sheet</h3>
+              </div>
+
+              <Textarea
+                label="Description"
+                value={clientForm.description}
+                onChange={(e) => setClientForm({ ...clientForm, description: e.target.value })}
+                placeholder="Add a description for this client (visible to all case-accessible users)"
+                rows={4}
+              />
+
+              <Textarea
+                label="Internal Notes"
+                value={clientForm.notes}
+                onChange={(e) => setClientForm({ ...clientForm, notes: e.target.value })}
+                placeholder="Add internal notes (visible to all case-accessible users)"
+                rows={4}
+              />
+
+              <div style={{ marginTop: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Files
+                </label>
+                <input
+                  type="file"
+                  onChange={handleUploadFactSheetFile}
+                  disabled={uploadingFactSheetFile}
+                  style={{ marginBottom: '1rem' }}
+                />
+                {uploadingFactSheetFile && <p style={{ fontSize: '0.9rem', color: '#666' }}>Uploading...</p>}
+                
+                {factSheetFiles && factSheetFiles.length > 0 && (
+                  <div style={{ marginTop: '1rem' }}>
+                    {factSheetFiles.map((file) => (
+                      <div
+                        key={file.fileId}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '0.5rem',
+                          background: '#f5f5f5',
+                          borderRadius: '4px',
+                          marginBottom: '0.5rem',
+                        }}
+                      >
+                        <span style={{ fontSize: '0.9rem' }}>📄 {file.fileName}</span>
+                        <Button
+                          variant="default"
+                          onClick={() => handleDeleteFactSheetFile(file.fileId)}
+                          style={{ padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           <div className="neo-form-actions">
             <Button
