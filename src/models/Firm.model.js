@@ -126,7 +126,8 @@ firmSchema.index({ status: 1 });
  * Prevents saving firms in COMPLETED status without defaultClientId
  * This guardrail ensures data integrity and prevents incomplete firm hierarchies
  */
-firmSchema.pre('save', function(next) {
+// IMPORTANT: Async Mongoose middleware should not use `next`; use throw/return to avoid `next is not a function` and double-callback issues
+firmSchema.pre('save', async function() {
   // GUARDRAIL: Firm with COMPLETED bootstrap must have defaultClientId
   if (this.bootstrapStatus === 'COMPLETED' && !this.defaultClientId) {
     const error = new Error(
@@ -134,10 +135,8 @@ firmSchema.pre('save', function(next) {
       'Firm hierarchy requires: Firm → Default Client → Admins'
     );
     error.name = 'ValidationError';
-    return next(error);
+    throw error;
   }
-  
-  next();
 });
 
 module.exports = mongoose.model('Firm', firmSchema);
