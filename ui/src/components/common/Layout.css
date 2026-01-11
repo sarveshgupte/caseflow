@@ -363,17 +363,3 @@
     padding: var(--spacing-md);
   }
 }
-
-/* OLD SIDEBAR STYLES - Kept for reference, not rendered in new layout */
-/* These classes are not used in the new top navigation layout */
-.enterprise-sidebar {
-  display: none;
-}
-
-.enterprise-main {
-  display: none;
-}
-
-.enterprise-header {
-  display: none;
-}

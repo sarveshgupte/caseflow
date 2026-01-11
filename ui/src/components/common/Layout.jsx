@@ -56,6 +56,13 @@ export const Layout = ({ children }) => {
   // Check if user has admin access (Admin or SuperAdmin)
   const hasAdminAccess = isAdmin || isSuperadmin;
 
+  // Reusable chevron icon
+  const ChevronIcon = () => (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+
   return (
     <div className="enterprise-layout-top">
       {/* Top Navigation Header */}
@@ -113,9 +120,7 @@ export const Layout = ({ children }) => {
                   aria-expanded={adminDropdownOpen}
                 >
                   Admin
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  <ChevronIcon />
                 </button>
                 {adminDropdownOpen && (
                   <div className="dropdown-menu">
@@ -181,9 +186,7 @@ export const Layout = ({ children }) => {
                 <span className="enterprise-top-header__user-name">
                   {user?.name || user?.xID}
                 </span>
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                <ChevronIcon />
               </button>
               {profileDropdownOpen && (
                 <div className="dropdown-menu dropdown-menu-right">
@@ -266,6 +269,13 @@ export const Layout = ({ children }) => {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   User Management
+                </Link>
+                <Link
+                  to={`/${currentFirmSlug}/admin/clients`}
+                  className="enterprise-top-header__mobile-link"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Client Management
                 </Link>
               </>
             )}
