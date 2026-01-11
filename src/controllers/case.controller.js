@@ -908,13 +908,18 @@ const getCaseByCaseId = async (req, res) => {
   try {
     const { caseId } = req.params;
     
+    // PR: Fix Case Visibility - Enhanced logging for debugging
+    console.log(`[GET_CASE] Attempting to fetch case: caseId=${caseId}, firmId=${req.user.firmId}, userXID=${req.user.xID}`);
+    
     // PR: Case Identifier Semantics - Resolve identifier to internal ID
     // This handles both ObjectId and CASE-YYYYMMDD-XXXXX formats
     let caseData;
     try {
       const internalId = await resolveCaseIdentifier(req.user.firmId, caseId);
+      console.log(`[GET_CASE] Resolved identifier: ${caseId} -> ${internalId}`);
       caseData = await CaseRepository.findByInternalId(req.user.firmId, internalId);
     } catch (error) {
+      console.error(`[GET_CASE] Case not found or identifier resolution failed: caseId=${caseId}, error=${error.message}`);
       return res.status(404).json({
         success: false,
         message: 'Case not found',
@@ -922,11 +927,14 @@ const getCaseByCaseId = async (req, res) => {
     }
     
     if (!caseData) {
+      console.error(`[GET_CASE] Case not found in database: caseId=${caseId}, firmId=${req.user.firmId}`);
       return res.status(404).json({
         success: false,
         message: 'Case not found',
       });
     }
+    
+    console.log(`[GET_CASE] Case found: caseInternalId=${caseData.caseInternalId}, caseNumber=${caseData.caseNumber}, caseId=${caseData.caseId}`);
     
     // Step 2: Apply authorization AFTER fetch
     // Allow access if user is:
@@ -934,12 +942,15 @@ const getCaseByCaseId = async (req, res) => {
     // - Case creator (createdByXID matches user xID)
     // - Assigned employee (assignedToXID matches user xID)
     if (!checkCaseAccess(caseData, req.user)) {
+      console.error(`[GET_CASE] Access denied: userXID=${req.user.xID}, createdByXID=${caseData.createdByXID}, assignedToXID=${caseData.assignedToXID}, role=${req.user.role}`);
       return res.status(403).json({
         success: false,
         message: 'Access denied: You do not have permission to view this case',
         code: 'CASE_ACCESS_DENIED',
       });
     }
+    
+    console.log(`[GET_CASE] Authorization passed for userXID=${req.user.xID}`);
     
     // Get related data - use caseId from database (display number)
     const displayCaseId = caseData.caseId;

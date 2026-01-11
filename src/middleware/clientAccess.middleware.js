@@ -1,5 +1,7 @@
 const Case = require('../models/Case.model');
 const Client = require('../models/Client.model');
+const { CaseRepository } = require('../repositories');
+const { resolveCaseIdentifier } = require('../utils/caseIdentifier');
 
 /**
  * Client Access Control Middleware
@@ -15,6 +17,7 @@ const Client = require('../models/Client.model');
  * - Deep link access prevention
  * 
  * PR: Client Fact Sheet + User Client Access Control
+ * PR: Fix Case Visibility - Added firm scoping and identifier resolution
  */
 
 /**
@@ -60,6 +63,12 @@ const checkClientAccess = async (req, res, next) => {
 /**
  * Check if user can access a case based on its client
  * Used for case detail viewing and updates
+ * 
+ * PR: Fix Case Visibility - Added firm scoping and identifier resolution
+ * This middleware now:
+ * - Resolves both caseNumber (CASE-YYYYMMDD-XXXXX) and caseInternalId (ObjectId)
+ * - Enforces firm scoping via CaseRepository
+ * - Uses the same lookup logic as case detail controller
  */
 const checkCaseClientAccess = async (req, res, next) => {
   try {
@@ -77,8 +86,21 @@ const checkCaseClientAccess = async (req, res, next) => {
       return next();
     }
     
-    // Find the case and check its client
-    const caseData = await Case.findOne({ caseId }).select('clientId').lean();
+    // PR: Fix Case Visibility - Use identifier resolution and firm scoping
+    // This ensures the middleware uses the same lookup logic as the controller
+    let caseData;
+    try {
+      // Resolve identifier (handles both caseNumber and caseInternalId)
+      const internalId = await resolveCaseIdentifier(user.firmId, caseId);
+      
+      // Fetch case with firm scoping via repository
+      caseData = await CaseRepository.findByInternalId(user.firmId, internalId);
+    } catch (error) {
+      // Case not found or invalid identifier - let the controller handle it
+      // This ensures consistent error handling between middleware and controller
+      console.error(`[CLIENT_ACCESS] Case identifier resolution failed for caseId=${caseId}, firmId=${user.firmId}: ${error.message}`);
+      return next();
+    }
     
     if (!caseData) {
       // Case not found, let the controller handle it
