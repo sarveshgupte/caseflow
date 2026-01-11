@@ -202,10 +202,12 @@ const createFirm = async (req, res) => {
       isActive: true,
       isSystem: true, // Mark as system user - cannot be deleted or deactivated
       passwordSet: false,
+      mustSetPassword: true,
       mustChangePassword: true,
       passwordSetupTokenHash: setupTokenHash,
       passwordSetupExpires: setupExpires,
       inviteSentAt: new Date(),
+      passwordSetAt: null,
     });
     
     await adminUser.save({ session });
@@ -653,10 +655,12 @@ const createFirmAdmin = async (req, res) => {
       status: 'INVITED',
       isActive: true,
       passwordSet: false,
+      mustSetPassword: true,
       mustChangePassword: true,
       passwordSetupTokenHash: setupTokenHash,
       passwordSetupExpires: setupExpires,
       inviteSentAt: new Date(),
+      passwordSetAt: null,
     });
     
     await adminUser.save();

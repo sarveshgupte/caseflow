@@ -638,6 +638,8 @@ const login = async (req, res) => {
         firmSlug: firmSlug,
         allowedCategories: user.allowedCategories,
         isActive: user.isActive,
+        mustSetPassword: !!user.mustSetPassword,
+        passwordSetAt: user.passwordSetAt,
       },
     };
     
@@ -734,6 +736,16 @@ const changePassword = async (req, res) => {
     
     // Get user from authenticated request
     const user = req.user;
+
+    // Onboarding guard: changePassword is for onboarded users only
+    if (user.mustSetPassword) {
+      return res.status(403).json({
+        success: false,
+        code: 'PASSWORD_SETUP_REQUIRED',
+        mustSetPassword: true,
+        redirectPath: '/auth/set-password',
+      });
+    }
     
     // Verify current password
     const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
@@ -786,6 +798,8 @@ const changePassword = async (req, res) => {
     user.passwordLastChangedAt = new Date();
     user.passwordExpiresAt = new Date(Date.now() + PASSWORD_EXPIRY_DAYS * 24 * 60 * 60 * 1000); // Update expiry on password change
     user.mustChangePassword = false;
+    user.mustSetPassword = false; // Keep onboarding flag aligned after a successful rotation
+    user.passwordSetAt = new Date();
     
     await user.save();
     
@@ -860,10 +874,12 @@ const resetPassword = async (req, res) => {
     user.passwordSetupTokenHash = tokenHash;
     user.passwordSetupExpires = tokenExpiry;
     user.mustChangePassword = false;
+    user.mustSetPassword = true;
     user.passwordExpiresAt = null; // Clear expiry until password is set
     user.status = 'INVITED'; // User must set password to become active again
     user.failedLoginAttempts = 0;
     user.lockUntil = null;
+    user.passwordSetAt = null;
     
     await user.save();
     
@@ -970,11 +986,14 @@ const getProfile = async (req, res) => {
     res.json({
       success: true,
       data: {
+        id: user._id.toString(),
         // Immutable fields from User model (read-only)
         xID: user.xID,
         name: user.name,
         email: user.email, // Email from User model is immutable
         role: user.role,
+        mustSetPassword: !!user.mustSetPassword,
+        passwordSetAt: user.passwordSetAt,
         allowedCategories: user.allowedCategories,
         isActive: user.isActive,
         // Firm metadata (read-only, admin-controlled)
@@ -983,6 +1002,7 @@ const getProfile = async (req, res) => {
           firmId: user.firmId.firmId,
           name: user.firmId.name,
         } : null,
+        firmId: user.firmId ? user.firmId._id.toString() : null,
         // Mutable fields from UserProfile model (editable)
         dateOfBirth: profile.dob || profile.dateOfBirth,
         gender: profile.gender,
@@ -1229,12 +1249,14 @@ const createUser = async (req, res) => {
       isActive: true,
       passwordHash: null, // No password until user sets it
       passwordSet: false, // Password not set yet
+      mustSetPassword: true,
       inviteTokenHash: tokenHash, // Using alias for invite token
       inviteTokenExpiry: tokenExpiry, // 48 hours
       mustChangePassword: true, // Enforce password setup on first login
       passwordExpiresAt: null, // Not set until password is created
       status: 'INVITED', // User is invited, not yet active
       passwordHistory: [],
+      passwordSetAt: null,
     });
     
     await newUser.save();
@@ -1525,9 +1547,11 @@ const setPassword = async (req, res) => {
     // Set password and clear token
     user.passwordHash = passwordHash;
     user.passwordSet = true;
+    user.mustSetPassword = false;
     user.passwordSetupTokenHash = null;
     user.passwordSetupExpires = null;
     user.passwordLastChangedAt = new Date();
+    user.passwordSetAt = new Date();
     user.passwordExpiresAt = new Date(Date.now() + PASSWORD_EXPIRY_DAYS * 24 * 60 * 60 * 1000); // Set expiry when password is created
     user.mustChangePassword = false;
     user.status = 'ACTIVE'; // User becomes active after setting password
@@ -1666,11 +1690,13 @@ const resetPasswordWithToken = async (req, res) => {
     // Update password and clear tokens
     user.passwordHash = passwordHash;
     user.passwordSet = true;
+    user.mustSetPassword = false;
     user.passwordResetTokenHash = null;
     user.passwordResetExpires = null;
     user.passwordSetupTokenHash = null;
     user.passwordSetupExpires = null;
     user.passwordLastChangedAt = new Date();
+    user.passwordSetAt = new Date();
     user.passwordExpiresAt = new Date(Date.now() + PASSWORD_EXPIRY_DAYS * 24 * 60 * 60 * 1000); // Set expiry when password is reset
     user.mustChangePassword = false;
     user.forcePasswordReset = false;
