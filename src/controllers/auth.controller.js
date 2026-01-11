@@ -751,9 +751,24 @@ const resetPassword = async (req, res) => {
     
     await user.save();
     
+    // Fetch firmSlug for email
+    let firmSlug = null;
+    if (user.firmId) {
+      const firm = await Firm.findById(user.firmId);
+      if (firm) {
+        firmSlug = firm.firmSlug;
+      }
+    }
+    
     // Send password setup email with xID
     try {
-      const emailResult = await emailService.sendPasswordSetupEmail(user.email, user.name, token, user.xID);
+      const emailResult = await emailService.sendPasswordSetupEmail({
+        email: user.email,
+        name: user.name,
+        token: token,
+        xID: user.xID,
+        firmSlug: firmSlug // Pass firmSlug for firm-specific URL in email
+      });
       
       // Log password setup email sent
       await AuthAudit.create({
@@ -1109,9 +1124,18 @@ const createUser = async (req, res) => {
     await newUser.save();
     console.log(`[AUTH] User inherited defaultClientId from firm ${firm._id}`);
     
+    // Fetch firmSlug for email
+    const firmSlug = firm.firmSlug;
+    
     // Send invite email with xID included (per PR 32 requirements)
     try {
-      const emailResult = await emailService.sendPasswordSetupEmail(newUser.email, newUser.name, token, newUser.xID);
+      const emailResult = await emailService.sendPasswordSetupEmail({
+        email: newUser.email,
+        name: newUser.name,
+        token: token,
+        xID: newUser.xID,
+        firmSlug: firmSlug // Pass firmSlug for firm-specific URL in email
+      });
       
       // Log invite email sent
       await AuthAudit.create({
@@ -1429,7 +1453,7 @@ const setPassword = async (req, res) => {
       success: true,
       message: 'Password set successfully. You can now log in.',
       firmSlug: firmSlug,
-      redirectUrl: `/${firmSlug}/dashboard`,
+      redirectUrl: `/f/${firmSlug}/login`,
     });
   } catch (error) {
     res.status(500).json({
@@ -1615,9 +1639,24 @@ const resendSetupEmail = async (req, res) => {
     user.inviteTokenExpiry = tokenExpiry;
     await user.save();
     
+    // Fetch firmSlug for email
+    let firmSlug = null;
+    if (user.firmId) {
+      const firm = await Firm.findById(user.firmId);
+      if (firm) {
+        firmSlug = firm.firmSlug;
+      }
+    }
+    
     // Send invite reminder email with xID
     try {
-      const emailResult = await emailService.sendPasswordSetupReminderEmail(user.email, user.name, token, user.xID);
+      const emailResult = await emailService.sendPasswordSetupReminderEmail({
+        email: user.email,
+        name: user.name,
+        token: token,
+        xID: user.xID,
+        firmSlug: firmSlug // Pass firmSlug for firm-specific URL in email
+      });
       
       if (!emailResult.success) {
         console.error('[AUTH] Failed to send invite reminder email:', emailResult.error);

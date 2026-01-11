@@ -80,8 +80,11 @@ export const SetPasswordPage = () => {
 
       if (response.success) {
         setSuccess(true);
-        // Use redirectUrl from backend if available
-        const redirectPath = response.redirectUrl || '/login';
+        // Use redirectUrl from backend (firm-scoped login)
+        // Backend returns /f/{firmSlug}/login for admin users
+        const redirectPath = response.redirectUrl || (response.firmSlug 
+          ? `/f/${response.firmSlug}/login` 
+          : '/login');
         setTimeout(() => {
           navigate(redirectPath);
         }, 2000);

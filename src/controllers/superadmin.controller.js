@@ -319,12 +319,13 @@ const createFirm = async (req, res) => {
     
     // Email 2: Default Admin Created to Admin
     try {
-      await emailService.sendPasswordSetupEmail(
-        adminEmail.toLowerCase(),
-        adminName.trim(),
-        setupToken,
-        adminXID
-      );
+      await emailService.sendPasswordSetupEmail({
+        email: adminEmail.toLowerCase(),
+        name: adminName.trim(),
+        token: setupToken,
+        xID: adminXID,
+        firmSlug // Pass firmSlug for firm-specific URL in email
+      });
       console.log(`[FIRM_CREATE] ✓ Admin invite email sent to ${adminEmail}`);
     } catch (emailError) {
       console.error('[FIRM_CREATE] Failed to send admin invite email:', emailError.message);
@@ -662,7 +663,13 @@ const createFirmAdmin = async (req, res) => {
     
     // Send password setup email
     try {
-      await emailService.sendPasswordSetupEmail(adminUser.email, setupToken, adminUser.name);
+      await emailService.sendPasswordSetupEmail({
+        email: adminUser.email,
+        name: adminUser.name,
+        token: setupToken,
+        xID: normalizedXID,
+        firmSlug: firm.firmSlug // Pass firmSlug for firm-specific URL in email
+      });
     } catch (emailError) {
       console.error('[SUPERADMIN] Failed to send password setup email:', emailError);
       // Don't fail the request - admin was created successfully

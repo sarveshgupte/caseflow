@@ -163,14 +163,25 @@ const resendInviteEmail = async (req, res) => {
     user.inviteSentAt = new Date();
     await user.save();
     
+    // Fetch firmSlug for email
+    let firmSlug = null;
+    if (user.firmId) {
+      const Firm = require('../models/Firm.model');
+      const firm = await Firm.findById(user.firmId);
+      if (firm) {
+        firmSlug = firm.firmSlug;
+      }
+    }
+    
     // Send invite reminder email with xID
     try {
-      const emailResult = await emailService.sendPasswordSetupReminderEmail(
-        user.email, 
-        user.name, 
-        token, 
-        user.xID
-      );
+      const emailResult = await emailService.sendPasswordSetupReminderEmail({
+        email: user.email,
+        name: user.name,
+        token: token,
+        xID: user.xID,
+        firmSlug: firmSlug
+      });
       
       if (!emailResult.success) {
         console.error('[ADMIN] Failed to send invite reminder email');

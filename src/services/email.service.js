@@ -215,27 +215,50 @@ const hashToken = (token) => {
 
 /**
  * Send password setup email (Invite email for new users)
- * @param {string} email - Recipient email
- * @param {string} name - User's name
- * @param {string} token - Password setup token (plain text)
- * @param {string} xID - User's xID (for reference)
- * @param {string} frontendUrl - Base URL of frontend application
+ * @param {Object} options - Email options
+ * @param {string} options.email - Recipient email
+ * @param {string} options.name - User's name
+ * @param {string} options.token - Password setup token (plain text)
+ * @param {string} options.xID - User's xID (for reference)
+ * @param {string} [options.firmSlug] - Firm slug for firm-specific URL (optional)
+ * @param {string} [options.frontendUrl] - Base URL of frontend application
  * @returns {Promise<Object>} Result object with success status
  */
-const sendPasswordSetupEmail = async (email, name, token, xID, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
+const sendPasswordSetupEmail = async ({ 
+  email, 
+  name, 
+  token, 
+  xID, 
+  firmSlug = null, 
+  frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000' 
+}) => {
   const setupLink = `${frontendUrl}/set-password?token=${token}`;
   
-  const subject = 'Welcome to Docketra - Set up your account';
+  // Construct firm-specific login URL if firmSlug is provided
+  const firmLoginUrl = firmSlug ? `${frontendUrl}/f/${firmSlug}/login` : null;
+  
+  const subject = 'Set up your Docketra Admin Account';
   const htmlContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2>Hello ${name},</h2>
-      <p>Welcome to Docketra! An administrator has created an account for you.</p>
+      <p>Your firm account has been created successfully.</p>
       <p><strong>Your Employee ID (xID):</strong> ${xID}</p>
-      <p>Please set up your account by clicking the secure link below:</p>
+      <p>Please set your password using the link below:</p>
       <p style="margin: 20px 0;">
-        <a href="${setupLink}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Set Up Your Account</a>
+        <a href="${setupLink}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Set Up Your Password</a>
       </p>
       <p style="color: #666; font-size: 14px;">Or copy this link: ${setupLink}</p>
+      ${firmLoginUrl ? `
+      <div style="margin: 20px 0; padding: 15px; background-color: #f0f9ff; border-left: 4px solid #2196F3; border-radius: 4px;">
+        <p style="margin: 0 0 10px 0; font-weight: bold; color: #1976D2;">Your Firm Login URL:</p>
+        <p style="margin: 0; word-break: break-all;">
+          <a href="${firmLoginUrl}" style="color: #2196F3; text-decoration: none;">${firmLoginUrl}</a>
+        </p>
+        <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">
+          After setting your password, you will be redirected directly to your firm's login area.
+        </p>
+      </div>
+      ` : ''}
       <p style="color: #d32f2f;">⚠️ This link will expire in 48 hours for security reasons.</p>
       <h3>For your security:</h3>
       <ul>
@@ -251,14 +274,19 @@ const sendPasswordSetupEmail = async (email, name, token, xID, frontendUrl = pro
   const textContent = `
 Hello ${name},
 
-Welcome to Docketra! An administrator has created an account for you.
+Your firm account has been created successfully.
 
 Your Employee ID (xID): ${xID}
 
-Please set up your account by clicking the secure link below:
+Please set your password using the link below:
 ${setupLink}
 
-⚠️ This link will expire in 48 hours for security reasons.
+${firmLoginUrl ? `Your Firm Login URL:
+${firmLoginUrl}
+
+After setting your password, you will be redirected directly to your firm's login area.
+
+` : ''}⚠️ This link will expire in 48 hours for security reasons.
 
 For your security:
 - Keep your xID and password confidential
@@ -281,15 +309,27 @@ Docketra Team
 
 /**
  * Send password setup reminder email (for resend functionality)
- * @param {string} email - Recipient email
- * @param {string} name - User's name
- * @param {string} token - Password setup token (plain text)
- * @param {string} xID - User's xID (for reference)
- * @param {string} frontendUrl - Base URL of frontend application
+ * @param {Object} options - Email options
+ * @param {string} options.email - Recipient email
+ * @param {string} options.name - User's name
+ * @param {string} options.token - Password setup token (plain text)
+ * @param {string} options.xID - User's xID (for reference)
+ * @param {string} [options.firmSlug] - Firm slug for firm-specific URL (optional)
+ * @param {string} [options.frontendUrl] - Base URL of frontend application
  * @returns {Promise<Object>} Result object with success status
  */
-const sendPasswordSetupReminderEmail = async (email, name, token, xID, frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000') => {
+const sendPasswordSetupReminderEmail = async ({ 
+  email, 
+  name, 
+  token, 
+  xID, 
+  firmSlug = null, 
+  frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000' 
+}) => {
   const setupLink = `${frontendUrl}/set-password?token=${token}`;
+  
+  // Construct firm-specific login URL if firmSlug is provided
+  const firmLoginUrl = firmSlug ? `${frontendUrl}/f/${firmSlug}/login` : null;
   
   const subject = 'Reminder: Set up your Docketra account';
   const htmlContent = `
@@ -302,6 +342,14 @@ const sendPasswordSetupReminderEmail = async (email, name, token, xID, frontendU
         <a href="${setupLink}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Set Up Your Account</a>
       </p>
       <p style="color: #666; font-size: 14px;">Or copy this link: ${setupLink}</p>
+      ${firmLoginUrl ? `
+      <div style="margin: 20px 0; padding: 15px; background-color: #f0f9ff; border-left: 4px solid #2196F3; border-radius: 4px;">
+        <p style="margin: 0 0 10px 0; font-weight: bold; color: #1976D2;">Your Firm Login URL:</p>
+        <p style="margin: 0; word-break: break-all;">
+          <a href="${firmLoginUrl}" style="color: #2196F3; text-decoration: none;">${firmLoginUrl}</a>
+        </p>
+      </div>
+      ` : ''}
       <p style="color: #d32f2f;">⚠️ This link will expire in 48 hours.</p>
       <p>Best regards,<br>Docketra Team</p>
     </div>
@@ -317,7 +365,10 @@ Your Employee ID (xID): ${xID}
 Please complete your account setup by clicking the link below:
 ${setupLink}
 
-⚠️ This link will expire in 48 hours.
+${firmLoginUrl ? `Your Firm Login URL:
+${firmLoginUrl}
+
+` : ''}⚠️ This link will expire in 48 hours.
 
 Best regards,
 Docketra Team
