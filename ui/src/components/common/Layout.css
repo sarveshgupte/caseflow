@@ -92,7 +92,6 @@
 }
 
 /* Primary CTA Button */
-/* Primary actions must always be visible on desktop and tablet */
 .enterprise-top-header__action {
   margin-left: var(--spacing-sm);
   margin-right: var(--spacing-sm);
