@@ -1,6 +1,6 @@
 /**
  * Enterprise Layout Component
- * Fixed sidebar + sticky header layout
+ * Top navigation header layout - Desktop-first, persistent navigation
  */
 
 import React, { useState } from 'react';
@@ -11,11 +11,13 @@ import './Layout.css';
 
 export const Layout = ({ children }) => {
   const { user, logout } = useAuth();
-  const { isAdmin } = usePermissions();
+  const { isAdmin, isSuperadmin } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
   const { firmSlug } = useParams();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [adminDropdownOpen, setAdminDropdownOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
   // Get firmSlug from URL params or user data
   const currentFirmSlug = firmSlug || user?.firmSlug;
@@ -34,8 +36,8 @@ export const Layout = ({ children }) => {
     return location.pathname === path;
   };
 
-  const toggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed);
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
   };
 
   // Get user initials for avatar
@@ -51,153 +53,230 @@ export const Layout = ({ children }) => {
     return user?.xID?.substring(0, 2)?.toUpperCase() || 'U';
   };
 
-  // Simple breadcrumbs from pathname
-  const getBreadcrumbs = () => {
-    const paths = location.pathname.split('/').filter(Boolean);
-    const breadcrumbs = [];
-    
-    // Skip firm slug
-    let startIndex = paths[0] === currentFirmSlug || paths[0] === 'f' ? 2 : 0;
-    
-    for (let i = startIndex; i < paths.length; i++) {
-      const segment = paths[i];
-      const label = segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
-      breadcrumbs.push(label);
-    }
-    
-    return breadcrumbs.length > 0 ? breadcrumbs : ['Dashboard'];
-  };
+  // Check if user has admin access (Admin or SuperAdmin)
+  const hasAdminAccess = isAdmin || isSuperadmin;
 
   return (
-    <div className="enterprise-layout">
-      {/* Fixed Sidebar */}
-      <aside className={`enterprise-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
-        <div className="enterprise-sidebar__brand">
-          <h1>Docketra</h1>
-        </div>
-        
-        <nav className="enterprise-sidebar__nav">
-          <Link
-            to={`/${currentFirmSlug}/dashboard`}
-            className={`enterprise-sidebar__nav-item ${isActive(`/${currentFirmSlug}/dashboard`) ? 'active' : ''}`}
-          >
-            Dashboard
-          </Link>
-          <Link
-            to={`/${currentFirmSlug}/global-worklist`}
-            className={`enterprise-sidebar__nav-item ${isActive(`/${currentFirmSlug}/global-worklist`) ? 'active' : ''}`}
-          >
-            Workbasket
-          </Link>
-          <Link
-            to={`/${currentFirmSlug}/worklist`}
-            className={`enterprise-sidebar__nav-item ${isActive(`/${currentFirmSlug}/worklist`) ? 'active' : ''}`}
-          >
-            My Worklist
-          </Link>
-          <Link
-            to={`/${currentFirmSlug}/cases/create`}
-            className={`enterprise-sidebar__nav-item ${isActive(`/${currentFirmSlug}/cases/create`) ? 'active' : ''}`}
-          >
-            Create Case
-          </Link>
-          {isAdmin && (
-            <Link
-              to={`/${currentFirmSlug}/admin`}
-              className={`enterprise-sidebar__nav-item ${isActive(`/${currentFirmSlug}/admin`) ? 'active' : ''}`}
+    <div className="enterprise-layout-top">
+      {/* Top Navigation Header */}
+      <header className="enterprise-top-header">
+        <div className="enterprise-top-header__container">
+          {/* Left: Logo */}
+          <div className="enterprise-top-header__left">
+            <Link 
+              to={`/${currentFirmSlug}/dashboard`}
+              className="enterprise-top-header__logo"
             >
-              Admin
+              <h1>Docketra</h1>
             </Link>
-          )}
-        </nav>
-        
-        <div className="enterprise-sidebar__footer">
-          <Link to={`/${currentFirmSlug}/profile`} className="enterprise-sidebar__footer-link">
-            Settings
-          </Link>
-          <button 
-            onClick={() => navigate(`/${currentFirmSlug}/help`)}
-            className="enterprise-sidebar__footer-link"
-            style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}
-          >
-            Help
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content with Header */}
-      <div className={`enterprise-main ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-        {/* Sticky Header */}
-        <header className="enterprise-header">
-          <div className="enterprise-header__left">
-            <button 
-              className="enterprise-header__toggle"
-              onClick={toggleSidebar}
-              aria-label="Toggle sidebar"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 10H17M3 5H17M3 15H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </button>
-            
-            <div className="enterprise-header__breadcrumbs">
-              {getBreadcrumbs().map((crumb, index, arr) => (
-                <React.Fragment key={index}>
-                  <span style={{ color: index === arr.length - 1 ? 'var(--text-main)' : 'var(--text-body)' }}>
-                    {crumb}
-                  </span>
-                  {index < arr.length - 1 && (
-                    <span className="enterprise-header__breadcrumb-separator">/</span>
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
           </div>
           
-          <div className="enterprise-header__center">
-            <div className="enterprise-header__search">
+          {/* Center: Primary Navigation */}
+          <nav className="enterprise-top-header__nav">
+            <Link
+              to={`/${currentFirmSlug}/dashboard`}
+              className={`enterprise-top-header__nav-link ${isActive(`/${currentFirmSlug}/dashboard`) ? 'active' : ''}`}
+            >
+              Dashboard
+            </Link>
+            <Link
+              to={`/${currentFirmSlug}/global-worklist`}
+              className={`enterprise-top-header__nav-link ${isActive(`/${currentFirmSlug}/global-worklist`) ? 'active' : ''}`}
+            >
+              Workbasket
+            </Link>
+            <Link
+              to={`/${currentFirmSlug}/worklist`}
+              className={`enterprise-top-header__nav-link ${isActive(`/${currentFirmSlug}/worklist`) ? 'active' : ''}`}
+            >
+              My Worklist
+            </Link>
+          </nav>
+
+          {/* Primary Action */}
+          <div className="enterprise-top-header__action">
+            <button
+              onClick={() => navigate(`/${currentFirmSlug}/cases/create`)}
+              className="btn-primary-cta"
+            >
+              Create Case
+            </button>
+          </div>
+
+          {/* Admin Dropdown (conditional) */}
+          {hasAdminAccess && (
+            <div className="enterprise-top-header__admin">
+              <div className="dropdown">
+                <button
+                  className="enterprise-top-header__nav-link dropdown-toggle"
+                  onClick={() => setAdminDropdownOpen(!adminDropdownOpen)}
+                  aria-expanded={adminDropdownOpen}
+                >
+                  Admin
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+                {adminDropdownOpen && (
+                  <div className="dropdown-menu">
+                    <Link
+                      to={`/${currentFirmSlug}/admin`}
+                      className="dropdown-item"
+                      onClick={() => setAdminDropdownOpen(false)}
+                    >
+                      Admin Dashboard
+                    </Link>
+                    <Link
+                      to={`/${currentFirmSlug}/admin/users`}
+                      className="dropdown-item"
+                      onClick={() => setAdminDropdownOpen(false)}
+                    >
+                      User Management
+                    </Link>
+                    <Link
+                      to={`/${currentFirmSlug}/admin/clients`}
+                      className="dropdown-item"
+                      onClick={() => setAdminDropdownOpen(false)}
+                    >
+                      Client Management
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Right: Search, Notifications, Profile */}
+          <div className="enterprise-top-header__right">
+            {/* Global Search */}
+            <div className="enterprise-top-header__search">
               <input 
                 type="text"
                 placeholder="Search..."
-                className="enterprise-header__search-input"
+                className="enterprise-top-header__search-input"
               />
-              <span className="enterprise-header__search-hint">⌘K</span>
             </div>
-          </div>
-          
-          <div className="enterprise-header__right">
-            <button className="enterprise-header__icon-btn" aria-label="Notifications">
+            
+            {/* Notification Bell */}
+            <button 
+              className="enterprise-top-header__icon-btn" 
+              aria-label="Notifications"
+            >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M10 2C7.23858 2 5 4.23858 5 7V10L3 12V13H17V12L15 10V7C15 4.23858 12.7614 2 10 2Z" stroke="currentColor" strokeWidth="1.5"/>
                 <path d="M8.5 17C8.5 18.1046 9.39543 19 10.5 19C11.6046 19 12.5 18.1046 12.5 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
-              {/* <span className="enterprise-header__notification-badge"></span> */}
             </button>
             
-            <div className="enterprise-header__user" onClick={() => navigate(`/${currentFirmSlug}/profile`)}>
-              <div className="enterprise-header__user-avatar">
-                {getUserInitials()}
-              </div>
-              <span className="enterprise-header__user-name">
-                {user?.name || user?.xID}
-              </span>
+            {/* User Profile Menu */}
+            <div className="dropdown">
+              <button
+                className="enterprise-top-header__profile"
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                aria-expanded={profileDropdownOpen}
+              >
+                <div className="enterprise-top-header__user-avatar">
+                  {getUserInitials()}
+                </div>
+                <span className="enterprise-top-header__user-name">
+                  {user?.name || user?.xID}
+                </span>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              {profileDropdownOpen && (
+                <div className="dropdown-menu dropdown-menu-right">
+                  <Link
+                    to={`/${currentFirmSlug}/profile`}
+                    className="dropdown-item"
+                    onClick={() => setProfileDropdownOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                  <button
+                    className="dropdown-item"
+                    onClick={handleLogout}
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
             </div>
-            
-            <button 
-              className="btn btn-secondary"
-              onClick={handleLogout}
-              style={{ minWidth: 'auto', padding: '6px 12px', fontSize: '13px' }}
-            >
-              Logout
-            </button>
           </div>
-        </header>
 
-        {/* Content Area */}
-        <main className="enterprise-content">
-          {children}
-        </main>
-      </div>
+          {/* Mobile Hamburger Menu */}
+          <button 
+            className="enterprise-top-header__mobile-toggle"
+            onClick={toggleMobileMenu}
+            aria-label="Toggle mobile menu"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 12H21M3 6H21M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="enterprise-top-header__mobile-menu">
+            <Link
+              to={`/${currentFirmSlug}/dashboard`}
+              className={`enterprise-top-header__mobile-link ${isActive(`/${currentFirmSlug}/dashboard`) ? 'active' : ''}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Dashboard
+            </Link>
+            <Link
+              to={`/${currentFirmSlug}/global-worklist`}
+              className={`enterprise-top-header__mobile-link ${isActive(`/${currentFirmSlug}/global-worklist`) ? 'active' : ''}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Workbasket
+            </Link>
+            <Link
+              to={`/${currentFirmSlug}/worklist`}
+              className={`enterprise-top-header__mobile-link ${isActive(`/${currentFirmSlug}/worklist`) ? 'active' : ''}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              My Worklist
+            </Link>
+            <button
+              onClick={() => {
+                navigate(`/${currentFirmSlug}/cases/create`);
+                setMobileMenuOpen(false);
+              }}
+              className="btn-primary-cta"
+              style={{ width: '100%', marginTop: '8px' }}
+            >
+              Create Case
+            </button>
+            {hasAdminAccess && (
+              <>
+                <Link
+                  to={`/${currentFirmSlug}/admin`}
+                  className={`enterprise-top-header__mobile-link ${isActive(`/${currentFirmSlug}/admin`) ? 'active' : ''}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Admin Dashboard
+                </Link>
+                <Link
+                  to={`/${currentFirmSlug}/admin/users`}
+                  className="enterprise-top-header__mobile-link"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  User Management
+                </Link>
+              </>
+            )}
+          </div>
+        )}
+      </header>
+
+      {/* Content Area */}
+      <main className="enterprise-top-content">
+        {children}
+      </main>
     </div>
   );
 };
