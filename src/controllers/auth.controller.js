@@ -245,17 +245,17 @@ const login = async (req, res) => {
           const firm = await Firm.findById(user.firmId);
           
           if (firm && firm.defaultClientId && firm.bootstrapStatus === 'COMPLETED') {
-            // Auto-assign firm's defaultClientId to admin
+            // Auto-assign firm's defaultClientId to admin (persist to database)
             await User.updateOne(
               { _id: user._id },
               { $set: { defaultClientId: firm.defaultClientId } }
             );
             
-            // Reload user with updated defaultClientId
+            // Update in-memory user object with persisted value
             user.defaultClientId = firm.defaultClientId;
             
-            console.log(`[AUTH] ✓ Auto-assigned defaultClientId to admin ${user.xID}`);
-            console.log(`[AUTH]   This is a backward compatibility fix for legacy data`);
+            console.log(`[AUTH] ✓ Persisted defaultClientId for legacy admin ${user.xID}`);
+            console.log(`[AUTH]   Subsequent logins will not trigger auto-repair`);
           } else {
             console.error(`[AUTH] Admin user ${user.xID} missing defaultClientId - cannot auto-repair (firm not ready)`);
             return res.status(500).json({
