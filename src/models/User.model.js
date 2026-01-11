@@ -72,7 +72,10 @@ const userSchema = new mongoose.Schema({
   defaultClientId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Client',
-    required: false, // Made optional to support atomic firm bootstrap
+    required: function() {
+      // defaultClientId is required for all non-superadmin roles
+      return this.role !== 'SUPER_ADMIN';
+    },
     default: null,
     immutable: true, // Cannot change default client after creation
     index: true,
@@ -329,17 +332,21 @@ userSchema.pre('save', async function() {
     }
   }
   
-  // GUARDRAIL: Prevent saving Admin users without defaultClientId
-  // Exception: Allow during firm bootstrap (when isNew and defaultClientId will be set in transaction)
-  // This prevents accidental creation of admins without proper scoping
-  if (this.role === 'Admin' && !this.isNew && !this.defaultClientId) {
-    const error = new Error(
-      'Cannot save Admin user without defaultClientId. ' +
-      'Admin users must be scoped to their firm\'s default client. ' +
-       'Firm hierarchy requires: Firm → Default Client → Admins'
-    );
-    error.name = 'ValidationError';
-    throw error;
+  // GUARDRAIL: Prevent saving non-superadmin users without firm/default client context
+  if (this.role !== 'SUPER_ADMIN') {
+    if (!this.firmId) {
+      const error = new Error('Non-superadmin users must have firmId set');
+      error.name = 'ValidationError';
+      throw error;
+    }
+    if (!this.defaultClientId) {
+      const error = new Error(
+        'Cannot save non-superadmin user without defaultClientId. ' +
+        'Firm hierarchy requires: Firm → Default Client → Users'
+      );
+      error.name = 'ValidationError';
+      throw error;
+    }
   }
 
   // Keep authProviders.local in sync with legacy password fields

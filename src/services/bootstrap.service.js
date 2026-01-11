@@ -21,6 +21,7 @@
 const Firm = require('../models/Firm.model');
 const Client = require('../models/Client.model');
 const User = require('../models/User.model');
+const { runAdminHierarchyBackfill } = require('../scripts/fixAdminHierarchy');
 
 /**
  * REMOVED: seedSystemAdmin
@@ -56,12 +57,16 @@ const User = require('../models/User.model');
  * - Empty database is a valid and supported state
  * - Does NOT send email for empty database
  */
+let adminBackfillRan = false;
+
 const runPreflightChecks = async () => {
   try {
     console.log('\n🔍 Running preflight data validation checks...');
     
     const violations = {};
+    const info = {};
     let hasViolations = false;
+    const autoRunBackfill = process.env.RUN_ADMIN_HIERARCHY_MIGRATION_ON_START === 'true';
     
     // Check if any firms exist
     const totalFirms = await Firm.countDocuments();
@@ -69,10 +74,18 @@ const runPreflightChecks = async () => {
     if (totalFirms === 0) {
       console.log('ℹ️  No firms exist yet. This is expected - firms are created by SuperAdmin.');
       console.log('✓ All preflight checks passed (empty database is valid)');
-      return;
+      return { hasViolations: false, violations: {}, info: {} };
     }
     
     console.log(`ℹ️  Found ${totalFirms} firm(s) in database. Validating integrity...`);
+    
+    // Optional: auto-run admin hierarchy backfill before validation (one-time per process)
+    if (autoRunBackfill && !adminBackfillRan) {
+      adminBackfillRan = true;
+      console.log('🔧 RUN_ADMIN_HIERARCHY_MIGRATION_ON_START=true detected. Running backfill...');
+      await runAdminHierarchyBackfill({ useExistingConnection: true });
+      console.log('🔧 Admin hierarchy backfill completed');
+    }
     
     // PR-2: Backward compatibility - Set bootstrapStatus for existing firms
     const firmsWithoutBootstrapStatus = await Firm.find({ 
@@ -158,16 +171,45 @@ const runPreflightChecks = async () => {
       });
     }
     
-    // Check for admins without firmId or defaultClientId
-    const adminsWithoutFirm = await User.find({ 
-      role: 'Admin',
+    // Info-only: SUPER_ADMINs may not have firm/default client
+    const superAdminsMissingContext = await User.find({
+      role: 'SUPER_ADMIN',
       $or: [
         { firmId: { $exists: false } },
         { firmId: null },
         { defaultClientId: { $exists: false } },
         { defaultClientId: null }
       ]
-    }).select('xID name firmId defaultClientId');
+    }).select('xID name firmId defaultClientId role');
+
+    if (superAdminsMissingContext.length > 0) {
+      info.superAdminsMissingContext = superAdminsMissingContext.map(sa => ({
+        xID: sa.xID,
+        name: sa.name,
+        missing: [
+          !sa.firmId ? 'firmId' : null,
+          !sa.defaultClientId ? 'defaultClientId' : null,
+        ].filter(Boolean),
+      }));
+      violations.superAdminsMissingContext = info.superAdminsMissingContext;
+      console.info(`ℹ️  ${superAdminsMissingContext.length} SUPER_ADMIN account(s) without firm/defaultClient detected (allowed):`);
+      superAdminsMissingContext.forEach(sa => {
+        if (!sa.firmId) console.info(`   - ${sa.xID}: missing firmId (allowed for SUPER_ADMIN)`);
+        if (!sa.defaultClientId) console.info(`   - ${sa.xID}: missing defaultClientId (allowed for SUPER_ADMIN)`);
+      });
+    }
+
+    // Check for Admin/Employee without firmId or defaultClientId
+    const adminScopeRoles = ['Admin', 'Employee'];
+    const adminsWithoutFirm = await User.find({ 
+      role: { $in: adminScopeRoles },
+      $or: [
+        { firmId: { $exists: false } },
+        { firmId: null },
+        { defaultClientId: { $exists: false } },
+        { defaultClientId: null }
+      ]
+    }).select('xID name firmId defaultClientId role');
     
     if (adminsWithoutFirm.length > 0) {
       hasViolations = true;
@@ -178,17 +220,26 @@ const runPreflightChecks = async () => {
         return {
           xID: a.xID,
           name: a.name,
+          role: a.role,
           missing
         };
       });
-      console.warn(`⚠️  WARNING: Found ${adminsWithoutFirm.length} admin(s) without firmId or defaultClientId:`);
+      violations.byRole = violations.byRole || {};
+      violations.byRole.ADMIN = adminsWithoutFirm.map(a => ({
+        xID: a.xID,
+        name: a.name,
+        missing: (!a.firmId ? ['firmId'] : []).concat(!a.defaultClientId ? ['defaultClientId'] : [])
+      }));
+
+      console.error(`❌  ERROR: Found ${adminsWithoutFirm.length} admin/employee account(s) missing firm/defaultClient context:`);
       adminsWithoutFirm.forEach(admin => {
-        console.warn(`   - Admin: ${admin.xID} (${admin.name})`);
-        if (!admin.firmId) console.warn(`     Missing: firmId`);
-        if (!admin.defaultClientId) console.warn(`     Missing: defaultClientId`);
+        console.error(`   - ${admin.role}: ${admin.xID} (${admin.name})`);
+        if (!admin.firmId) console.error(`     Missing: firmId`);
+        if (!admin.defaultClientId) console.error(`     Missing: defaultClientId`);
       });
+      console.error('   ↳ Remediation: run "node src/scripts/fixAdminHierarchy.js" after taking a backup.');
     }
-    
+
     // Send email if violations exist
     if (hasViolations) {
       console.warn('⚠️  Preflight checks found data inconsistencies (see warnings above)');
@@ -211,9 +262,12 @@ const runPreflightChecks = async () => {
     } else {
       console.log('✓ All preflight checks passed - data hierarchy is consistent');
     }
+
+    return { hasViolations, violations, info };
   } catch (error) {
     console.error('✗ Error running preflight checks:', error.message);
     // Don't throw - preflight checks should never block startup
+    return { hasViolations: true, violations: { error: error.message } };
   }
 };
 
@@ -435,4 +489,5 @@ const runBootstrap = async () => {
 module.exports = {
   runBootstrap,
   recoverFirmBootstrap,
+  runPreflightChecks,
 };
