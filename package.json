@@ -31,6 +31,7 @@
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
+    "googleapis": "^170.0.0",
     "helmet": "^8.0.0",
     "ioredis": "^5.9.1",
     "json2csv": "^6.0.0-alpha.2",

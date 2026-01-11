@@ -45,11 +45,22 @@ console.log(`[ENV] NODE_ENV = ${process.env.NODE_ENV || 'undefined'}`);
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Environment variable validation
-const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
+const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET', 'GOOGLE_SERVICE_ACCOUNT_JSON', 'DRIVE_ROOT_FOLDER_ID'];
 const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
 if (missingEnvVars.length > 0) {
   console.error(`❌ Error: Missing required environment variables: ${missingEnvVars.join(', ')}`);
   console.error('Please ensure these variables are set in your .env file or environment.');
+  process.exit(1);
+}
+
+// Google Drive initialization
+try {
+  const driveService = require('./services/drive.service');
+  driveService.initialize();
+  console.log('[DRIVE] Google Drive service initialized successfully');
+} catch (error) {
+  console.error('❌ Error: Failed to initialize Google Drive service');
+  console.error(error.message);
   process.exit(1);
 }
 

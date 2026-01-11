@@ -41,10 +41,38 @@ const attachmentSchema = new mongoose.Schema({
   
   /**
    * Local storage path for the file
+   * ⚠️ DEPRECATED - FOR BACKWARD COMPATIBILITY ONLY ⚠️
+   * 
+   * Legacy field for local file storage.
+   * New attachments use Google Drive (driveFileId) instead.
+   * This field is kept for backward compatibility with existing attachments.
    */
   filePath: {
     type: String,
-    required: [true, 'File path is required'],
+    trim: true,
+  },
+  
+  /**
+   * Google Drive file ID
+   * ✅ CANONICAL STORAGE LOCATION ✅
+   * 
+   * All new attachments are stored in Google Drive.
+   * This field stores the Google Drive file ID for the attachment.
+   * 
+   * Required for all new attachments (created after Google Drive integration).
+   * Optional for backward compatibility with legacy attachments (stored locally).
+   */
+  driveFileId: {
+    type: String,
+    trim: true,
+  },
+  
+  /**
+   * File size in bytes
+   * Stored for display and validation purposes
+   */
+  size: {
+    type: Number,
   },
   
   /**

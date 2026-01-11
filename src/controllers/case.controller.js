@@ -12,6 +12,7 @@ const { isProduction } = require('../config/config');
 const { logCaseListViewed, logAdminAction } = require('../services/auditLog.service');
 const caseActionService = require('../services/caseAction.service');
 const { getMimeType, sanitizeFilename } = require('../utils/fileUtils');
+const { cleanupTempFile } = require('../utils/tempFile');
 const { resolveCaseIdentifier, resolveCaseDocument } = require('../utils/caseIdentifier');
 const fs = require('fs').promises;
 const path = require('path');
@@ -529,11 +530,66 @@ const addAttachment = async (req, res) => {
       });
     }
     
-    // Create attachment record - use caseId from database (caseNumber for display)
+    // Upload file to Google Drive
+    let driveFileId = null;
+    let fileSize = req.file.size;
+    let fileMimeType = req.file.mimetype || getMimeType(req.file.originalname);
+    
+    try {
+      // Ensure case has Drive folder structure
+      if (!caseData.drive?.attachmentsFolderId) {
+        return res.status(500).json({
+          success: false,
+          message: 'Case Drive folder structure not initialized',
+        });
+      }
+      
+      // Read file content from multer's temporary location
+      const fileBuffer = await fs.readFile(req.file.path);
+      
+      // Upload to Google Drive
+      const driveService = require('../services/drive.service');
+      const cfsDriveService = require('../services/cfsDrive.service');
+      
+      const targetFolderId = cfsDriveService.getFolderIdForFileType(
+        caseData.drive,
+        'attachment'
+      );
+      
+      const driveFile = await driveService.uploadFile(
+        fileBuffer,
+        req.file.originalname,
+        fileMimeType,
+        targetFolderId
+      );
+      
+      driveFileId = driveFile.id;
+      fileSize = driveFile.size || fileSize;
+      fileMimeType = driveFile.mimeType || fileMimeType;
+      
+      // Clean up temporary file
+      await cleanupTempFile(req.file.path);
+    } catch (error) {
+      console.error('[addAttachment] Error uploading to Google Drive:', error);
+      
+      // Clean up temporary file on error
+      await cleanupTempFile(req.file.path);
+      
+      return res.status(500).json({
+        success: false,
+        message: 'Error uploading file to Google Drive',
+        error: error.message,
+      });
+    }
+    
+    // Create attachment record with Google Drive metadata
     const attachment = await Attachment.create({
       caseId: caseData.caseId,
+      firmId: req.user.firmId,
       fileName: req.file.originalname,
-      filePath: req.file.path,
+      driveFileId: driveFileId,
+      size: fileSize,
+      mimeType: fileMimeType,
       description,
       createdBy: createdBy.toLowerCase(),
       createdByXID: req.user.xID,
@@ -551,9 +607,10 @@ const addAttachment = async (req, res) => {
       performedByXID: req.user.xID,
       metadata: {
         fileName: req.file.originalname,
-        fileSize: req.file.size,
-        mimeType: req.file.mimetype,
+        fileSize: fileSize,
+        mimeType: fileMimeType,
         description: description,
+        driveFileId: driveFileId,
       },
     });
     
@@ -684,22 +741,102 @@ const cloneCase = async (req, res) => {
     
     for (const attachment of originalAttachments) {
       try {
-        // Create new file path for cloned attachment
-        const originalPath = attachment.filePath;
-        const fileExt = path.extname(attachment.fileName);
-        const newFileName = `${Date.now()}-${Math.random().toString(36).substring(7)}${fileExt}`;
-        const newFilePath = path.join(__dirname, '../../uploads', newFileName);
+        let newDriveFileId = null;
+        let fileSize = attachment.size;
+        let fileMimeType = attachment.mimeType;
         
-        // Copy the actual file
-        await fs.copyFile(originalPath, newFilePath);
+        // Handle Google Drive attachments
+        if (attachment.driveFileId) {
+          // Ensure new case has Drive folder structure
+          if (!newCase.drive?.attachmentsFolderId) {
+            throw new Error('New case Drive folder structure not initialized');
+          }
+          
+          const driveService = require('../services/drive.service');
+          const cfsDriveService = require('../services/cfsDrive.service');
+          
+          // Note: This loads the entire file into memory
+          // For very large files (>100MB), consider implementing streaming or skipping clone
+          const MAX_CLONE_SIZE = 100 * 1024 * 1024; // 100MB limit
+          
+          if (attachment.size && attachment.size > MAX_CLONE_SIZE) {
+            console.warn(`[cloneCase] Skipping large file ${attachment.fileName} (${attachment.size} bytes)`);
+            continue;
+          }
+          
+          // Download file from original location
+          const fileStream = await driveService.downloadFile(attachment.driveFileId);
+          
+          // Convert stream to buffer
+          const chunks = [];
+          for await (const chunk of fileStream) {
+            chunks.push(chunk);
+          }
+          const fileBuffer = Buffer.concat(chunks);
+          
+          // Upload to new case's folder
+          const targetFolderId = cfsDriveService.getFolderIdForFileType(
+            newCase.drive,
+            'attachment'
+          );
+          
+          const driveFile = await driveService.uploadFile(
+            fileBuffer,
+            attachment.fileName,
+            fileMimeType || getMimeType(attachment.fileName),
+            targetFolderId
+          );
+          
+          newDriveFileId = driveFile.id;
+          fileSize = driveFile.size || fileSize;
+          fileMimeType = driveFile.mimeType || fileMimeType;
+        } else if (attachment.filePath) {
+          // Legacy: Handle old attachments stored locally
+          const fileExt = path.extname(attachment.fileName);
+          const newFileName = `${Date.now()}-${Math.random().toString(36).substring(7)}${fileExt}`;
+          const newFilePath = path.join(__dirname, '../../uploads', newFileName);
+          
+          // Copy the actual file
+          await fs.copyFile(attachment.filePath, newFilePath);
+          
+          // Create new attachment record with local path (legacy)
+          const newAttachment = await Attachment.create({
+            caseId: newCase.caseId,
+            firmId: newCase.firmId,
+            fileName: attachment.fileName,
+            filePath: newFilePath,
+            description: attachment.description,
+            createdBy: attachment.createdBy,
+            createdByXID: attachment.createdByXID,
+            createdByName: attachment.createdByName,
+            type: attachment.type,
+            source: attachment.source,
+            visibility: attachment.visibility,
+            mimeType: attachment.mimeType,
+            note: `Cloned from Case ID: ${originalCase.caseId}`,
+          });
+          copiedAttachments.push(newAttachment);
+          continue;
+        } else {
+          console.error(`Attachment ${attachment._id} has no file location`);
+          continue;
+        }
         
-        // Create new attachment record
+        // Create new attachment record with Google Drive metadata
         const newAttachment = await Attachment.create({
           caseId: newCase.caseId,
+          firmId: newCase.firmId,
           fileName: attachment.fileName,
-          filePath: newFilePath,
+          driveFileId: newDriveFileId,
+          size: fileSize,
+          mimeType: fileMimeType,
           description: attachment.description,
           createdBy: attachment.createdBy,
+          createdByXID: attachment.createdByXID,
+          createdByName: attachment.createdByName,
+          type: attachment.type,
+          source: attachment.source,
+          visibility: attachment.visibility,
           note: `Cloned from Case ID: ${originalCase.caseId}`,
         });
         copiedAttachments.push(newAttachment);
@@ -1847,26 +1984,63 @@ const downloadAttachment = async (req, res) => {
       });
     }
     
-    // Check if file exists
-    try {
-      await fs.access(attachment.filePath);
-    } catch (err) {
-      return res.status(404).json({
+    // Verify firm isolation - attachment must belong to user's firm
+    if (attachment.firmId !== req.user.firmId) {
+      return res.status(403).json({
         success: false,
-        message: 'File not found on server',
+        message: 'Access denied',
       });
     }
     
     // Determine MIME type and sanitize filename
-    const mimeType = getMimeType(attachment.fileName);
+    const mimeType = attachment.mimeType || getMimeType(attachment.fileName);
     const safeFilename = sanitizeFilename(attachment.fileName);
     
-    // Set headers for download
-    res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
-    
-    // Send file
-    res.sendFile(path.resolve(attachment.filePath));
+    // Download from Google Drive if driveFileId exists, otherwise fallback to local file
+    if (attachment.driveFileId) {
+      try {
+        const driveService = require('../services/drive.service');
+        
+        // Get file stream from Google Drive
+        const fileStream = await driveService.downloadFile(attachment.driveFileId);
+        
+        // Set headers for download
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+        
+        // Pipe the stream to response
+        fileStream.pipe(res);
+      } catch (error) {
+        console.error('[downloadAttachment] Error downloading from Google Drive:', error);
+        return res.status(500).json({
+          success: false,
+          message: 'Error downloading file from Google Drive',
+          error: error.message,
+        });
+      }
+    } else if (attachment.filePath) {
+      // Legacy: Handle old attachments stored locally
+      try {
+        await fs.access(attachment.filePath);
+        
+        // Set headers for download
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+        
+        // Send file
+        res.sendFile(path.resolve(attachment.filePath));
+      } catch (err) {
+        return res.status(404).json({
+          success: false,
+          message: 'File not found',
+        });
+      }
+    } else {
+      return res.status(404).json({
+        success: false,
+        message: 'File location not found',
+      });
+    }
   } catch (error) {
     console.error('[downloadAttachment] Error:', error);
     res.status(500).json({

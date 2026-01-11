@@ -93,20 +93,11 @@ const handleInboundEmail = async (req, res) => {
       createdByName = user.name;
     }
     
-    // Save email to file system
+    // Upload email to Google Drive
     // Store as a text file with email metadata and content
     const timestamp = Date.now();
     const randomSuffix = Math.random().toString(36).substring(7);
     const emailFileName = `email-${timestamp}-${randomSuffix}.txt`;
-    const uploadsDir = path.join(__dirname, '../../uploads');
-    const emailFilePath = path.join(uploadsDir, emailFileName);
-    
-    // Ensure uploads directory exists
-    try {
-      await fs.access(uploadsDir);
-    } catch {
-      await fs.mkdir(uploadsDir, { recursive: true });
-    }
     
     // Create email content file
     const emailContent = `
@@ -123,18 +114,53 @@ HTML Body:
 ${bodyHtml || '(no HTML body)'}
 `.trim();
     
-    await fs.writeFile(emailFilePath, emailContent, 'utf8');
-    
     // Use getMimeType utility for consistency
-    // Currently storing as .txt, so this will return 'text/plain'
-    // If we switch to storing raw .eml files, just change the extension
     const mimeType = getMimeType(emailFileName);
     
-    // Create attachment record
+    // Upload to Google Drive
+    let driveFileId = null;
+    let fileSize = Buffer.byteLength(emailContent, 'utf8');
+    
+    try {
+      // Ensure case has Drive folder structure
+      if (!caseData.drive?.attachmentsFolderId) {
+        throw new Error('Case Drive folder structure not initialized. Please ensure the case was properly created with Google Drive integration enabled.');
+      }
+      
+      const driveService = require('../services/drive.service');
+      const cfsDriveService = require('../services/cfsDrive.service');
+      
+      const targetFolderId = cfsDriveService.getFolderIdForFileType(
+        caseData.drive,
+        'attachment'
+      );
+      
+      const driveFile = await driveService.uploadFile(
+        Buffer.from(emailContent, 'utf8'),
+        emailFileName,
+        mimeType,
+        targetFolderId
+      );
+      
+      driveFileId = driveFile.id;
+      fileSize = driveFile.size || fileSize;
+    } catch (error) {
+      console.error('[handleInboundEmail] Error uploading to Google Drive:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error uploading email to Google Drive',
+        error: error.message,
+      });
+    }
+    
+    // Create attachment record with Google Drive metadata
     const attachment = await Attachment.create({
       caseId,
+      firmId: caseData.firmId,
       fileName: `Email from ${from} - ${subject || 'No Subject'}`,
-      filePath: emailFilePath,
+      driveFileId: driveFileId,
+      size: fileSize,
+      mimeType: mimeType,
       description: `Inbound email from ${isInternal ? 'internal' : 'external'} sender`,
       createdBy: createdByEmail,
       createdByXID: createdByXID,
@@ -142,7 +168,6 @@ ${bodyHtml || '(no HTML body)'}
       type: 'email_native',
       source: 'email',
       visibility: visibility,
-      mimeType: mimeType,
       note: `Email received at ${receivedAt || new Date().toISOString()}`,
     });
     
