@@ -98,8 +98,9 @@
 }
 
 .btn-primary-cta {
-  background-color: var(--info);
-  color: white;
+  /* Explicit base state - must appear blue by default */
+  background-color: var(--info) !important;
+  color: white !important;
   border: none;
   padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--border-radius);
@@ -108,21 +109,55 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   white-space: nowrap;
+  text-decoration: none !important;
+}
+
+/* Ensure base styles apply to all pseudo-classes and element types */
+.btn-primary-cta:link,
+.btn-primary-cta:visited {
+  background-color: var(--info) !important;
+  color: white !important;
+  text-decoration: none !important;
 }
 
 .btn-primary-cta:hover {
-  background-color: #1d4ed8;
+  background-color: #1d4ed8 !important;
+  color: white !important;
   box-shadow: var(--shadow-sm);
+  text-decoration: none !important;
 }
 
 .btn-primary-cta:active {
   transform: translateY(1px);
+  background-color: #1d4ed8 !important;
+  color: white !important;
 }
 
 /* Mobile CTA Button */
 .btn-primary-cta--mobile {
   width: 100%;
   margin-top: var(--spacing-sm);
+}
+
+/* Header-scoped CTA - Additional specificity to override global styles */
+.enterprise-top-header .btn-primary-cta {
+  background-color: var(--info) !important;
+  color: white !important;
+}
+
+.enterprise-top-header .btn-primary-cta:hover {
+  background-color: #1d4ed8 !important;
+  color: white !important;
+}
+
+.enterprise-top-header__action .btn-primary-cta {
+  background-color: var(--info) !important;
+  color: white !important;
+}
+
+.enterprise-top-header__action .btn-primary-cta:hover {
+  background-color: #1d4ed8 !important;
+  color: white !important;
 }
 
 /* Admin Section */
