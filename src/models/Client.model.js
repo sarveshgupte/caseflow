@@ -545,7 +545,7 @@ clientSchema.index({ isActive: 1 });
 clientSchema.index({ isSystemClient: 1 });
 clientSchema.index({ businessName: 1 });
 clientSchema.index({ createdByXid: 1 }); // CANONICAL - xID-based creator queries
-clientSchema.index({ firmId: 1 }); // Multi-tenancy queries
+// REMOVED: { firmId: 1 } - redundant with compound indexes above
 clientSchema.index({ firmId: 1, status: 1 }); // Firm-scoped status queries
 // Enforce one internal client per firm - critical for firm onboarding integrity
 clientSchema.index({ firmId: 1, isInternal: 1 }, { 

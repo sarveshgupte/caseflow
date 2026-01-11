@@ -99,7 +99,7 @@ taskSchema.index({ status: 1, priority: -1 });
 taskSchema.index({ assignedTo: 1, status: 1 });
 taskSchema.index({ case: 1 });
 taskSchema.index({ dueDate: 1 });
-taskSchema.index({ firmId: 1 }); // Multi-tenancy queries
+// REMOVED: { firmId: 1 } - redundant with compound index (firmId, status) below
 taskSchema.index({ firmId: 1, status: 1 }); // Firm-scoped status queries
 
 // Pre-save middleware to track status changes

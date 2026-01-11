@@ -120,4 +120,24 @@ const firmSchema = new mongoose.Schema({
 // Note: firmId and firmSlug already have unique indexes from schema definition
 firmSchema.index({ status: 1 });
 
+/**
+ * PRE-SAVE HOOK: Enforce firm hierarchy guardrails
+ * 
+ * Prevents saving firms in COMPLETED status without defaultClientId
+ * This guardrail ensures data integrity and prevents incomplete firm hierarchies
+ */
+firmSchema.pre('save', function(next) {
+  // GUARDRAIL: Firm with COMPLETED bootstrap must have defaultClientId
+  if (this.bootstrapStatus === 'COMPLETED' && !this.defaultClientId) {
+    const error = new Error(
+      'Cannot mark firm as COMPLETED without defaultClientId. ' +
+      'Firm hierarchy requires: Firm → Default Client → Admins'
+    );
+    error.name = 'ValidationError';
+    return next(error);
+  }
+  
+  next();
+});
+
 module.exports = mongoose.model('Firm', firmSchema);

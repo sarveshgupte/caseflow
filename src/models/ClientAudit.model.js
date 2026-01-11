@@ -159,7 +159,7 @@ clientAuditSchema.pre('findOneAndDelete', function(next) {
 clientAuditSchema.index({ clientId: 1, timestamp: -1 });
 clientAuditSchema.index({ performedByXID: 1 });
 clientAuditSchema.index({ actionType: 1 });
-clientAuditSchema.index({ firmId: 1 });
+// REMOVED: { firmId: 1 } - redundant with compound index (firmId, clientId) below
 clientAuditSchema.index({ firmId: 1, clientId: 1 }); // Firm-scoped client audits
 
 module.exports = mongoose.model('ClientAudit', clientAuditSchema);
