@@ -736,6 +736,16 @@ const changePassword = async (req, res) => {
     
     // Get user from authenticated request
     const user = req.user;
+
+    // Onboarding guard: changePassword is for onboarded users only
+    if (user.mustSetPassword) {
+      return res.status(403).json({
+        success: false,
+        code: 'PASSWORD_SETUP_REQUIRED',
+        mustSetPassword: true,
+        redirectPath: '/auth/set-password',
+      });
+    }
     
     // Verify current password
     const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
@@ -788,7 +798,6 @@ const changePassword = async (req, res) => {
     user.passwordLastChangedAt = new Date();
     user.passwordExpiresAt = new Date(Date.now() + PASSWORD_EXPIRY_DAYS * 24 * 60 * 60 * 1000); // Update expiry on password change
     user.mustChangePassword = false;
-    user.mustSetPassword = false;
     user.passwordSetAt = new Date();
     
     await user.save();

@@ -368,6 +368,16 @@ userSchema.pre('save', async function() {
   if (this.isModified('passwordSet')) {
     this.authProviders.local.passwordSet = this.passwordSet;
   }
+
+  // Keep onboarding flags in sync: mustSetPassword is authoritative
+  if (this.mustSetPassword) {
+    this.passwordSet = false;
+    if (this.passwordSetAt) {
+      this.passwordSetAt = null;
+    }
+  } else if (this.passwordSetAt) {
+    this.passwordSet = true;
+  }
 });
 
 // Indexes for performance
