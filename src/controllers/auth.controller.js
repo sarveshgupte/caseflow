@@ -665,12 +665,20 @@ const logout = async (req, res) => {
   try {
     // Get user from authenticated request
     const user = req.user;
+    const userId = user?._id;
+    const isSuperAdmin = typeof user?.role === 'string' && user.role.toUpperCase() === 'SUPERADMIN';
+    const isValidUserId = mongoose.Types.ObjectId.isValid(userId);
+    const shouldBypassUserDbUpdates = isSuperAdmin || !isValidUserId;
     
-    // Revoke all refresh tokens for this user
-    await RefreshToken.updateMany(
-      { userId: user._id, isRevoked: false },
-      { isRevoked: true }
-    );
+    // SUPERADMIN and other non-ObjectId principals don't have User documents
+    // Skip any userId-based DB writes to avoid CastError on logout
+    if (!shouldBypassUserDbUpdates) {
+      // Revoke all refresh tokens for this user
+      await RefreshToken.updateMany(
+        { userId: user._id, isRevoked: false },
+        { isRevoked: true }
+      );
+    }
 
     const secureCookies = process.env.NODE_ENV === 'production';
     res.clearCookie('accessToken', { httpOnly: true, secure: secureCookies, sameSite: 'lax', path: '/' });
@@ -678,16 +686,18 @@ const logout = async (req, res) => {
     
     // Log logout (non-blocking)
     try {
-      await AuthAudit.create({
-        xID: user.xID,
-        firmId: user.firmId || DEFAULT_FIRM_ID,
-        userId: user._id,
-        actionType: 'Logout',
-        description: `User logged out`,
-        performedBy: user.xID,
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-      });
+      if (!shouldBypassUserDbUpdates) {
+        await AuthAudit.create({
+          xID: user.xID,
+          firmId: user.firmId || DEFAULT_FIRM_ID,
+          userId: user._id,
+          actionType: 'Logout',
+          description: `User logged out`,
+          performedBy: user.xID,
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        });
+      }
     } catch (auditError) {
       console.error('[AUTH AUDIT] Failed to record logout event', auditError);
     }
