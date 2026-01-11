@@ -9,7 +9,7 @@ import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
 import { authService } from '../services/authService';
-import { APP_NAME } from '../utils/constants';
+import { API_BASE_URL, APP_NAME } from '../utils/constants';
 import './SetPasswordPage.css';
 
 export const SetPasswordPage = () => {
@@ -98,6 +98,10 @@ export const SetPasswordPage = () => {
     }
   };
 
+  const handleGoogleLogin = () => {
+    window.location.href = `${API_BASE_URL}/auth/google`;
+  };
+
   if (success) {
     return (
       <div className="set-password-page">
@@ -119,6 +123,18 @@ export const SetPasswordPage = () => {
           <h1>Set Your Password</h1>
           <p className="text-secondary">
             Welcome to {APP_NAME}! Please set your password to activate your account.
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            fullWidth
+            style={{ marginTop: '1rem' }}
+            onClick={handleGoogleLogin}
+          >
+            Continue with Google
+          </Button>
+          <p className="text-secondary" style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
+            You can use your invited email with Google Sign-In. No new accounts will be created.
           </p>
         </div>
 

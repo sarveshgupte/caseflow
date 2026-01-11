@@ -43,3 +43,13 @@
   color: var(--color-primary-dark);
   text-decoration: underline;
 }
+
+.google-button {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #1a202c;
+}
+
+.google-button:hover {
+  background: #f7fafc;
+}

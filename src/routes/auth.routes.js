@@ -17,11 +17,13 @@ const {
   setPassword,
   resetPasswordWithToken,
   updateUserStatus,
-  unlockAccount,
-  forgotPassword,
-  getAllUsers,
-  refreshAccessToken, // NEW: JWT token refresh
-} = require('../controllers/auth.controller');
+   unlockAccount,
+   forgotPassword,
+   getAllUsers,
+   refreshAccessToken, // NEW: JWT token refresh
+   initiateGoogleAuth,
+   handleGoogleCallback,
+ } = require('../controllers/auth.controller');
 
 /**
  * Authentication and User Management Routes
@@ -38,6 +40,8 @@ router.post('/set-password', authLimiter, setPassword);
 router.post('/reset-password-with-token', authLimiter, resetPasswordWithToken);
 router.post('/forgot-password', authLimiter, forgotPassword);
 router.post('/refresh', refreshAccessToken); // NEW: JWT token refresh
+router.get('/google', authLimiter, initiateGoogleAuth);
+router.get('/google/callback', authLimiter, handleGoogleCallback);
 
 // Protected authentication endpoints - require authentication
 router.post('/logout', authenticate, logout);

@@ -11,7 +11,7 @@ import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { validateXID, validatePassword } from '../utils/validators';
-import { USER_ROLES } from '../utils/constants';
+import { API_BASE_URL, USER_ROLES } from '../utils/constants';
 import api from '../services/api';
 import './LoginPage.css';
 
@@ -127,6 +127,11 @@ export const FirmLoginPage = () => {
     }
   };
 
+  const handleGoogleLogin = () => {
+    const url = `${API_BASE_URL}/auth/google${firmSlug ? `?firmSlug=${encodeURIComponent(firmSlug)}` : ''}`;
+    window.location.href = url;
+  };
+
   if (firmLoading) {
     return (
       <div className="login-page">
@@ -209,6 +214,20 @@ export const FirmLoginPage = () => {
             {loading ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>
+
+        <div style={{ margin: '1rem 0', textAlign: 'center', color: '#A0AEC0', fontSize: '0.875rem' }}>
+          <span>or</span>
+        </div>
+
+        <Button 
+          type="button" 
+          fullWidth 
+          variant="secondary" 
+          onClick={handleGoogleLogin}
+          className="google-button"
+        >
+          Continue with Google
+        </Button>
 
         <div className="login-footer">
           <Link to="/forgot-password" className="link">

@@ -26,6 +26,7 @@ import { FirmsManagement } from './pages/FirmsManagement';
 import { ReportsDashboard } from './pages/reports/ReportsDashboard';
 import { DetailedReports } from './pages/reports/DetailedReports';
 import { FilteredCasesPage } from './pages/FilteredCasesPage';
+import { GoogleCallbackPage } from './pages/GoogleCallbackPage';
 
 export const Router = () => {
   return (
@@ -38,6 +39,7 @@ export const Router = () => {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route path="/set-password" element={<SetPasswordPage />} />
+          <Route path="/google-callback" element={<GoogleCallbackPage />} />
           
           {/* SuperAdmin Routes - NOT firm-scoped */}
           <Route

@@ -111,6 +111,22 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+
+  /**
+   * Authentication providers
+   * LOCAL: password-based auth (authoritative for SuperAdmin and platform users)
+   * GOOGLE: OAuth-based auth (invite-only, DB-backed users only)
+   */
+  authProviders: {
+    local: {
+      passwordHash: { type: String, default: null },
+      passwordSet: { type: Boolean, default: false },
+    },
+    google: {
+      googleId: { type: String, default: null },
+      linkedAt: { type: Date, default: null },
+    }
+  },
   
   // Bcrypt hashed password - null until user sets password via email link
   passwordHash: {
@@ -321,10 +337,24 @@ userSchema.pre('save', async function() {
     const error = new Error(
       'Cannot save Admin user without defaultClientId. ' +
       'Admin users must be scoped to their firm\'s default client. ' +
-      'Firm hierarchy requires: Firm → Default Client → Admins'
+       'Firm hierarchy requires: Firm → Default Client → Admins'
     );
     error.name = 'ValidationError';
     throw error;
+  }
+
+  // Keep authProviders.local in sync with legacy password fields
+  if (!this.authProviders) {
+    this.authProviders = { local: {}, google: {} };
+  }
+  if (!this.authProviders.local) {
+    this.authProviders.local = {};
+  }
+  if (this.isModified('passwordHash')) {
+    this.authProviders.local.passwordHash = this.passwordHash;
+  }
+  if (this.isModified('passwordSet')) {
+    this.authProviders.local.passwordSet = this.passwordSet;
   }
 });
 
@@ -340,6 +370,7 @@ userSchema.index({ role: 1 });
 userSchema.index({ status: 1 });
 // REMOVED: { firmId: 1 } - redundant with compound index (firmId, xID) above
 userSchema.index({ firmId: 1, role: 1 }); // Firm-scoped role queries
+userSchema.index({ 'authProviders.google.googleId': 1 }, { unique: true, sparse: true }); // One Google account -> one user
 
 // Virtual property to check if account is locked
 userSchema.virtual('isLocked').get(function() {

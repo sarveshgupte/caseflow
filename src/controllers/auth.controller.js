@@ -1,5 +1,8 @@
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const { google } = require('googleapis');
 const User = require('../models/User.model');
 const Firm = require('../models/Firm.model');
 const UserProfile = require('../models/UserProfile.model');
@@ -25,6 +28,101 @@ const PASSWORD_SETUP_TOKEN_EXPIRY_HOURS = 24; // 24 hours for password reset tok
 const FORGOT_PASSWORD_TOKEN_EXPIRY_MINUTES = 30; // 30 minutes for forgot password tokens
 const DEFAULT_FIRM_ID = 'PLATFORM'; // Default firmId for SUPER_ADMIN and audit logging
 const DEFAULT_XID = 'SUPERADMIN'; // Default xID for SUPER_ADMIN in audit logs
+const GOOGLE_SCOPES = ['openid', 'email'];
+const GOOGLE_STATE_TTL_SECONDS = 10 * 60; // 10 minutes
+
+/**
+ * Google OAuth client factory (Authorization Code Flow)
+ */
+const getGoogleOAuthClient = () => {
+  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL } = process.env;
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_CALLBACK_URL) {
+    throw new Error('Google OAuth is not configured');
+  }
+
+  return new google.auth.OAuth2(
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET,
+    GOOGLE_CALLBACK_URL
+  );
+};
+
+/**
+ * Create signed, expiring OAuth state token for CSRF protection
+ */
+const createOAuthState = (payload = {}) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured for OAuth state signing');
+  }
+
+  return jwt.sign(
+    {
+      nonce: crypto.randomBytes(16).toString('hex'),
+      ...payload,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: GOOGLE_STATE_TTL_SECONDS }
+  );
+};
+
+/**
+ * Verify OAuth state token
+ */
+const verifyOAuthState = (stateToken) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured for OAuth state verification');
+  }
+
+  return jwt.verify(stateToken, process.env.JWT_SECRET);
+};
+
+/**
+ * Build tokens + audit entry for successful login
+ */
+const buildTokenResponse = async (user, req, authMethod = 'Password') => {
+  const accessToken = jwtService.generateAccessToken({
+    userId: user._id.toString(),
+    firmId: user.firmId ? user.firmId.toString() : undefined,
+    role: user.role,
+  });
+
+  const refreshToken = jwtService.generateRefreshToken();
+  const refreshTokenHash = jwtService.hashRefreshToken(refreshToken);
+
+  await RefreshToken.create({
+    tokenHash: refreshTokenHash,
+    userId: user._id,
+    firmId: user.firmId || null,
+    expiresAt: jwtService.getRefreshTokenExpiry(),
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+  });
+
+  let firmSlug = null;
+  if (user.firmId) {
+    const firm = await Firm.findOne({ _id: user.firmId });
+    if (firm) {
+      firmSlug = firm.firmSlug;
+    }
+  }
+
+  try {
+    await AuthAudit.create({
+      xID: user.xID || DEFAULT_XID,
+      firmId: user.firmId || DEFAULT_FIRM_ID,
+      userId: user._id,
+      actionType: 'Login',
+      description: `User logged in via ${authMethod}`,
+      performedBy: user.xID,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+  } catch (auditError) {
+    console.error('[AUTH AUDIT] Failed to record login event', auditError);
+  }
+
+  return { accessToken, refreshToken, firmSlug };
+};
 
 /**
  * Login with xID and password
@@ -2057,6 +2155,228 @@ const refreshAccessToken = async (req, res) => {
   }
 };
 
+/**
+ * Initiate Google OAuth (invite-only, DB-backed users only)
+ * GET /api/auth/google
+ */
+const initiateGoogleAuth = (req, res) => {
+  try {
+    const oauthClient = getGoogleOAuthClient();
+    const { firmSlug, flow } = req.query;
+
+    const state = createOAuthState({
+      firmSlug: firmSlug || null,
+      flow: flow || 'login',
+    });
+
+    const authUrl = oauthClient.generateAuthUrl({
+      access_type: 'offline',
+      prompt: 'select_account',
+      scope: GOOGLE_SCOPES,
+      state,
+    });
+
+    return res.redirect(authUrl);
+  } catch (error) {
+    console.error('[AUTH] Google OAuth initiation failed:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Google OAuth is not configured. Please use password login.',
+    });
+  }
+};
+
+/**
+ * Google OAuth callback (Authorization Code flow)
+ * GET /api/auth/google/callback
+ */
+const handleGoogleCallback = async (req, res) => {
+  try {
+    const { code, state } = req.query;
+
+    if (!code || !state) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing authorization code or state',
+      });
+    }
+
+    let statePayload;
+    try {
+      statePayload = verifyOAuthState(state);
+    } catch (stateError) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OAuth state',
+      });
+    }
+
+    const oauthClient = getGoogleOAuthClient();
+    const { tokens } = await oauthClient.getToken(code);
+
+    if (!tokens?.id_token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to exchange authorization code',
+      });
+    }
+
+    const ticket = await oauthClient.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload() || {};
+    const email = payload.email ? payload.email.toLowerCase() : null;
+    const googleId = payload.sub;
+    const emailVerified = payload.email_verified !== false; // treat undefined as true
+
+    if (!email || !googleId || !emailVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Google account not eligible for login',
+      });
+    }
+
+    // Resolution step 1: existing linked Google account
+    let user = await User.findOne({ 'authProviders.google.googleId': googleId });
+    let linkedDuringRequest = false;
+
+    // Resolution step 2: match by email (invite-only, role limited)
+    if (!user) {
+      const candidate = await User.findOne({ email });
+      if (
+        candidate &&
+        ['Admin', 'Employee'].includes(candidate.role) &&
+        candidate.isActive !== false &&
+        candidate.status !== 'DISABLED'
+      ) {
+        candidate.authProviders = candidate.authProviders || {};
+        candidate.authProviders.google = candidate.authProviders.google || {};
+        candidate.authProviders.google.googleId = googleId;
+        candidate.authProviders.google.linkedAt = new Date();
+        candidate.status = 'ACTIVE'; // activate invited account on first Google login
+        candidate.mustChangePassword = false;
+        candidate.forcePasswordReset = false;
+        await candidate.save();
+        user = candidate;
+        linkedDuringRequest = true;
+      }
+    }
+
+    // Resolution step 3: reject external users
+    if (!user) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Account is not invited.',
+      });
+    }
+
+    // Guardrails: SuperAdmin cannot use Google auth
+    if (user.role === 'SUPER_ADMIN' || user.xID === process.env.SUPERADMIN_XID) {
+      return res.status(403).json({
+        success: false,
+        message: 'SuperAdmin accounts must use password login',
+      });
+    }
+
+    // Account state checks
+    if (!user.isActive || user.status === 'DISABLED') {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is not active. Contact your administrator.',
+      });
+    }
+
+    if (user.status && user.status !== 'ACTIVE') {
+      return res.status(403).json({
+        success: false,
+        message: 'Please activate your account before using Google login.',
+      });
+    }
+
+    if (user.isLocked) {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is locked. Please try again later or contact an administrator.',
+        lockedUntil: user.lockUntil,
+      });
+    }
+
+    // Admin firm bootstrapping + default client guardrails
+    if (user.role === 'Admin') {
+      if (!user.firmId) {
+        return res.status(500).json({
+          success: false,
+          message: 'Account configuration error. Please contact administrator.',
+        });
+      }
+
+      try {
+        const firm = await Firm.findById(user.firmId);
+        if (firm && firm.bootstrapStatus !== 'COMPLETED') {
+          return res.status(403).json({
+            success: false,
+            message: 'Firm setup incomplete. Please contact support.',
+            bootstrapStatus: firm.bootstrapStatus,
+          });
+        }
+
+        if (!user.defaultClientId) {
+          if (firm && firm.defaultClientId && firm.bootstrapStatus === 'COMPLETED') {
+            await User.updateOne(
+              { _id: user._id },
+              { $set: { defaultClientId: firm.defaultClientId } }
+            );
+            user.defaultClientId = firm.defaultClientId;
+          } else {
+            return res.status(500).json({
+              success: false,
+              message: 'Account configuration error. Please contact administrator.',
+            });
+          }
+        }
+      } catch (firmError) {
+        console.error('[AUTH] Error validating admin firm for Google login:', firmError.message);
+        return res.status(500).json({
+          success: false,
+          message: 'Account configuration error. Please contact administrator.',
+        });
+      }
+    }
+
+    // Build tokens + audit
+    const { accessToken, refreshToken, firmSlug: resolvedSlug } = await buildTokenResponse(
+      user,
+      req,
+      linkedDuringRequest ? 'GoogleOAuthLink' : 'GoogleOAuth'
+    );
+
+    const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const redirectUrl = new URL('/google-callback', frontendBase);
+    redirectUrl.searchParams.set('accessToken', accessToken);
+    redirectUrl.searchParams.set('refreshToken', refreshToken);
+    redirectUrl.searchParams.set('xID', user.xID);
+    redirectUrl.searchParams.set('role', user.role);
+    redirectUrl.searchParams.set('name', user.name);
+    redirectUrl.searchParams.set('email', user.email);
+
+    const firmSlugFromState = statePayload?.firmSlug;
+    const finalFirmSlug = firmSlugFromState || resolvedSlug || null;
+    if (finalFirmSlug) {
+      redirectUrl.searchParams.set('firmSlug', finalFirmSlug);
+    }
+
+    return res.redirect(redirectUrl.toString());
+  } catch (error) {
+    console.error('[AUTH] Google OAuth callback error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Google login failed',
+    });
+  }
+};
+
 module.exports = {
   login,
   logout,
@@ -2075,4 +2395,6 @@ module.exports = {
   forgotPassword,
   getAllUsers,
   refreshAccessToken, // NEW: JWT token refresh
+  initiateGoogleAuth,
+  handleGoogleCallback,
 };
