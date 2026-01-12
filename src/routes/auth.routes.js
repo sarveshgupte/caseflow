@@ -57,8 +57,8 @@ router.post('/logout', authenticate, logout);
 router.post('/change-password', authenticate, changePassword);
 
 // Profile endpoints - require authentication
-router.get('/profile', detectProfileLoop, authenticate, getProfile);
-router.put('/profile', authenticate, updateProfile);
+router.get('/profile', authLimiter, detectProfileLoop, authenticate, getProfile);
+router.put('/profile', authLimiter, authenticate, updateProfile);
 
 // Admin-only endpoints - require authentication and admin role
 router.post('/reset-password', authenticate, requireAdmin, resetPassword);
