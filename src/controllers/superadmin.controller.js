@@ -228,41 +228,48 @@ const createFirm = async (req, res) => {
     console.log(`[FIRM_CREATE] ✓ Firm defaultClientId linked: ${defaultClient._id}`);
     
     // ============================================================
-    // STEP 4: Create Admin User (linked to default client)
+// STEP 4: Create Admin User (linked to default client)
+// ============================================================
+const xIDGenerator = require('../services/xIDGenerator');
+const adminXID = await xIDGenerator.generateNextXID(firm._id, session);
+
+// Generate password setup token
+const setupToken = crypto.randomBytes(32).toString('hex');
+const setupTokenHash = crypto
+  .createHash('sha256')
+  .update(setupToken)
+  .digest('hex');
+const setupExpires = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+
+const adminUser = new User({
+  xID: adminXID,
+  name: adminName.trim(),
+  email: adminEmail.toLowerCase(),
+  firmId: firm._id,
+  defaultClientId: defaultClient._id, // MUST align with firm default client
+  role: 'Admin',
+  status: 'INVITED',
+  isActive: true,
+  isSystem: true,
+  passwordSet: false,
+
+  // 🔒 First-login enforcement
+  mustSetPassword: true,
+  passwordSetAt: null,
+
+  mustChangePassword: true,
+  passwordSetupTokenHash: setupTokenHash,
+  passwordSetupExpires: setupExpires,
+  inviteSentAt: new Date(),
+});
+
+await adminUser.save({ session });
+console.log(
+  `[FIRM_CREATE] ✓ Admin user created and linked to default client: ${adminXID}`
+);
+
     // ============================================================
-    const xIDGenerator = require('../services/xIDGenerator');
-    const adminXID = await xIDGenerator.generateNextXID(firm._id, session);
-    const crypto = require('crypto');
-    const setupToken = crypto.randomBytes(32).toString('hex');
-    const setupTokenHash = crypto.createHash('sha256').update(setupToken).digest('hex');
-    const setupExpires = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
-    
-    const adminUser = new User({
-      xID: adminXID,
-      name: adminName.trim(),
-      email: adminEmail.toLowerCase(),
-      firmId: firm._id, // Link to firm
-      defaultClientId: defaultClient._id, // Link to default client immediately
-      role: 'Admin',
-      status: 'INVITED',
-      isActive: true,
-      isSystem: true, // Mark as system user - cannot be deleted or deactivated
-      passwordSet: false,
-      mustSetPassword: true,
-      mustChangePassword: true,
-      passwordSetupTokenHash: setupTokenHash,
-      passwordSetupExpires: setupExpires,
-      inviteSentAt: new Date(),
-      passwordSetAt: null,
-    });
-    
-    await adminUser.save({ session });
-    console.log(`[FIRM_CREATE] ✓ Admin user created with defaultClientId linked: ${adminXID}`);
-    
-    const updatedAdminUser = adminUser;
-    
-    // ============================================================
-    // STEP 6: Mark Firm bootstrapStatus = COMPLETED
+    // STEP 5: Mark Firm bootstrapStatus = COMPLETED
     // ============================================================
     // PR-2: Bootstrap complete - firm is now fully operational
     firm.bootstrapStatus = 'COMPLETED';
@@ -353,14 +360,14 @@ const createFirm = async (req, res) => {
           businessName: defaultClient.businessName,
           isSystemClient: defaultClient.isSystemClient,
         },
-        defaultAdmin: {
-          _id: updatedAdminUser._id,
-          xID: updatedAdminUser.xID,
-          name: updatedAdminUser.name,
-          email: updatedAdminUser.email,
-          role: updatedAdminUser.role,
-          status: updatedAdminUser.status,
-          defaultClientId: updatedAdminUser.defaultClientId, // PR-2: Include linked defaultClientId
+          defaultAdmin: {
+            _id: adminUser._id,
+            xID: adminUser.xID,
+            name: adminUser.name,
+            email: adminUser.email,
+            role: adminUser.role,
+            status: adminUser.status,
+            defaultClientId: adminUser.defaultClientId, // PR-2: Include linked defaultClientId
         },
       },
     });

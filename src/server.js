@@ -8,6 +8,38 @@ const path = require('path');
 const connectDB = require('./config/database');
 const config = require('./config/config');
 const { runBootstrap } = require('./services/bootstrap.service');
+const { maskSensitiveObject, sanitizeErrorForLog } = require('./utils/pii');
+
+// Global error log sanitizer: ensure every console.error invocation masks PII (tokens, emails, phone numbers, auth headers).
+// This preserves existing logging behavior/verbosity while enforcing centralized masking via maskSensitiveObject.
+// The original logger is retained at console.error.original for debugging tools that need raw access.
+let piiSafeErrorApplied = false;
+const applyPIISafeConsoleError = () => {
+  if (piiSafeErrorApplied) return;
+  const originalConsoleError = console.error;
+  const maskLogArg = (arg, seen) => {
+    if (arg instanceof Error) {
+      return sanitizeErrorForLog(arg);
+    }
+    if (Array.isArray(arg)) {
+      return maskSensitiveObject(arg, seen);
+    }
+    if (arg && typeof arg === 'object') {
+      return maskSensitiveObject(arg, seen);
+    }
+    return arg;
+  };
+  const piiSafeError = (...args) => {
+    const seen = new WeakSet();
+    const maskedArgs = args.map((arg) => maskLogArg(arg, seen));
+    originalConsoleError(...maskedArgs);
+  };
+  piiSafeError.original = originalConsoleError;
+  console.error = piiSafeError;
+  piiSafeErrorApplied = true;
+};
+
+applyPIISafeConsoleError();
 
 // Middleware
 const requestLogger = require('./middleware/requestLogger');
@@ -244,9 +276,10 @@ const server = app.listen(PORT, () => {
   `);
 });
 
-// Handle unhandled promise rejections
+// Handle unhandled promise rejections (mask to prevent PII leakage in logs)
 process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Promise Rejection:', err);
+  const sanitizedError = sanitizeErrorForLog(err);
+  console.error('Unhandled Promise Rejection:', sanitizedError);
   server.close(() => process.exit(1));
 });
 

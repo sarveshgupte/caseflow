@@ -103,6 +103,23 @@ const maskSensitiveObject = (input, seen = new WeakSet()) => {
   }, {});
 };
 
+const sanitizeErrorForLog = (error) => {
+  if (!error) return error;
+  const base = {
+    name: error.name,
+    message: error.message,
+    stack: error.stack,
+  };
+  const serialized = Object.getOwnPropertyNames(error).reduce((acc, key) => {
+    acc[key] = error[key];
+    return acc;
+  }, base);
+  const seen = new WeakSet();
+  return maskSensitiveObject({
+    ...serialized,
+  }, seen);
+};
+
 module.exports = {
   maskEmail,
   maskPhone,
@@ -111,4 +128,5 @@ module.exports = {
   maskToken,
   maskSensitiveObject,
   maskValue,
+  sanitizeErrorForLog,
 };

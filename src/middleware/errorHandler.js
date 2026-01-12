@@ -4,6 +4,7 @@
  */
 
 const errorHandler = (err, req, res, next) => {
+  // Logging sanitization is handled centrally by the global console.error override to avoid double-masking.
   console.error('Error:', err);
   
   // Mongoose validation error

@@ -47,28 +47,7 @@ async function createTestFirmStaged(firmNumber) {
     await firm.save({ session });
     console.log(`[TEST] ✓ Firm created in PENDING state: ${firmId}`);
     
-    // Step 2: Create Admin User with defaultClientId=null
-    const adminXID = await generateNextXID(firm._id, session);
-    console.log(`[TEST] Generated adminXID: ${adminXID}`);
-    
-    const adminUser = new User({
-      xID: adminXID,
-      name: `Test Admin ${firmNumber}`,
-      email: `testadmin${firmNumber}@test.com`,
-      firmId: firm._id,
-      defaultClientId: null, // PR-2: Null initially
-      role: 'Admin',
-      status: 'INVITED',
-      isActive: true,
-      isSystem: true,
-      passwordSet: false,
-      mustChangePassword: true,
-    });
-    
-    await adminUser.save({ session });
-    console.log(`[TEST] ✓ Admin user created with defaultClientId=null: ${adminXID}`);
-    
-    // Step 3: Create Default Client
+    // Step 2: Create Default Client
     const clientId = await generateNextClientId(firm._id, session);
     console.log(`[TEST] Generated clientId: ${clientId}`);
     
@@ -91,20 +70,33 @@ async function createTestFirmStaged(firmNumber) {
     await defaultClient.save({ session });
     console.log(`[TEST] ✓ Default client created: ${clientId}`);
     
-    // Step 4: Link Firm → defaultClientId
+    // Step 3: Link Firm → defaultClientId
     firm.defaultClientId = defaultClient._id;
     await firm.save({ session });
     console.log(`[TEST] ✓ Firm defaultClientId linked`);
     
-    // Step 5: Link Admin → defaultClientId
-    await User.updateOne(
-      { _id: adminUser._id },
-      { $set: { defaultClientId: defaultClient._id } },
-      { session }
-    );
-    console.log(`[TEST] ✓ Admin defaultClientId linked`);
+    // Step 4: Create Admin User linked to default client
+    const adminXID = await generateNextXID(firm._id, session);
+    console.log(`[TEST] Generated adminXID: ${adminXID}`);
     
-    // Step 6: Mark Firm bootstrapStatus=COMPLETED
+    const adminUser = new User({
+      xID: adminXID,
+      name: `Test Admin ${firmNumber}`,
+      email: `testadmin${firmNumber}@test.com`,
+      firmId: firm._id,
+      defaultClientId: defaultClient._id,
+      role: 'Admin',
+      status: 'INVITED',
+      isActive: true,
+      isSystem: true,
+      passwordSet: false,
+      mustChangePassword: true,
+    });
+    
+    await adminUser.save({ session });
+    console.log(`[TEST] ✓ Admin user created with defaultClientId linked: ${adminXID}`);
+    
+    // Step 5: Mark Firm bootstrapStatus=COMPLETED
     firm.bootstrapStatus = 'COMPLETED';
     await firm.save({ session });
     console.log(`[TEST] ✓ Firm bootstrap completed`);
@@ -154,26 +146,7 @@ async function testPartialFailureRecovery() {
     await firm.save({ session });
     console.log(`[TEST] ✓ Firm created in PENDING state: ${firmId}`);
     
-    // Step 2: Create Admin User with defaultClientId=null
-    const adminXID = await generateNextXID(firm._id, session);
-    const adminUser = new User({
-      xID: adminXID,
-      name: `Test Admin 999`,
-      email: `testadmin999@test.com`,
-      firmId: firm._id,
-      defaultClientId: null,
-      role: 'Admin',
-      status: 'INVITED',
-      isActive: true,
-      isSystem: true,
-      passwordSet: false,
-      mustChangePassword: true,
-    });
-    
-    await adminUser.save({ session });
-    console.log(`[TEST] ✓ Admin user created with defaultClientId=null: ${adminXID}`);
-    
-    // SIMULATE FAILURE: Don't create client, don't link anything
+    // SIMULATE FAILURE: Don't create client or admin, don't link anything
     // Commit transaction in this incomplete state
     await session.commitTransaction();
     session.endSession();
@@ -189,9 +162,8 @@ async function testPartialFailureRecovery() {
       console.log(`[TEST]   (Recovery requires manual intervention for missing admin email)`);
       
       // Cleanup the incomplete firm
-      await Firm.deleteOne({ _id: firm._id });
-      await User.deleteOne({ _id: adminUser._id });
-      console.log(`[TEST] ✓ Cleaned up incomplete firm`);
+       await Firm.deleteOne({ _id: firm._id });
+       console.log(`[TEST] ✓ Cleaned up incomplete firm`);
       
       return true;
     } else {
