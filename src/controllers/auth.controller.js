@@ -612,6 +612,8 @@ const login = async (req, res) => {
     // Fetch firmSlug for firm-scoped routing
     const firmSlug = await getFirmSlug(user.firmId);
     
+    console.log(`[AUTH] Generating tokens for user ${user.xID}, firmId: ${user.firmId}, firmSlug: ${firmSlug}`);
+    
     // OBJECTIVE 2: Generate JWT access token with ALL firm context
     const accessToken = jwtService.generateAccessToken({
       userId: user._id.toString(),
@@ -662,10 +664,12 @@ const login = async (req, res) => {
       response.forcePasswordReset = true;
     }
     
-    res.json(response);
+    console.log(`[AUTH] Login successful for user ${user.xID}, sending response with tokens`);
+    
+    return res.json(response);
   } catch (error) {
     console.error('[AUTH] Login error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Error during login',
       error: error.message,
@@ -2499,11 +2503,15 @@ const handleGoogleCallback = async (req, res) => {
     }
 
     // Build tokens + audit
+    console.log(`[AUTH] Google OAuth - Generating tokens for user ${user.xID}, firmId: ${user.firmId}`);
+    
     const { accessToken, refreshToken, firmSlug: resolvedSlug } = await buildTokenResponse(
       user,
       req,
       linkedDuringRequest ? 'GoogleOAuthLink' : 'GoogleOAuth'
     );
+    
+    console.log(`[AUTH] Google OAuth - Tokens generated successfully for user ${user.xID}, firmSlug: ${resolvedSlug}`);
 
     const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
     const redirectUrl = new URL('/google-callback', frontendBase);
