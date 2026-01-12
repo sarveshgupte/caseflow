@@ -4,6 +4,7 @@
 
 import React, { createContext, useState, useEffect } from 'react';
 import { authService } from '../services/authService';
+import { STORAGE_KEYS } from '../utils/constants';
 
 export const AuthContext = createContext(null);
 
@@ -28,7 +29,11 @@ export const AuthProvider = ({ children }) => {
       try {
         const response = await authService.getProfile();
         if (response?.success && response.data) {
-          setUser(response.data);
+          const userData = response.data;
+          // Store user data to localStorage to prevent re-fetching on subsequent renders
+          localStorage.setItem(STORAGE_KEYS.X_ID, userData.xID || 'SUPERADMIN');
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+          setUser(userData);
           setIsAuthenticated(true);
         }
       } catch (err) {
