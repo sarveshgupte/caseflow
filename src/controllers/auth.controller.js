@@ -324,24 +324,10 @@ const login = async (req, res) => {
       }
     }
     
-    // PR-2: Check firm bootstrap status for Admin users
-    // Block login if firm bootstrap is not completed
-    if (user.role === 'Admin' && user.firmId) {
-      try {
-        const firm = await Firm.findById(user.firmId);
-        if (firm && firm.bootstrapStatus !== 'COMPLETED') {
-          console.warn(`[AUTH] Login blocked for ${user.xID} - firm bootstrap not completed (status: ${firm.bootstrapStatus})`);
-          return res.status(403).json({
-            success: false,
-            message: 'Firm setup incomplete. Please contact support.',
-            bootstrapStatus: firm.bootstrapStatus,
-          });
-        }
-      } catch (firmError) {
-        console.error(`[AUTH] Error checking firm bootstrap status:`, firmError.message);
-        // Continue - don't block login on lookup failure
-      }
-    }
+    // NOTE: Bootstrap status is NOT checked during login to prevent deadlock
+    // Admin users must be able to log in to complete firm setup
+    // Bootstrap enforcement is handled by route-level middleware (requireCompletedFirm)
+    // which blocks access to dashboard and data routes until bootstrap is complete
     
     // Validate Admin user has required fields (firmId and defaultClientId)
     if (user.role === ROLE_ADMIN) {
@@ -353,6 +339,8 @@ const login = async (req, res) => {
         });
       }
       
+      console.log(`[AUTH] Admin ${user.xID} validation - firmId: ${user.firmId}, defaultClientId: ${user.defaultClientId}`);
+      
       // PR-2: Backward compatibility - Auto-assign defaultClientId if missing
       if (!user.defaultClientId) {
         console.warn(`[AUTH] Admin user ${user.xID} missing defaultClientId - attempting auto-repair`);
@@ -361,8 +349,11 @@ const login = async (req, res) => {
           // Find firm and get its defaultClientId
           const firm = await Firm.findById(user.firmId);
           
-          if (firm && firm.defaultClientId && firm.bootstrapStatus === 'COMPLETED') {
+          console.log(`[AUTH] Firm lookup for auto-repair: ${firm ? `found, defaultClientId: ${firm.defaultClientId}` : 'not found'}`);
+          
+          if (firm && firm.defaultClientId) {
             // Auto-assign firm's defaultClientId to admin (persist to database)
+            // NOTE: No longer checks bootstrapStatus to prevent login deadlock
             await User.updateOne(
               { _id: user._id },
               { $set: { defaultClientId: firm.defaultClientId } }
@@ -612,6 +603,8 @@ const login = async (req, res) => {
     // Fetch firmSlug for firm-scoped routing
     const firmSlug = await getFirmSlug(user.firmId);
     
+    console.log(`[AUTH] Generating tokens for user ${user.xID}, firmId: ${user.firmId}, firmSlug: ${firmSlug}`);
+    
     // OBJECTIVE 2: Generate JWT access token with ALL firm context
     const accessToken = jwtService.generateAccessToken({
       userId: user._id.toString(),
@@ -662,10 +655,12 @@ const login = async (req, res) => {
       response.forcePasswordReset = true;
     }
     
-    res.json(response);
+    console.log(`[AUTH] Login successful for user ${user.xID}, sending response with user data and token references`);
+    
+    return res.json(response);
   } catch (error) {
     console.error('[AUTH] Login error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Error during login',
       error: error.message,
@@ -2459,30 +2454,36 @@ const handleGoogleCallback = async (req, res) => {
     // Admin firm bootstrapping + default client guardrails
     if (user.role === 'Admin') {
       if (!user.firmId) {
+        console.error(`[AUTH] Google OAuth - Admin user ${user.xID} missing firmId`);
         return res.status(500).json({
           success: false,
           message: 'Account configuration error. Please contact administrator.',
         });
       }
 
+      console.log(`[AUTH] Google OAuth - Admin ${user.xID} validation - firmId: ${user.firmId}, defaultClientId: ${user.defaultClientId}`);
+
       try {
         const firm = await Firm.findById(user.firmId);
-        if (firm && firm.bootstrapStatus !== 'COMPLETED') {
-          return res.status(403).json({
-            success: false,
-            message: 'Firm setup incomplete. Please contact support.',
-            bootstrapStatus: firm.bootstrapStatus,
-          });
-        }
+        
+        console.log(`[AUTH] Google OAuth - Firm lookup: ${firm ? `found, defaultClientId: ${firm.defaultClientId}` : 'not found'}`);
+        
+        // NOTE: Bootstrap status is NOT checked during login to prevent deadlock
+        // Admin users must be able to log in to complete firm setup
+        // Bootstrap enforcement is handled by route-level middleware
 
         if (!user.defaultClientId) {
-          if (firm && firm.defaultClientId && firm.bootstrapStatus === 'COMPLETED') {
+          console.warn(`[AUTH] Google OAuth - Admin user ${user.xID} missing defaultClientId - attempting auto-repair`);
+          
+          if (firm && firm.defaultClientId) {
             await User.updateOne(
               { _id: user._id },
               { $set: { defaultClientId: firm.defaultClientId } }
             );
             user.defaultClientId = firm.defaultClientId;
+            console.log(`[AUTH] Google OAuth - ✓ Persisted defaultClientId for admin ${user.xID}`);
           } else {
+            console.error(`[AUTH] Google OAuth - Admin user ${user.xID} missing defaultClientId - cannot auto-repair (firm not ready)`);
             return res.status(500).json({
               success: false,
               message: 'Account configuration error. Please contact administrator.',
@@ -2499,11 +2500,15 @@ const handleGoogleCallback = async (req, res) => {
     }
 
     // Build tokens + audit
+    console.log(`[AUTH] Google OAuth - Generating tokens for user ${user.xID}, firmId: ${user.firmId}`);
+    
     const { accessToken, refreshToken, firmSlug: resolvedSlug } = await buildTokenResponse(
       user,
       req,
       linkedDuringRequest ? 'GoogleOAuthLink' : 'GoogleOAuth'
     );
+    
+    console.log(`[AUTH] Google OAuth - Tokens generated successfully for user ${user.xID}, firmSlug: ${resolvedSlug}`);
 
     const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
     const redirectUrl = new URL('/google-callback', frontendBase);
