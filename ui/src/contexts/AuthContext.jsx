@@ -2,7 +2,7 @@
  * Authentication Context
  */
 
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useRef } from 'react';
 import { authService } from '../services/authService';
 import { STORAGE_KEYS } from '../utils/constants';
 
@@ -12,13 +12,14 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [profileLoaded, setProfileLoaded] = useState(false);
+  const profileLoadAttempted = useRef(false);
 
   useEffect(() => {
-    // Guard: Prevent multiple profile loads across remounts
-    if (profileLoaded) {
+    // Guard: Prevent multiple profile load attempts
+    if (profileLoadAttempted.current) {
       return;
     }
+    profileLoadAttempted.current = true;
 
     // Check if user is already logged in from localStorage
     const currentUser = authService.getCurrentUser();
@@ -28,7 +29,6 @@ export const AuthProvider = ({ children }) => {
       setUser(currentUser);
       setIsAuthenticated(true);
       setLoading(false);
-      setProfileLoaded(true);
       return;
     }
 
@@ -37,7 +37,6 @@ export const AuthProvider = ({ children }) => {
     if (!accessToken) {
       // No token, no user - just mark as done
       setLoading(false);
-      setProfileLoaded(true);
       return;
     }
 
@@ -57,12 +56,11 @@ export const AuthProvider = ({ children }) => {
         // ignore - user not authenticated
       } finally {
         setLoading(false);
-        setProfileLoaded(true);
       }
     };
 
     bootstrapFromCookie();
-  }, [profileLoaded]);
+  }, []); // Empty dependency - runs once on mount, ref guard prevents re-execution
 
   const login = async (xID, password) => {
     const response = await authService.login(xID, password);
@@ -90,7 +88,7 @@ export const AuthProvider = ({ children }) => {
       // Always clear client-side state
       setUser(null);
       setIsAuthenticated(false);
-      setProfileLoaded(false); // Reset guard to allow fresh login
+      profileLoadAttempted.current = false; // Reset guard to allow fresh login
       // Force clear localStorage in case service didn't
       localStorage.removeItem(STORAGE_KEYS.X_ID);
       localStorage.removeItem(STORAGE_KEYS.USER);
