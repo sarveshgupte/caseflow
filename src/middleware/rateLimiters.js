@@ -205,7 +205,7 @@ const userReadLimiter = createLimiter({
  * - POST /api/cases/:caseId/file
  * - POST /api/cases/:caseId/clone
  * 
- * Limit: 30 requests per minute per user+firm
+ * Limit: 10 requests per minute per user+firm (pilot safety hard cap)
  */
 const userWriteLimiter = createLimiter({
   windowMs: 60 * 1000, // 1 minute

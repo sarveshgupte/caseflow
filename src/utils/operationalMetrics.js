@@ -5,16 +5,20 @@ const metrics = {
   lastRateLimit: {},
 };
 
-const firmKey = (firmId) => firmId || 'none';
+const NO_FIRM_ID = 'NO_FIRM_ID';
+const firmKey = (firmId) => firmId || NO_FIRM_ID;
 const MAX_FIRM_TRACKING = 500;
 const firmOrder = [];
+const firmSet = new Set();
 
 const pruneIfNeeded = (key) => {
-  if (!firmOrder.includes(key)) {
+  if (!firmSet.has(key)) {
+    firmSet.add(key);
     firmOrder.push(key);
   }
   if (firmOrder.length > MAX_FIRM_TRACKING) {
     const oldest = firmOrder.shift();
+    firmSet.delete(oldest);
     delete metrics.requests[oldest];
     delete metrics.lastError[oldest];
     delete metrics.lastInvariant[oldest];
@@ -69,7 +73,7 @@ const getDashboardSnapshot = () => {
   ]);
 
   return Array.from(allFirmKeys).map((key) => ({
-    firmId: key === 'none' ? null : key,
+    firmId: key === NO_FIRM_ID ? null : key,
     totalRequests: metrics.requests[key] || 0,
     lastError: metrics.lastError[key] || null,
     lastInvariantViolation: metrics.lastInvariant[key] || null,

@@ -10,8 +10,11 @@ const invariantGuard = (rules = {}) => (req, res, next) => {
   const { requireFirm, forbidSuperAdmin } = rules;
   req.requestId = req.requestId || randomUUID();
 
-  const isSuperAdmin = req.isSuperAdmin ?? (req.user && req.user.role === 'SuperAdmin');
-  req.isSuperAdmin = isSuperAdmin;
+  const derivedSuperAdmin = req.isSuperAdmin ?? (req.user && req.user.role === 'SuperAdmin');
+  if (req.isSuperAdmin === undefined) {
+    req.isSuperAdmin = derivedSuperAdmin;
+  }
+  const isSuperAdmin = req.isSuperAdmin;
 
   if (requireFirm && !req.firmId) {
     const error = new Error('Invariant violated: firmId required');
