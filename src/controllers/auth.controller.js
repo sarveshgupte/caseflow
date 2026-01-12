@@ -329,13 +329,18 @@ const login = async (req, res) => {
     if (user.role === 'Admin' && user.firmId) {
       try {
         const firm = await Firm.findById(user.firmId);
-        if (firm && firm.bootstrapStatus !== 'COMPLETED') {
-          console.warn(`[AUTH] Login blocked for ${user.xID} - firm bootstrap not completed (status: ${firm.bootstrapStatus})`);
-          return res.status(403).json({
-            success: false,
-            message: 'Firm setup incomplete. Please contact support.',
-            bootstrapStatus: firm.bootstrapStatus,
-          });
+        if (firm) {
+          console.log(`[AUTH] Admin ${user.xID} firm bootstrap status: ${firm.bootstrapStatus}`);
+          if (firm.bootstrapStatus !== 'COMPLETED') {
+            console.warn(`[AUTH] Login blocked for ${user.xID} - firm bootstrap not completed (status: ${firm.bootstrapStatus})`);
+            return res.status(403).json({
+              success: false,
+              message: 'Firm setup incomplete. Please contact support.',
+              bootstrapStatus: firm.bootstrapStatus,
+            });
+          }
+        } else {
+          console.error(`[AUTH] Admin ${user.xID} has firmId ${user.firmId} but firm not found in database`);
         }
       } catch (firmError) {
         console.error(`[AUTH] Error checking firm bootstrap status:`, firmError.message);
@@ -353,6 +358,8 @@ const login = async (req, res) => {
         });
       }
       
+      console.log(`[AUTH] Admin ${user.xID} validation - firmId: ${user.firmId}, defaultClientId: ${user.defaultClientId}`);
+      
       // PR-2: Backward compatibility - Auto-assign defaultClientId if missing
       if (!user.defaultClientId) {
         console.warn(`[AUTH] Admin user ${user.xID} missing defaultClientId - attempting auto-repair`);
@@ -360,6 +367,8 @@ const login = async (req, res) => {
         try {
           // Find firm and get its defaultClientId
           const firm = await Firm.findById(user.firmId);
+          
+          console.log(`[AUTH] Firm lookup for auto-repair: ${firm ? `found, bootstrapStatus: ${firm.bootstrapStatus}, defaultClientId: ${firm.defaultClientId}` : 'not found'}`);
           
           if (firm && firm.defaultClientId && firm.bootstrapStatus === 'COMPLETED') {
             // Auto-assign firm's defaultClientId to admin (persist to database)
@@ -2463,15 +2472,22 @@ const handleGoogleCallback = async (req, res) => {
     // Admin firm bootstrapping + default client guardrails
     if (user.role === 'Admin') {
       if (!user.firmId) {
+        console.error(`[AUTH] Google OAuth - Admin user ${user.xID} missing firmId`);
         return res.status(500).json({
           success: false,
           message: 'Account configuration error. Please contact administrator.',
         });
       }
 
+      console.log(`[AUTH] Google OAuth - Admin ${user.xID} validation - firmId: ${user.firmId}, defaultClientId: ${user.defaultClientId}`);
+
       try {
         const firm = await Firm.findById(user.firmId);
+        
+        console.log(`[AUTH] Google OAuth - Firm lookup: ${firm ? `found, bootstrapStatus: ${firm.bootstrapStatus}, defaultClientId: ${firm.defaultClientId}` : 'not found'}`);
+        
         if (firm && firm.bootstrapStatus !== 'COMPLETED') {
+          console.warn(`[AUTH] Google OAuth - Login blocked for ${user.xID} - firm bootstrap not completed (status: ${firm.bootstrapStatus})`);
           return res.status(403).json({
             success: false,
             message: 'Firm setup incomplete. Please contact support.',
@@ -2480,13 +2496,17 @@ const handleGoogleCallback = async (req, res) => {
         }
 
         if (!user.defaultClientId) {
+          console.warn(`[AUTH] Google OAuth - Admin user ${user.xID} missing defaultClientId - attempting auto-repair`);
+          
           if (firm && firm.defaultClientId && firm.bootstrapStatus === 'COMPLETED') {
             await User.updateOne(
               { _id: user._id },
               { $set: { defaultClientId: firm.defaultClientId } }
             );
             user.defaultClientId = firm.defaultClientId;
+            console.log(`[AUTH] Google OAuth - ✓ Persisted defaultClientId for admin ${user.xID}`);
           } else {
+            console.error(`[AUTH] Google OAuth - Admin user ${user.xID} missing defaultClientId - cannot auto-repair (firm not ready)`);
             return res.status(500).json({
               success: false,
               message: 'Account configuration error. Please contact administrator.',
