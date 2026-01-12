@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+const { randomUUID } = require('crypto');
 const Case = require('../models/Case.model');
 const Comment = require('../models/Comment.model');
 const Attachment = require('../models/Attachment.model');
@@ -107,6 +109,10 @@ const checkCaseAccess = (caseData, user) => {
  * - Client case data stored in payload field
  */
 const createCase = async (req, res) => {
+  const requestId = req.requestId || randomUUID();
+  req.requestId = requestId;
+  let responseMeta = { requestId, firmId: req.user?.firmId || null };
+
   try {
     const {
       title,
@@ -130,6 +136,7 @@ const createCase = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Case title is required',
+        ...responseMeta,
       });
     }
     
@@ -137,6 +144,7 @@ const createCase = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Case description is required',
+        ...responseMeta,
       });
     }
     
@@ -144,6 +152,7 @@ const createCase = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Category is required',
+        ...responseMeta,
       });
     }
     
@@ -151,6 +160,7 @@ const createCase = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Subcategory is required',
+        ...responseMeta,
       });
     }
     
@@ -158,6 +168,7 @@ const createCase = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'SLA Due Date is required',
+        ...responseMeta,
       });
     }
     
@@ -168,6 +179,7 @@ const createCase = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Authentication required - user identity not found',
+        ...responseMeta,
       });
     }
     
@@ -179,6 +191,7 @@ const createCase = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Category not found or inactive',
+        ...responseMeta,
       });
     }
     
@@ -191,6 +204,7 @@ const createCase = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Subcategory not found or inactive',
+        ...responseMeta,
       });
     }
     
@@ -205,6 +219,7 @@ const createCase = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: `Client ${finalClientId} not found`,
+        ...responseMeta,
       });
     }
     
@@ -213,6 +228,7 @@ const createCase = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'This client is no longer active. Please contact your administrator to proceed.',
+        ...responseMeta,
       });
     }
     
@@ -254,6 +270,7 @@ const createCase = async (req, res) => {
                 matches: duplicateMatches,
               },
               hint: 'Set forceCreate=true to proceed anyway',
+              ...responseMeta,
             });
           }
           
@@ -266,84 +283,152 @@ const createCase = async (req, res) => {
     // Get firmId from authenticated user (PR 1: Multi-tenancy from auth context)
     // firmId is required - user must be assigned to a firm
     const firmId = req.user.firmId;
+    responseMeta = { requestId, firmId };
     
     if (!firmId) {
       return res.status(403).json({
         success: false,
         message: 'User must be assigned to a firm to create cases',
+        ...responseMeta,
       });
     }
     
-    // Create new case with defaults
-    const newCase = new Case({
-      title: title.trim(),
-      description: description.trim(),
-      categoryId,
-      subcategoryId,
-      category: actualCategory, // Legacy field
-      caseCategory: actualCategory,
-      caseSubCategory: subcategory.name,
-      clientId: finalClientId,
-      firmId, // PR 2: Explicitly set firmId for atomic counter scoping
-      createdByXID, // Set from authenticated user context
-      createdBy: req.user.email || req.user.xID, // Legacy field - use email or xID as fallback
-      priority: priority || 'Medium',
-      status: 'UNASSIGNED', // New cases default to UNASSIGNED for global worklist
-      assignedToXID: assignedTo ? assignedTo.toUpperCase() : null, // PR: xID Canonicalization - Store in assignedToXID
-      slaDueDate: new Date(slaDueDate), // Store SLA due date - MANDATORY
-      payload, // Store client case payload if provided
-    });
-    
-    await newCase.save();
-    
-    // Create case history entry with enhanced audit logging
-    const { logCaseHistory } = require('../services/auditLog.service');
-    const { CASE_ACTION_TYPES } = require('../config/constants');
-    
-    await logCaseHistory({
-      caseId: newCase.caseId,
-      firmId: newCase.firmId,
-      actionType: CASE_ACTION_TYPES.CASE_CREATED,
-      actionLabel: `Case created by ${req.user.name || req.user.xID}`,
-      description: `Case created with status: UNASSIGNED, Client: ${finalClientId}, Category: ${actualCategory}`,
-      performedBy: req.user.email,
-      performedByXID: createdByXID,
-      actorRole: req.user.role === 'Admin' ? 'ADMIN' : 'USER',
-      metadata: {
-        category: actualCategory,
+    const idempotencyKeyRaw = req.headers['idempotency-key'] || req.body.idempotencyKey;
+    const idempotencyKey = idempotencyKeyRaw ? idempotencyKeyRaw.toString().trim().toLowerCase() : null;
+
+    if (idempotencyKey) {
+      const existingCase = await Case.findOne({ firmId, idempotencyKey });
+      if (existingCase) {
+        console.warn(`[CASE_CREATE][${requestId}] Idempotent replay detected`, { firmId, caseId: existingCase.caseId });
+        return res.status(200).json({
+          success: true,
+          data: existingCase,
+          message: 'Case already exists for this idempotency key',
+          idempotent: true,
+          ...responseMeta,
+        });
+      }
+    }
+
+    const session = await mongoose.startSession();
+    try {
+      session.startTransaction();
+
+      // Create new case with defaults
+      const newCase = new Case({
+        title: title.trim(),
+        description: description.trim(),
+        categoryId,
+        subcategoryId,
+        category: actualCategory, // Legacy field
+        caseCategory: actualCategory,
+        caseSubCategory: subcategory.name,
         clientId: finalClientId,
+        firmId, // PR 2: Explicitly set firmId for atomic counter scoping
+        createdByXID, // Set from authenticated user context
+        createdBy: req.user.email || req.user.xID, // Legacy field - use email or xID as fallback
         priority: priority || 'Medium',
-        slaDueDate: newCase.slaDueDate,
-        assignedToXID: newCase.assignedToXID,
-        duplicateOverridden: !!systemComment,
-      },
-      req,
-    });
-    
-    // Add system comment if duplicate was overridden
-    if (systemComment) {
-      await Comment.create({
-        caseId: newCase.caseId,
-        text: systemComment,
-        createdBy: 'system',
-        note: 'Automated duplicate detection notice',
+        status: 'UNASSIGNED', // New cases default to UNASSIGNED for global worklist
+        assignedToXID: assignedTo ? assignedTo.toUpperCase() : null, // PR: xID Canonicalization - Store in assignedToXID
+        slaDueDate: new Date(slaDueDate), // Store SLA due date - MANDATORY
+        payload, // Store client case payload if provided
+        idempotencyKey: idempotencyKey || undefined,
       });
+      
+      await newCase.save({ session });
+      
+      // Create case history entry with enhanced audit logging
+      const { logCaseHistory } = require('../services/auditLog.service');
+      const { CASE_ACTION_TYPES } = require('../config/constants');
+      
+      const historyEntry = await logCaseHistory({
+        caseId: newCase.caseId,
+        firmId: newCase.firmId,
+        actionType: CASE_ACTION_TYPES.CASE_CREATED,
+        actionLabel: `Case created by ${req.user.name || req.user.xID}`,
+        description: `Case created with status: UNASSIGNED, Client: ${finalClientId}, Category: ${actualCategory}`,
+        performedBy: req.user.email,
+        performedByXID: createdByXID,
+        actorRole: req.user.role === 'Admin' ? 'ADMIN' : 'USER',
+        metadata: {
+          category: actualCategory,
+          clientId: finalClientId,
+          priority: priority || 'Medium',
+          slaDueDate: newCase.slaDueDate,
+          assignedToXID: newCase.assignedToXID,
+          duplicateOverridden: !!systemComment,
+        },
+        req,
+        session,
+      });
+      
+      // Add system comment if duplicate was overridden
+      if (systemComment) {
+        await Comment.create([{
+          caseId: newCase.caseId,
+          text: systemComment,
+          createdBy: 'system',
+          note: 'Automated duplicate detection notice',
+        }], { session });
+      }
+
+      await session.commitTransaction();
+      
+      return res.status(201).json({
+        success: true,
+        data: newCase,
+        message: 'Case created successfully',
+        duplicateWarning: systemComment ? {
+          message: 'Case created with duplicate warning',
+          matchCount: duplicateMatches.length,
+        } : null,
+        ...responseMeta,
+      });
+    } catch (error) {
+      await session.abortTransaction();
+
+      if (error?.code === 11000) {
+        console.error(`[CASE_CREATE][${requestId}] Duplicate key detected during case creation`, { firmId, error: error.message });
+        let existingCase = null;
+        if (idempotencyKey) {
+          existingCase = await Case.findOne({ firmId, idempotencyKey });
+          if (!existingCase) {
+            // Brief retry to handle concurrent commit visibility before responding idempotently
+            await new Promise((resolve) => setTimeout(resolve, 25));
+            existingCase = await Case.findOne({ firmId, idempotencyKey });
+          }
+        }
+        if (existingCase) {
+          return res.status(200).json({
+            success: true,
+            data: existingCase,
+            message: 'Case already exists for this idempotency key',
+            idempotent: true,
+            ...responseMeta,
+          });
+        }
+        return res.status(409).json({
+          success: false,
+          message: 'Duplicate case detected. No changes were applied.',
+          ...responseMeta,
+        });
+      }
+
+      return res.status(400).json({
+        success: false,
+        message: 'Error creating case',
+        error: error.message,
+        ...responseMeta,
+      });
+    } finally {
+      session.endSession();
     }
-    
-    res.status(201).json({
-      success: true,
-      data: newCase,
-      message: 'Case created successfully',
-      duplicateWarning: systemComment ? {
-        message: 'Case created with duplicate warning',
-        matchCount: duplicateMatches.length,
-      } : null,
-    });
   } catch (error) {
     res.status(400).json({
       success: false,
       message: 'Error creating case',
       error: error.message,
+      ...responseMeta,
     });
   }
 };

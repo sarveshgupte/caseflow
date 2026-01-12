@@ -73,18 +73,25 @@ const logCaseHistory = async ({
   performedByXID,
   actorRole,
   metadata = {},
-  req
+  req,
+  session
 }) => {
   try {
     // Validate required fields
     if (!caseId || !actionType || !description) {
       console.error('[AUDIT] Missing required fields for case history:', { caseId, actionType });
+      if (session) {
+        throw new Error('Missing required fields for case history');
+      }
       return null; // Don't throw - audit failures shouldn't block operations
     }
     
     // Validate firmId is provided
     if (!firmId) {
       console.error('[AUDIT] firmId is required for case history');
+      if (session) {
+        throw new Error('firmId is required for case history');
+      }
       return null; // Don't throw - audit failures shouldn't block operations
     }
     
@@ -107,10 +114,17 @@ const logCaseHistory = async ({
       historyEntry.userAgent = getUserAgent(req);
     }
 
-    const entry = await CaseHistory.create(historyEntry);
-    return entry;
+    if (session) {
+      const entry = await CaseHistory.create(historyEntry, { session });
+      return entry || null;
+    }
+
+    return await CaseHistory.create(historyEntry);
   } catch (error) {
     console.error('[AUDIT] Failed to create case history entry:', error.message);
+    if (session) {
+      throw error;
+    }
     // Don't throw - history logging is supplementary and must not block operations
     return null;
   }

@@ -115,6 +115,16 @@ const caseSchema = new mongoose.Schema({
   },
   
   /**
+   * Optional idempotency key to make case creation replay-safe
+   * Firm-scoped to prevent cross-tenant collisions
+   */
+  idempotencyKey: {
+    type: String,
+    trim: true,
+    lowercase: true,
+  },
+  
+  /**
    * Brief description of the case/matter
    * MANDATORY field - provides clear case identification
    */
@@ -783,6 +793,7 @@ caseSchema.index({ firmId: 1, caseInternalId: 1 });
 // MANDATORY: Firm-scoped unique indexes for display identifiers
 caseSchema.index({ firmId: 1, caseNumber: 1 }, { unique: true });
 caseSchema.index({ firmId: 1, caseName: 1 }, { unique: true });
+caseSchema.index({ firmId: 1, idempotencyKey: 1 }, { unique: true, sparse: true });
 
 // DEPRECATED: Backward compatibility - will be removed after transition
 caseSchema.index({ firmId: 1, caseId: 1 }, { sparse: true });

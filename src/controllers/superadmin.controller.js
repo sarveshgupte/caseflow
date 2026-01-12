@@ -81,6 +81,10 @@ const createFirm = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   
+  const requestId = req.requestId || crypto.randomUUID();
+  req.requestId = requestId;
+  let responseMeta = { requestId };
+
   try {
     const { name, adminName, adminEmail } = req.body;
     
@@ -91,6 +95,7 @@ const createFirm = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Firm name is required',
+        ...responseMeta,
       });
     }
     
@@ -100,6 +105,7 @@ const createFirm = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Admin name is required',
+        ...responseMeta,
       });
     }
     
@@ -109,6 +115,7 @@ const createFirm = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Admin email is required',
+        ...responseMeta,
       });
     }
     
@@ -120,6 +127,44 @@ const createFirm = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Invalid admin email format',
+        ...responseMeta,
+      });
+    }
+
+    const normalizedName = name.trim();
+    const firmSlugCandidate = slugify(normalizedName);
+    const existingFirm = await Firm.findOne({
+      $or: [
+        { firmSlug: firmSlugCandidate },
+        { name: normalizedName },
+      ],
+    }).session(session);
+
+    if (existingFirm) {
+      responseMeta = { requestId, firmId: existingFirm._id.toString() };
+      await session.abortTransaction();
+      session.endSession();
+      console.warn(`[FIRM_CREATE][${requestId}] Idempotent replay for firm creation`, {
+        firmId: existingFirm.firmId,
+        firmSlug: existingFirm.firmSlug,
+      });
+      return res.status(200).json({
+        success: true,
+        message: 'Firm already exists',
+        data: {
+          firm: {
+            _id: existingFirm._id,
+            firmId: existingFirm.firmId,
+            firmSlug: existingFirm.firmSlug,
+            name: existingFirm.name,
+            status: existingFirm.status,
+            bootstrapStatus: existingFirm.bootstrapStatus,
+            defaultClientId: existingFirm.defaultClientId,
+            createdAt: existingFirm.createdAt,
+          },
+        },
+        idempotent: true,
+        ...responseMeta,
       });
     }
     
@@ -131,6 +176,7 @@ const createFirm = async (req, res) => {
       return res.status(409).json({
         success: false,
         message: 'User with this email already exists',
+        ...responseMeta,
       });
     }
     
@@ -172,6 +218,7 @@ const createFirm = async (req, res) => {
     
     // Save firm first (without defaultClientId - will be set later)
     await firm.save({ session });
+    responseMeta = { requestId, firmId: firm._id.toString() };
     console.log(`[FIRM_CREATE] ✓ Firm created in PENDING state: ${firmId}`);
     console.log(`[FIRM_CREATE] Generated firmSlug: ${firmSlug}`);
     
@@ -195,6 +242,7 @@ const createFirm = async (req, res) => {
         success: false,
         message: 'Firm already has an internal client',
         existingClientId: existingInternalClient.clientId,
+        ...responseMeta,
       });
     }
     
@@ -409,6 +457,7 @@ console.log(
       message: 'Failed to create firm - transaction rolled back',
       error: error.message,
       failureStep,
+      ...responseMeta,
     });
   }
 };

@@ -1,3 +1,4 @@
+const { randomUUID } = require('crypto');
 const User = require('../models/User.model');
 
 /**
@@ -74,21 +75,60 @@ const getUserById = async (req, res) => {
  * Create new user
  */
 const createUser = async (req, res) => {
+  const requestId = req.requestId || randomUUID();
+  req.requestId = requestId;
+  const responseMeta = { requestId, firmId: req.user?.firmId || null };
+  const safeUser = (userDoc) => {
+    if (!userDoc) return null;
+    if (typeof userDoc.toSafeObject === 'function') {
+      return userDoc.toSafeObject();
+    }
+    return {
+      _id: userDoc._id,
+      name: userDoc.name,
+      email: userDoc.email,
+      role: userDoc.role,
+      firmId: userDoc.firmId,
+      defaultClientId: userDoc.defaultClientId,
+    };
+  };
+
   try {
     const { name, email, role } = req.body;
     
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) {
+    if (!email || !email.trim()) {
       return res.status(400).json({
         success: false,
-        error: 'User with this email already exists',
+        error: 'Email is required',
+        ...responseMeta,
+      });
+    }
+
+    // Check if user already exists
+    const normalizedEmail = email.toLowerCase();
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      if (role && existingUser.role !== role) {
+        return res.status(409).json({
+          success: false,
+          error: 'User with this email already exists with a different role',
+          existingRole: existingUser.role,
+          ...responseMeta,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: safeUser(existingUser),
+        message: 'User already exists',
+        idempotent: true,
+        ...responseMeta,
       });
     }
     
     const user = new User({
       name,
-      email,
+      email: normalizedEmail,
       role,
       createdBy: req.body.createdBy, // In real app, this comes from auth
     });
@@ -97,14 +137,16 @@ const createUser = async (req, res) => {
     
     res.status(201).json({
       success: true,
-      data: user.toSafeObject(),
+      data: safeUser(user),
       message: 'User created successfully',
+      ...responseMeta,
     });
   } catch (error) {
     res.status(400).json({
       success: false,
       error: 'Error creating user',
       message: error.message,
+      ...responseMeta,
     });
   }
 };
