@@ -81,18 +81,23 @@ const verifyOAuthState = (stateToken) => {
 };
 
 /**
+ * Helper: Fetch firm slug for a given firmId
+ * Reduces code duplication across auth functions
+ */
+const getFirmSlug = async (firmId) => {
+  if (!firmId) return null;
+  
+  const firm = await Firm.findOne({ _id: firmId });
+  return firm?.firmSlug || null;
+};
+
+/**
  * Build tokens + audit entry for successful login
  * OBJECTIVE 2: Ensure firm context (firmId, firmSlug, defaultClientId) is always in JWT
  */
 const buildTokenResponse = async (user, req, authMethod = 'Password') => {
   // Fetch firm details if user has firmId
-  let firmSlug = null;
-  if (user.firmId) {
-    const firm = await Firm.findOne({ _id: user.firmId });
-    if (firm) {
-      firmSlug = firm.firmSlug;
-    }
-  }
+  const firmSlug = await getFirmSlug(user.firmId);
 
   // OBJECTIVE 2: Include ALL firm context in JWT token
   const accessToken = jwtService.generateAccessToken({
@@ -600,13 +605,7 @@ const login = async (req, res) => {
     }
     
     // Fetch firmSlug for firm-scoped routing
-    let firmSlug = null;
-    if (user.firmId) {
-      const firm = await Firm.findOne({ _id: user.firmId });
-      if (firm) {
-        firmSlug = firm.firmSlug;
-      }
-    }
+    const firmSlug = await getFirmSlug(user.firmId);
     
     // OBJECTIVE 2: Generate JWT access token with ALL firm context
     const accessToken = jwtService.generateAccessToken({
@@ -1014,7 +1013,7 @@ const getProfile = async (req, res) => {
           name: user.firmId.name,
         } : null,
         firmId: user.firmId ? user.firmId._id.toString() : null,
-        firmSlug: user.firmId?.firmSlug || req.jwt?.firmSlug || null, // NEW: Include firmSlug for frontend routing
+        firmSlug: user.firmId?.firmSlug || null, // Populated from firmId reference
         defaultClientId: user.defaultClientId ? user.defaultClientId.toString() : null, // NEW: Include defaultClientId
         // Mutable fields from UserProfile model (editable)
         dateOfBirth: profile.dob || profile.dateOfBirth,
@@ -2166,13 +2165,7 @@ const refreshAccessToken = async (req, res) => {
     await storedToken.save();
     
     // Fetch firmSlug for token
-    let firmSlug = null;
-    if (user.firmId) {
-      const firm = await Firm.findOne({ _id: user.firmId });
-      if (firm) {
-        firmSlug = firm.firmSlug;
-      }
-    }
+    const firmSlug = await getFirmSlug(user.firmId);
     
     // OBJECTIVE 2: Generate new access token with ALL firm context
     const newAccessToken = jwtService.generateAccessToken({
@@ -2418,13 +2411,7 @@ const handleGoogleCallback = async (req, res) => {
       console.warn(`[AUTH] Google login blocked for ${user.xID} - mustSetPassword=true`);
       
       // Fetch firmSlug for redirect
-      let firmSlug = null;
-      if (user.firmId) {
-        const firm = await Firm.findById(user.firmId);
-        if (firm) {
-          firmSlug = firm.firmSlug;
-        }
-      }
+      const firmSlug = await getFirmSlug(user.firmId);
       
       // Redirect to set-password page (do NOT issue tokens)
       const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
