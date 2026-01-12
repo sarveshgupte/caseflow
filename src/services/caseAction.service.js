@@ -454,7 +454,7 @@ const performAutoReopen = async (caseData) => {
  * @param {string} userXid - User's xID to scope the auto-reopen
  * @returns {object} Results with count of reopened cases
  */
-const autoReopenExpiredPendingCases = async (userXid) => {
+const autoReopenExpiredPendingCases = async (userXid, firmId = null) => {
   const now = new Date();
   
   // Find all pended cases for this user where pendingUntil has passed
@@ -462,6 +462,7 @@ const autoReopenExpiredPendingCases = async (userXid) => {
     status: CASE_STATUS.PENDED,
     pendingUntil: { $lte: now },
     assignedToXID: userXid,
+    ...(firmId ? { firmId } : {}),
   });
   
   const reopenedCases = [];
@@ -488,13 +489,14 @@ const autoReopenExpiredPendingCases = async (userXid) => {
  * 
  * @returns {object} Results with count of reopened cases
  */
-const autoReopenPendedCases = async () => {
+const autoReopenPendedCases = async (firmId = null) => {
   const now = new Date();
   
   // Find all pended cases where pendingUntil has passed
   const pendedCases = await Case.find({
     status: CASE_STATUS.PENDED,
     pendingUntil: { $lte: now },
+    ...(firmId ? { firmId } : {}),
   });
   
   const reopenedCases = [];

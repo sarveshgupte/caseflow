@@ -19,8 +19,16 @@ const getCases = async (req, res) => {
       priority,
       leadConsultant,
     } = req.query;
+    const firmId = req.firmId;
     
-    const query = {};
+    if (!firmId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Firm context missing',
+      });
+    }
+    
+    const query = { firmId };
     if (status) query.status = status;
     if (priority) query.priority = priority;
     if (leadConsultant) query.leadConsultant = leadConsultant;
@@ -59,7 +67,8 @@ const getCases = async (req, res) => {
  */
 const getCaseById = async (req, res) => {
   try {
-    const caseData = await Case.findById(req.params.id)
+    const firmId = req.firmId;
+    const caseData = await Case.findOne({ _id: req.params.id, ...(firmId ? { firmId } : {}) })
       .populate('leadConsultant', 'name email role')
       .populate('assignedTeam', 'name email role')
       .populate('createdBy', 'name email')
@@ -74,7 +83,7 @@ const getCaseById = async (req, res) => {
     }
     
     // Get related tasks
-    const tasks = await Task.find({ case: req.params.id })
+    const tasks = await Task.find({ case: req.params.id, firmId })
       .populate('assignedTo', 'name email')
       .sort({ priority: -1, dueDate: 1 });
     

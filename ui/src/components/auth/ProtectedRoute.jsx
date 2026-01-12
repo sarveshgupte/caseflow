@@ -11,11 +11,19 @@ import { STORAGE_KEYS } from '../../utils/constants.js';
 import { Loading } from '../common/Loading';
 
 export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadmin = false }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const { isAdmin, isSuperadmin } = usePermissions();
   const { firmSlug } = useParams();
   const storedFirmSlug = localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
   const effectiveFirmSlug = firmSlug || storedFirmSlug;
+
+  if (firmSlug && storedFirmSlug && firmSlug !== storedFirmSlug) {
+    console.warn(`[TENANCY] Firm slug mismatch detected. URL firm="${firmSlug}", session firm="${storedFirmSlug}"`);
+  }
+
+  if (user?.firmSlug && firmSlug && user.firmSlug !== firmSlug) {
+    console.warn(`[TENANCY] Attempted cross-firm access blocked in UI. User firm="${user.firmSlug}", requested firm="${firmSlug}"`);
+  }
 
   if (loading) {
     return <Loading message="Loading..." />;

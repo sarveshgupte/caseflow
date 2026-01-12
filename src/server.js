@@ -46,7 +46,8 @@ const requestLogger = require('./middleware/requestLogger');
 const errorHandler = require('./middleware/errorHandler');
 const notFound = require('./middleware/notFound');
 const { authenticate } = require('./middleware/auth.middleware');
-const { attachFirmContext } = require('./middleware/firmContext.middleware');
+const { firmContext } = require('./middleware/firmContext.middleware');
+const { requireAdmin, requireSuperadmin } = require('./middleware/permission.middleware');
 
 // Routes
 const userRoutes = require('./routes/users');
@@ -212,28 +213,29 @@ app.use('/api/public', publicRoutes);
 // Category routes (public GET for active categories, admin-only for modifications)
 app.use('/api/categories', categoryRoutes);
 
-// Admin routes (PR #41) - require authentication and admin role
-app.use('/api/admin', adminRoutes);
+// Admin routes (firm-scoped) - enforce auth + firm context + admin role boundary
+app.use('/api/admin', authenticate, firmContext, requireAdmin, adminRoutes);
 
-// Superadmin routes - require authentication and superadmin role
-app.use('/api/superadmin', superadminRoutes);
+// Superadmin routes - platform scope only (no firm context)
+app.use('/api/sa', authenticate, requireSuperadmin, superadminRoutes);
+app.use('/api/superadmin', authenticate, requireSuperadmin, superadminRoutes);
 
 // Debug routes (PR #43) - require authentication and admin role
-app.use('/api/debug', debugRoutes);
+app.use('/api/debug', authenticate, firmContext, requireAdmin, debugRoutes);
 
 // Inbound email routes (webhook - no authentication required)
 app.use('/api/inbound', inboundRoutes);
 
 // Protected routes - require authentication
 // Firm context must be attached for all tenant-scoped operations
-app.use('/api/users', authenticate, attachFirmContext, userRoutes);
-app.use('/api/tasks', authenticate, attachFirmContext, taskRoutes);
-app.use('/api/cases', authenticate, attachFirmContext, newCaseRoutes);
-app.use('/api/search', authenticate, attachFirmContext, searchRoutes);
-app.use('/api/worklists', authenticate, attachFirmContext, searchRoutes);
-app.use('/api/client-approval', authenticate, attachFirmContext, clientApprovalRoutes);
-app.use('/api/clients', authenticate, attachFirmContext, clientRoutes);  // Client management (PR #39)
-app.use('/api/reports', authenticate, attachFirmContext, reportsRoutes);  // Reports routes
+app.use('/api/users', authenticate, firmContext, userRoutes);
+app.use('/api/tasks', authenticate, firmContext, taskRoutes);
+app.use('/api/cases', authenticate, firmContext, newCaseRoutes);
+app.use('/api/search', authenticate, firmContext, searchRoutes);
+app.use('/api/worklists', authenticate, firmContext, searchRoutes);
+app.use('/api/client-approval', authenticate, firmContext, clientApprovalRoutes);
+app.use('/api/clients', authenticate, firmContext, clientRoutes);  // Client management (PR #39)
+app.use('/api/reports', authenticate, firmContext, reportsRoutes);  // Reports routes
 
 // Root route - API status
 app.get('/', (req, res) => {

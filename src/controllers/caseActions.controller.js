@@ -239,12 +239,13 @@ const getMyPendingCases = async (req, res) => {
     }
     
     // Auto-reopen expired pending cases for this user
-    await caseActionService.autoReopenExpiredPendingCases(req.user.xID);
+    await caseActionService.autoReopenExpiredPendingCases(req.user.xID, req.firmId);
     
     // CANONICAL QUERY for "My Pending Cases"
     // A case appears here if it's assigned to me AND has PENDED status
     // We do NOT filter by pendedByXID - any pended case assigned to me should appear
     const query = {
+      firmId: req.firmId,
       assignedToXID: req.user.xID,
       status: CASE_STATUS.PENDED,
     };
@@ -317,6 +318,7 @@ const getMyResolvedCases = async (req, res) => {
     // CANONICAL QUERY for "My Resolved Cases"
     // Cases that were resolved by this user
     const query = {
+      firmId: req.firmId,
       status: CASE_STATUS.RESOLVED,
       lastActionByXID: req.user.xID,
     };
@@ -377,7 +379,7 @@ const getMyResolvedCases = async (req, res) => {
  */
 const triggerAutoReopen = async (req, res) => {
   try {
-    const result = await caseActionService.autoReopenPendedCases();
+    const result = await caseActionService.autoReopenPendedCases(req.firmId);
     
     res.json({
       success: true,
@@ -421,6 +423,7 @@ const getMyUnassignedCreatedCases = async (req, res) => {
     // CANONICAL QUERY for "Cases Created by Me (Unassigned)"
     // Cases that were created by this user and are still unassigned
     const query = {
+      firmId: req.firmId,
       status: CASE_STATUS.UNASSIGNED,
       createdByXID: req.user.xID,
     };

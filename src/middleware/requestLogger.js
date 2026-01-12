@@ -3,13 +3,17 @@
  * Logs all incoming requests for audit trail
  */
 
+const { randomUUID } = require('crypto');
 const { maskSensitiveObject } = require('../utils/pii');
 
 const requestLogger = (req, res, next) => {
   const timestamp = new Date().toISOString();
+  if (!req.requestId) {
+    req.requestId = randomUUID();
+  }
+  res.setHeader('X-Request-ID', req.requestId);
   const { method, originalUrl, ip } = req;
-  
-  console.log(`[${timestamp}] ${method} ${originalUrl} - IP: ${ip}`);
+  console.log(`[${timestamp}] [req:${req.requestId}] ${method} ${originalUrl} - IP: ${ip}`);
   
   // Log request body for POST/PUT/PATCH requests (excluding sensitive data).
   // NOTE: Never log raw request bodies/headers; always pass through maskSensitiveObject to avoid PII leaks.

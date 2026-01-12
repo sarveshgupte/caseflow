@@ -36,11 +36,19 @@ const globalSearch = async (req, res) => {
     
     // Get authenticated user from req.user (set by auth middleware)
     const user = req.user;
+    const firmId = req.firmId;
     
     if (!user || !user.xID) {
       return res.status(401).json({
         success: false,
         message: 'Authentication required - user identity not found',
+      });
+    }
+
+    if (!firmId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Firm context is required for search',
       });
     }
     
@@ -55,7 +63,7 @@ const globalSearch = async (req, res) => {
     const isAdmin = user.role === 'Admin';
     
     // Build search query
-    let caseQuery = {};
+    let caseQuery = { firmId };
     
     // Search in case fields (caseId, clientName, category)
     const caseSearchConditions = [
@@ -71,13 +79,14 @@ const globalSearch = async (req, res) => {
     
     // Find cases matching direct fields
     if (isAdmin) {
-      caseQuery = { $or: caseSearchConditions };
+      caseQuery = { firmId, $or: caseSearchConditions };
     } else {
       // Employee: Only see assigned or allowed category cases
       // PR #42: Use xID for assignment matching
       // PR: xID Canonicalization - Use assignedToXID field
       caseQuery = {
         $and: [
+          { firmId },
           { $or: caseSearchConditions },
           {
             $or: [
@@ -115,7 +124,7 @@ const globalSearch = async (req, res) => {
     let attachmentsWithMatches = [];
     try {
       attachmentsWithMatches = await Attachment.find(
-        { $text: { $search: searchTerm } },
+        { firmId, $text: { $search: searchTerm } },
         { score: { $meta: 'textScore' } }
       )
         .select('caseId')
@@ -123,7 +132,7 @@ const globalSearch = async (req, res) => {
     } catch (error) {
       // Text index might not be ready yet, fallback to regex
       attachmentsWithMatches = await Attachment.find(
-        { fileName: { $regex: searchTerm, $options: 'i' } }
+        { firmId, fileName: { $regex: searchTerm, $options: 'i' } }
       )
         .select('caseId')
         .lean();
@@ -137,15 +146,16 @@ const globalSearch = async (req, res) => {
     // Find cases by these caseIds with visibility rules
     let casesFromRelated = [];
     if (caseIdsFromRelated.length > 0) {
-      let relatedQuery = { caseId: { $in: caseIdsFromRelated } };
+      let relatedQuery = { firmId, caseId: { $in: caseIdsFromRelated } };
       
       if (!isAdmin) {
         // Apply employee visibility rules
         // PR #42: Use xID for assignment matching
         // PR: xID Canonicalization - Use assignedToXID field
         relatedQuery = {
-          $and: [
-            { caseId: { $in: caseIdsFromRelated } },
+            $and: [
+              { firmId },
+              { caseId: { $in: caseIdsFromRelated } },
             {
               $or: [
                 { assignedToXID: user.xID }, // CANONICAL: Match by xID in assignedToXID field
@@ -236,6 +246,13 @@ const categoryWorklist = async (req, res) => {
         message: 'Category ID is required',
       });
     }
+
+    if (!firmId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Firm context is required',
+      });
+    }
     
     const isAdmin = user.role === 'Admin';
     
@@ -249,6 +266,7 @@ const categoryWorklist = async (req, res) => {
     
     // Build query: category matches and status is NOT Pending
     const query = {
+      firmId,
       category: categoryId,
       status: { $ne: 'Pending' },
     };
@@ -325,13 +343,21 @@ const employeeWorklist = async (req, res) => {
       });
     }
     
+    if (!firmId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Firm context is required',
+      });
+    }
+    
     // Auto-reopen expired pending cases for this user
-    await caseActionService.autoReopenExpiredPendingCases(user.xID);
+    await caseActionService.autoReopenExpiredPendingCases(user.xID, firmId);
     
     // CANONICAL QUERY: assignedToXID = xID AND status = OPEN
     // This is the ONLY correct query for "My Worklist"
     // Dashboard counts MUST use the same query
     const query = {
+      firmId,
       assignedToXID: user.xID, // CANONICAL: Query by xID in assignedToXID field
       status: CASE_STATUS.OPEN, // Only OPEN cases, not PENDED, not legacy 'Open'
     };
@@ -406,9 +432,17 @@ const globalWorklist = async (req, res) => {
       page = 1,
       limit = 20,
     } = req.query;
+    const firmId = req.firmId;
+
+    if (!firmId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Firm context is required',
+      });
+    }
     
     // Build query for UNASSIGNED cases only
-    const query = { status: 'UNASSIGNED' };
+    const query = { status: 'UNASSIGNED', firmId };
     
     // Apply filters
     if (clientId) {
