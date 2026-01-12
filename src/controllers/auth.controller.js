@@ -324,29 +324,10 @@ const login = async (req, res) => {
       }
     }
     
-    // PR-2: Check firm bootstrap status for Admin users
-    // Block login if firm bootstrap is not completed
-    if (user.role === 'Admin' && user.firmId) {
-      try {
-        const firm = await Firm.findById(user.firmId);
-        if (firm) {
-          console.log(`[AUTH] Admin ${user.xID} firm bootstrap status: ${firm.bootstrapStatus}`);
-          if (firm.bootstrapStatus !== 'COMPLETED') {
-            console.warn(`[AUTH] Login blocked for ${user.xID} - firm bootstrap not completed (status: ${firm.bootstrapStatus})`);
-            return res.status(403).json({
-              success: false,
-              message: 'Firm setup incomplete. Please contact support.',
-              bootstrapStatus: firm.bootstrapStatus,
-            });
-          }
-        } else {
-          console.error(`[AUTH] Admin ${user.xID} has firmId ${user.firmId} but firm not found in database`);
-        }
-      } catch (firmError) {
-        console.error(`[AUTH] Error checking firm bootstrap status:`, firmError.message);
-        // Continue - don't block login on lookup failure
-      }
-    }
+    // NOTE: Bootstrap status is NOT checked during login to prevent deadlock
+    // Admin users must be able to log in to complete firm setup
+    // Bootstrap enforcement is handled by route-level middleware (requireCompletedFirm)
+    // which blocks access to dashboard and data routes until bootstrap is complete
     
     // Validate Admin user has required fields (firmId and defaultClientId)
     if (user.role === ROLE_ADMIN) {
@@ -368,10 +349,11 @@ const login = async (req, res) => {
           // Find firm and get its defaultClientId
           const firm = await Firm.findById(user.firmId);
           
-          console.log(`[AUTH] Firm lookup for auto-repair: ${firm ? `found, bootstrapStatus: ${firm.bootstrapStatus}, defaultClientId: ${firm.defaultClientId}` : 'not found'}`);
+          console.log(`[AUTH] Firm lookup for auto-repair: ${firm ? `found, defaultClientId: ${firm.defaultClientId}` : 'not found'}`);
           
-          if (firm && firm.defaultClientId && firm.bootstrapStatus === 'COMPLETED') {
+          if (firm && firm.defaultClientId) {
             // Auto-assign firm's defaultClientId to admin (persist to database)
+            // NOTE: No longer checks bootstrapStatus to prevent login deadlock
             await User.updateOne(
               { _id: user._id },
               { $set: { defaultClientId: firm.defaultClientId } }
@@ -2484,21 +2466,16 @@ const handleGoogleCallback = async (req, res) => {
       try {
         const firm = await Firm.findById(user.firmId);
         
-        console.log(`[AUTH] Google OAuth - Firm lookup: ${firm ? `found, bootstrapStatus: ${firm.bootstrapStatus}, defaultClientId: ${firm.defaultClientId}` : 'not found'}`);
+        console.log(`[AUTH] Google OAuth - Firm lookup: ${firm ? `found, defaultClientId: ${firm.defaultClientId}` : 'not found'}`);
         
-        if (firm && firm.bootstrapStatus !== 'COMPLETED') {
-          console.warn(`[AUTH] Google OAuth - Login blocked for ${user.xID} - firm bootstrap not completed (status: ${firm.bootstrapStatus})`);
-          return res.status(403).json({
-            success: false,
-            message: 'Firm setup incomplete. Please contact support.',
-            bootstrapStatus: firm.bootstrapStatus,
-          });
-        }
+        // NOTE: Bootstrap status is NOT checked during login to prevent deadlock
+        // Admin users must be able to log in to complete firm setup
+        // Bootstrap enforcement is handled by route-level middleware
 
         if (!user.defaultClientId) {
           console.warn(`[AUTH] Google OAuth - Admin user ${user.xID} missing defaultClientId - attempting auto-repair`);
           
-          if (firm && firm.defaultClientId && firm.bootstrapStatus === 'COMPLETED') {
+          if (firm && firm.defaultClientId) {
             await User.updateOne(
               { _id: user._id },
               { $set: { defaultClientId: firm.defaultClientId } }
