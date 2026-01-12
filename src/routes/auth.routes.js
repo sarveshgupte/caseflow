@@ -20,10 +20,19 @@ const {
    unlockAccount,
    forgotPassword,
    getAllUsers,
-   refreshAccessToken, // NEW: JWT token refresh
-   initiateGoogleAuth,
-   handleGoogleCallback,
+  refreshAccessToken, // NEW: JWT token refresh
+  initiateGoogleAuth,
+  handleGoogleCallback,
  } = require('../controllers/auth.controller');
+
+let profileHitCount = 0;
+const detectProfileLoop = (req, res, next) => {
+  profileHitCount += 1;
+  if (profileHitCount > 3) {
+    console.error('🚨 AUTH PROFILE LOOP DETECTED');
+  }
+  next();
+};
 
 /**
  * Authentication and User Management Routes
@@ -48,7 +57,7 @@ router.post('/logout', authenticate, logout);
 router.post('/change-password', authenticate, changePassword);
 
 // Profile endpoints - require authentication
-router.get('/profile', authenticate, getProfile);
+router.get('/profile', detectProfileLoop, authenticate, getProfile);
 router.put('/profile', authenticate, updateProfile);
 
 // Admin-only endpoints - require authentication and admin role
