@@ -12,23 +12,51 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const profileLoadAttempted = useRef(false);
+  
+  /**
+   * Execution guard to prevent infinite /api/auth/profile request loops.
+   * 
+   * This ref ensures profile fetching happens EXACTLY ONCE per component lifecycle.
+   * 
+   * WITHOUT this guard, the following issues occur:
+   * - React StrictMode double-invokes effects in development, causing duplicate API calls
+   * - Component remounts during auth state changes trigger redundant profile fetches
+   * - Google OAuth multi-step authentication flows create cascading request loops
+   * - Auth state updates cause useEffect re-evaluation, leading to infinite recursion
+   * 
+   * CRITICAL: DO NOT REMOVE this guard. Removing it will immediately reintroduce
+   * the infinite loop bug that was fixed in PR #127.
+   * 
+   * The guard is reset to false in logout() to allow fresh profile loads after re-authentication.
+   */
+  const profileFetchAttemptedRef = useRef(false);
 
   useEffect(() => {
-    // Guard: Prevent multiple profile load attempts
-    if (profileLoadAttempted.current) {
+    // ============================================================================
+    // GUARD: Prevent duplicate profile fetch attempts
+    // ============================================================================
+    // This guard ensures we only attempt to load the user profile ONCE per
+    // component lifecycle. Without it, React StrictMode and component remounts
+    // during auth state changes will trigger infinite /api/auth/profile loops.
+    if (profileFetchAttemptedRef.current) {
       return;
     }
-    profileLoadAttempted.current = true;
+    profileFetchAttemptedRef.current = true;
 
-    // Only proceed if we have a valid access token
+    // ============================================================================
+    // EARLY EXIT: No token means no authenticated user
+    // ============================================================================
+    // If no access token exists, the user is definitely not authenticated.
+    // Skip all profile loading logic and immediately mark loading as complete.
     const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     if (!accessToken) {
-      // No token, no user - just mark as done
       setLoading(false);
       return;
     }
 
+    // ============================================================================
+    // EARLY EXIT: User data already cached in localStorage
+    // ============================================================================
     // Check if user is already logged in from localStorage
     const currentUser = authService.getCurrentUser();
     const xID = authService.getCurrentXID();
@@ -40,6 +68,9 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    // ============================================================================
+    // PROFILE FETCH: Token exists but no cached user data
+    // ============================================================================
     // If we have a token but no cached user, fetch from backend
     const bootstrapFromCookie = async () => {
       try {
@@ -61,7 +92,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     bootstrapFromCookie();
-  }, []); // Empty dependency - runs once on mount, ref guard prevents re-execution
+  }, []); // Empty dependency array: runs once on mount. The ref guard prevents re-execution.
 
   const login = async (xID, password) => {
     const response = await authService.login(xID, password);
@@ -89,7 +120,10 @@ export const AuthProvider = ({ children }) => {
       // Always clear client-side state
       setUser(null);
       setIsAuthenticated(false);
-      profileLoadAttempted.current = false; // Reset guard to allow fresh login
+      
+      // Reset the profile fetch guard to allow fresh profile load after re-authentication
+      profileFetchAttemptedRef.current = false;
+      
       // Force clear localStorage in case service didn't
       localStorage.removeItem(STORAGE_KEYS.X_ID);
       localStorage.removeItem(STORAGE_KEYS.USER);
