@@ -76,6 +76,12 @@ const maskValue = (key, value, seen = new WeakSet()) => {
   if (['pan', 'pan_number', 'pannumber'].includes(lowerKey)) return maskPAN(value);
   if (['aadhaar', 'aadhar', 'aadhaarnumber'].includes(lowerKey)) return maskAadhaar(value);
   if (['authorization', 'token', 'refreshtoken', 'accesstoken', 'idtoken'].includes(lowerKey)) return maskToken(value);
+  
+  // CRITICAL SECURITY: Mask password fields (all variations)
+  // Passwords must NEVER appear in logs under any circumstance
+  if (['password', 'currentpassword', 'newpassword', 'oldpassword', 'passwordhash'].includes(lowerKey)) {
+    return '***REDACTED***';
+  }
 
   // Heuristic masking for strings that look like tokens
   if (typeof value === 'string' && value.length > MIN_JWT_LENGTH && JWT_REGEX.test(value)) {
