@@ -156,6 +156,8 @@ const authenticate = async (req, res, next) => {
     }
     
     // Check if user's firm is suspended (Superadmin exempt)
+    // NOTE: This DB lookup is for runtime state check (SUSPENDED status), not authorization
+    // Authorization decisions use JWT claims (req.jwt.firmId, req.jwt.firmSlug)
     if (user.role !== 'SUPER_ADMIN' && user.firmId) {
       const Firm = require('../models/Firm.model');
       const firm = await Firm.findById(user.firmId);
@@ -193,10 +195,13 @@ const authenticate = async (req, res, next) => {
     // Attach full user object to request
     req.user = user;
     
-    // Also attach decoded JWT data for convenience
+    // OBJECTIVE 2 & 3: Attach decoded JWT data including firm context for authorization
+    // This makes firmSlug and defaultClientId available for route handlers
     req.jwt = {
       userId: decoded.userId,
       firmId: decoded.firmId || null, // May be null for SUPER_ADMIN
+      firmSlug: decoded.firmSlug || null, // NEW: Make firmSlug available from token
+      defaultClientId: decoded.defaultClientId || null, // NEW: Make defaultClientId available from token
       role: decoded.role,
     };
     

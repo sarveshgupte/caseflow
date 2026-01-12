@@ -81,12 +81,35 @@ const verifyOAuthState = (stateToken) => {
 };
 
 /**
+ * Helper: Fetch firm slug for a given firmId
+ * Reduces code duplication across auth functions
+ */
+const getFirmSlug = async (firmId) => {
+  if (!firmId) return null;
+  
+  try {
+    const firm = await Firm.findOne({ _id: firmId });
+    return firm?.firmSlug || null;
+  } catch (error) {
+    console.error('[AUTH] Error fetching firm slug:', error);
+    return null; // Gracefully handle errors, don't crash
+  }
+};
+
+/**
  * Build tokens + audit entry for successful login
+ * OBJECTIVE 2: Ensure firm context (firmId, firmSlug, defaultClientId) is always in JWT
  */
 const buildTokenResponse = async (user, req, authMethod = 'Password') => {
+  // Fetch firm details if user has firmId
+  const firmSlug = await getFirmSlug(user.firmId);
+
+  // OBJECTIVE 2: Include ALL firm context in JWT token
   const accessToken = jwtService.generateAccessToken({
     userId: user._id.toString(),
     firmId: user.firmId ? user.firmId.toString() : undefined,
+    firmSlug: firmSlug || undefined, // NEW: Include firmSlug in token
+    defaultClientId: user.defaultClientId ? user.defaultClientId.toString() : undefined, // NEW: Include defaultClientId in token
     role: user.role,
   });
 
@@ -101,14 +124,6 @@ const buildTokenResponse = async (user, req, authMethod = 'Password') => {
     ipAddress: req.ip,
     userAgent: req.get('user-agent'),
   });
-
-  let firmSlug = null;
-  if (user.firmId) {
-    const firm = await Firm.findOne({ _id: user.firmId });
-    if (firm) {
-      firmSlug = firm.firmSlug;
-    }
-  }
 
   try {
     await AuthAudit.create({
@@ -594,10 +609,15 @@ const login = async (req, res) => {
       console.error('[AUTH AUDIT] Failed to record login event', auditError);
     }
     
-    // Generate JWT access token
+    // Fetch firmSlug for firm-scoped routing
+    const firmSlug = await getFirmSlug(user.firmId);
+    
+    // OBJECTIVE 2: Generate JWT access token with ALL firm context
     const accessToken = jwtService.generateAccessToken({
       userId: user._id.toString(),
       firmId: user.firmId ? user.firmId.toString() : undefined,
+      firmSlug: firmSlug || undefined, // NEW: Include firmSlug in token
+      defaultClientId: user.defaultClientId ? user.defaultClientId.toString() : undefined, // NEW: Include defaultClientId in token
       role: user.role,
     });
     
@@ -614,15 +634,6 @@ const login = async (req, res) => {
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
     });
-    
-    // Fetch firmSlug for firm-scoped routing
-    let firmSlug = null;
-    if (user.firmId) {
-      const firm = await Firm.findOne({ _id: user.firmId });
-      if (firm) {
-        firmSlug = firm.firmSlug;
-      }
-    }
     
     // Return user info with tokens (exclude sensitive fields)
     const response = {
@@ -963,8 +974,9 @@ const getProfile = async (req, res) => {
     // Get user from authenticated request
     const user = req.user;
     
-    // Populate firm metadata for display
-    await user.populate('firmId', 'firmId name');
+    // Populate firm metadata for display ONLY (not for authorization)
+    // Authorization uses JWT claims (req.jwt.firmId, req.jwt.firmSlug)
+    await user.populate('firmId', 'firmId name firmSlug');
     
     // Get profile info
     let profile = await UserProfile.findOne({ xID: user.xID });
@@ -999,6 +1011,8 @@ const getProfile = async (req, res) => {
         passwordSetAt: user.passwordSetAt,
         allowedCategories: user.allowedCategories,
         isActive: user.isActive,
+        // OBJECTIVE 2: Include firm context (JWT-first approach)
+        // Use JWT claims as primary source, DB as fallback for display
         // Firm metadata (read-only, admin-controlled)
         firm: user.firmId ? {
           id: user.firmId._id.toString(),
@@ -1006,6 +1020,8 @@ const getProfile = async (req, res) => {
           name: user.firmId.name,
         } : null,
         firmId: user.firmId ? user.firmId._id.toString() : null,
+        firmSlug: req.jwt?.firmSlug || user.firmId?.firmSlug || null, // JWT-first: use token claim, fallback to DB
+        defaultClientId: req.jwt?.defaultClientId || (user.defaultClientId ? user.defaultClientId.toString() : null), // JWT-first
         // Mutable fields from UserProfile model (editable)
         dateOfBirth: profile.dob || profile.dateOfBirth,
         gender: profile.gender,
@@ -2110,6 +2126,9 @@ const getAllUsers = async (req, res) => {
 /**
  * Refresh access token using refresh token
  * POST /api/auth/refresh
+ * 
+ * CRITICAL: Uses JWT claims as primary source of truth for firm context
+ * Only falls back to DB lookup if JWT claims are missing
  */
 const refreshAccessToken = async (req, res) => {
   try {
@@ -2122,6 +2141,22 @@ const refreshAccessToken = async (req, res) => {
         success: false,
         message: 'Refresh token is required',
       });
+    }
+    
+    // Extract old access token to preserve JWT claims (JWT-first approach)
+    const oldAccessToken = req.body.accessToken ||
+      (req.headers.cookie ? req.headers.cookie.split(';').map(c => c.trim().split('=')).find(([k]) => k === 'accessToken')?.[1] : null);
+    
+    let oldTokenClaims = null;
+    if (oldAccessToken) {
+      try {
+        // Decode without verification (we only need the claims, not validation)
+        const jwt = require('jsonwebtoken');
+        oldTokenClaims = jwt.decode(oldAccessToken);
+      } catch (decodeError) {
+        // Ignore decode errors - we'll fall back to DB lookup
+        console.warn('[AUTH] Failed to decode old access token for refresh:', decodeError.message);
+      }
     }
     
     // Hash the provided refresh token
@@ -2155,10 +2190,18 @@ const refreshAccessToken = async (req, res) => {
     storedToken.isRevoked = true;
     await storedToken.save();
     
-    // Generate new access token
+    // CRITICAL: Use JWT claims as primary source of truth (JWT-FIRST approach)
+    // Only fetch from DB if JWT claims are missing
+    const firmSlug = oldTokenClaims?.firmSlug || await getFirmSlug(user.firmId);
+    const defaultClientId = oldTokenClaims?.defaultClientId || (user.defaultClientId ? user.defaultClientId.toString() : undefined);
+    
+    // OBJECTIVE 2: Generate new access token with ALL firm context
+    // Preserve firm context from old token (JWT is authoritative)
     const newAccessToken = jwtService.generateAccessToken({
       userId: user._id.toString(),
-      firmId: user.firmId,
+      firmId: user.firmId ? user.firmId.toString() : undefined,
+      firmSlug: firmSlug || undefined,
+      defaultClientId: defaultClientId,
       role: user.role,
     });
     
@@ -2389,6 +2432,28 @@ const handleGoogleCallback = async (req, res) => {
         message: 'Account is locked. Please try again later or contact an administrator.',
         lockedUntil: user.lockUntil,
       });
+    }
+
+    // OBJECTIVE 1: Enforce mustSetPassword on Google Login
+    // Block Google login if user must set password first
+    // CRITICAL FIX: Must redirect to neutral OAuth post-auth route, NOT directly to /set-password
+    // (direct redirect causes redirect_uri_mismatch error with Google OAuth)
+    if (user.mustSetPassword) {
+      console.warn(`[AUTH] Google login blocked for ${user.xID} - mustSetPassword=true`);
+      
+      // Fetch firmSlug for redirect context
+      const firmSlug = await getFirmSlug(user.firmId);
+      
+      // Redirect to neutral post-auth route (do NOT issue tokens)
+      // Frontend will handle final navigation to /set-password
+      const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const redirectUrl = new URL('/oauth/post-auth', frontendBase);
+      redirectUrl.searchParams.set('error', 'PASSWORD_SETUP_REQUIRED');
+      if (firmSlug) {
+        redirectUrl.searchParams.set('firmSlug', firmSlug);
+      }
+      
+      return res.redirect(redirectUrl.toString());
     }
 
     // Admin firm bootstrapping + default client guardrails
