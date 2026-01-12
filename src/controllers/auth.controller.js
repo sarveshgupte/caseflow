@@ -87,8 +87,13 @@ const verifyOAuthState = (stateToken) => {
 const getFirmSlug = async (firmId) => {
   if (!firmId) return null;
   
-  const firm = await Firm.findOne({ _id: firmId });
-  return firm?.firmSlug || null;
+  try {
+    const firm = await Firm.findOne({ _id: firmId });
+    return firm?.firmSlug || null;
+  } catch (error) {
+    console.error('[AUTH] Error fetching firm slug:', error);
+    return null; // Gracefully handle errors, don't crash
+  }
 };
 
 /**
