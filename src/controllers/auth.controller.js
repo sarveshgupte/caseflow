@@ -2396,12 +2396,10 @@ const handleGoogleCallback = async (req, res) => {
         { $set: update },
         { new: true }
       );
-      if (refreshed) {
-        user = refreshed;
-      } else {
-        console.error('[AUTH] Failed to refresh user after Google identity link', { userId: user._id });
-        throw new Error('Failed to persist Google identity link');
+      if (!refreshed) {
+        throw new Error('Failed to persist Google identity link for user');
       }
+      user = refreshed;
     }
 
     // Guardrails: SuperAdmin cannot use Google auth

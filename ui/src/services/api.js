@@ -36,6 +36,9 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    if (redirecting) {
+      return Promise.reject(error);
+    }
     const hasResponse = !!error.response;
     const status = error.response?.status;
     const firmSlug = localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
