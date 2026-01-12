@@ -175,46 +175,47 @@ const login = async (req, res) => {
     // ============================================================
     // SuperAdmin credentials are ONLY in .env, never in database
     // This is the authoritative authentication path for SuperAdmin
-    const superadminXID = process.env.SUPERADMIN_XID;
+    const superadminXID = (process.env.SUPERADMIN_XID || '').toUpperCase();
     
     if (normalizedXID === superadminXID) {
-      console.log('[AUTH] SuperAdmin login attempt detected');
+      console.log('[AUTH][superadmin] SuperAdmin login attempt detected');
       
       // Authenticate against .env ONLY (do NOT query MongoDB)
-      const superadminPassword = process.env.SUPERADMIN_PASSWORD;
+      const superadminPasswordHash = process.env.SUPERADMIN_PASSWORD_HASH;
+      const superadminEmail = process.env.SUPERADMIN_EMAIL || 'superadmin@system.local';
       
-      if (!superadminPassword) {
-        console.error('[AUTH] SUPERADMIN_PASSWORD not configured in environment');
+      if (!superadminPasswordHash) {
+        console.error('[AUTH][superadmin] SUPERADMIN_PASSWORD_HASH not configured in environment');
         return res.status(500).json({
           success: false,
           message: 'SuperAdmin authentication not configured',
         });
       }
       
-      // Verify password (plain text comparison for SuperAdmin from .env)
-      if (password !== superadminPassword) {
-        console.warn('[AUTH] SuperAdmin login failed - invalid password');
+      const isSuperadminPasswordValid = await bcrypt.compare(password, superadminPasswordHash);
+      
+      if (!isSuperadminPasswordValid) {
+        console.warn('[AUTH][superadmin] SuperAdmin login failed - invalid credentials');
         return res.status(401).json({
           success: false,
           message: 'Invalid xID or password',
         });
       }
       
-      console.log('[AUTH] SuperAdmin login successful');
+      console.log('[AUTH][superadmin] SuperAdmin login successful');
       
-      // Generate JWT with NO firmId, NO defaultClientId
       const accessToken = jwtService.generateAccessToken({
         userId: 'SUPERADMIN', // Special identifier (not a MongoDB _id)
-        role: 'SuperAdmin',
-        // NO firmId
-        // NO defaultClientId
+        role: 'SUPERADMIN',
+        firmId: null,
+        firmSlug: null,
+        defaultClientId: null,
+        isSuperAdmin: true,
       });
       
-      // Generate refresh token
       const refreshToken = jwtService.generateRefreshToken();
       const refreshTokenHash = jwtService.hashRefreshToken(refreshToken);
       
-      // Store refresh token (with null userId for SuperAdmin)
       await RefreshToken.create({
         tokenHash: refreshTokenHash,
         userId: null, // SuperAdmin has no MongoDB user document
@@ -224,17 +225,18 @@ const login = async (req, res) => {
         userAgent: req.get('user-agent'),
       });
       
-      // Return successful login response
       return res.json({
         success: true,
         message: 'Login successful',
         accessToken,
         refreshToken,
         data: {
+          id: 'superadmin',
           xID: superadminXID,
-          role: 'SuperAdmin',
-          // NO firmId
-          // NO defaultClientId
+          email: superadminEmail,
+          role: 'SUPERADMIN',
+          firmId: null,
+          isSuperAdmin: true,
         },
       });
     }
@@ -969,6 +971,25 @@ const getProfile = async (req, res) => {
   try {
     // Get user from authenticated request
     const user = req.user;
+    const isSuperAdmin = isSuperAdminRole(user?.role) || req.jwt?.isSuperAdmin;
+    
+    if (isSuperAdmin) {
+      return res.json({
+        success: true,
+        data: {
+          id: 'superadmin',
+          xID: process.env.SUPERADMIN_XID || 'SUPERADMIN',
+          name: 'SuperAdmin',
+          email: process.env.SUPERADMIN_EMAIL || 'superadmin@system.local',
+          role: req.jwt?.role || 'SUPERADMIN',
+          firm: null,
+          firmId: null,
+          firmSlug: null,
+          defaultClientId: null,
+          isSuperAdmin: true,
+        },
+      });
+    }
     
     // Populate firm metadata for display ONLY (not for authorization)
     // Authorization uses JWT claims (req.jwt.firmId, req.jwt.firmSlug)
@@ -2169,6 +2190,75 @@ const refreshAccessToken = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: 'Invalid or expired refresh token',
+      });
+    }
+    
+    // Handle SuperAdmin refresh tokens (userId is null by design)
+    if (!storedToken.userId) {
+      if (oldTokenClaims && (!isSuperAdminRole(oldTokenClaims.role) || oldTokenClaims.userId !== 'SUPERADMIN')) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid superadmin refresh token',
+        });
+      }
+      
+      storedToken.isRevoked = true;
+      await storedToken.save();
+      
+      const newAccessToken = jwtService.generateAccessToken({
+        userId: 'SUPERADMIN',
+        role: 'SUPERADMIN',
+        firmId: null,
+        firmSlug: null,
+        defaultClientId: null,
+        isSuperAdmin: true,
+      });
+      
+      const newRefreshToken = jwtService.generateRefreshToken();
+      const newTokenHash = jwtService.hashRefreshToken(newRefreshToken);
+      
+      await RefreshToken.create({
+        tokenHash: newTokenHash,
+        userId: null,
+        firmId: null,
+        expiresAt: jwtService.getRefreshTokenExpiry(),
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
+      
+      const secureCookies = process.env.NODE_ENV === 'production';
+      const fifteenMinutesMs = 15 * 60 * 1000;
+      const refreshMs = (jwtService.REFRESH_TOKEN_EXPIRY_DAYS || 7) * 24 * 60 * 60 * 1000;
+      
+      res.cookie('accessToken', newAccessToken, {
+        httpOnly: true,
+        secure: secureCookies,
+        sameSite: 'lax',
+        maxAge: fifteenMinutesMs,
+        path: '/',
+      });
+      
+      res.cookie('refreshToken', newRefreshToken, {
+        httpOnly: true,
+        secure: secureCookies,
+        sameSite: 'lax',
+        maxAge: refreshMs,
+        path: '/',
+      });
+      
+      return res.json({
+        success: true,
+        message: 'Token refreshed successfully',
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+        data: {
+          id: 'superadmin',
+          xID: process.env.SUPERADMIN_XID || 'SUPERADMIN',
+          email: process.env.SUPERADMIN_EMAIL || 'superadmin@system.local',
+          role: 'SUPERADMIN',
+          firmId: null,
+          isSuperAdmin: true,
+        },
       });
     }
     

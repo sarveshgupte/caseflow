@@ -1,5 +1,6 @@
 const User = require('../models/User.model');
 const jwtService = require('../services/jwt.service');
+const { isSuperAdminRole } = require('../utils/role.utils');
 
 const MUST_SET_ALLOWED_PATHS = [
   '/auth/profile',
@@ -77,34 +78,42 @@ const authenticate = async (req, res, next) => {
     // ============================================================
     // SUPERADMIN TOKEN HANDLING (NO DATABASE LOOKUP)
     // ============================================================
-    // SuperAdmin tokens have role: 'SuperAdmin' and userId: 'SUPERADMIN'
+    // SuperAdmin tokens have role: 'SuperAdmin' or 'SUPERADMIN' and userId: 'SUPERADMIN'
     // They never have firmId or defaultClientId
-    if (decoded.role === 'SuperAdmin' && decoded.userId === 'SUPERADMIN') {
-      console.log('[AUTH] SuperAdmin token authenticated');
+    if (decoded.userId === 'SUPERADMIN' && isSuperAdminRole(decoded.role)) {
+      console.log('[AUTH][superadmin] SuperAdmin token authenticated');
+      
+      const normalizedRole = 'SuperAdmin';
+      const superadminXID = process.env.SUPERADMIN_XID || 'SUPERADMIN';
+      const superadminEmail = process.env.SUPERADMIN_EMAIL || 'superadmin@docketra.local';
       
       // Attach SuperAdmin pseudo-user to request
       req.user = {
-        xID: process.env.SUPERADMIN_XID || 'SUPERADMIN',
-        email: process.env.SUPERADMIN_EMAIL || 'superadmin@docketra.local',
-        role: 'SuperAdmin',
+        xID: superadminXID,
+        email: superadminEmail,
+        role: normalizedRole,
         _id: 'SUPERADMIN', // Pseudo ID for consistency
         isActive: true,
-        // NO firmId
-        // NO defaultClientId
+        firmId: null,
+        defaultClientId: null,
       };
       
       // Attach decoded JWT data
       req.jwt = {
         userId: 'SUPERADMIN',
-        role: 'SuperAdmin',
+        role: decoded.role || normalizedRole,
         firmId: null,
+        firmSlug: null,
+        defaultClientId: null,
+        isSuperAdmin: true,
       };
       req.userId = 'SUPERADMIN';
       req.identity = {
         userId: 'SUPERADMIN',
         firmId: null,
-        role: 'SuperAdmin',
+        role: normalizedRole,
       };
+      req.isSuperAdmin = true;
       
       return next();
     }

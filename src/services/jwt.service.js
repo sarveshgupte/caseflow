@@ -36,19 +36,23 @@ const generateAccessToken = (payload) => {
     role: payload.role,
     type: 'access',
   };
-  
+
   // OBJECTIVE 2: Include firm context in token (firmId, firmSlug, defaultClientId)
-  // Only include firm context if provided (not null/undefined)
-  if (payload.firmId) {
+  // Only include firm context if provided (including explicit null for SuperAdmin)
+  if ('firmId' in payload) {
     tokenPayload.firmId = payload.firmId;
   }
-  
+
   if (payload.firmSlug) {
     tokenPayload.firmSlug = payload.firmSlug;
   }
-  
+
   if (payload.defaultClientId) {
     tokenPayload.defaultClientId = payload.defaultClientId;
+  }
+
+  if (payload.isSuperAdmin !== undefined) {
+    tokenPayload.isSuperAdmin = payload.isSuperAdmin;
   }
   
   return jwt.sign(
