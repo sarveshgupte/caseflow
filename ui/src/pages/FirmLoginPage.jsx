@@ -11,7 +11,7 @@ import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { validateXID, validatePassword } from '../utils/validators';
-import { API_BASE_URL, USER_ROLES } from '../utils/constants';
+import { API_BASE_URL, USER_ROLES, ERROR_CODES } from '../utils/constants';
 import api from '../services/api';
 import './LoginPage.css';
 
@@ -116,7 +116,7 @@ export const FirmLoginPage = () => {
       if (errorData?.mustChangePassword) {
         // Redirect to change password page with identifier
         navigate('/change-password', { state: { xID: identifier } });
-      } else if (errorData?.mustSetPassword || errorData?.code === 'PASSWORD_SETUP_REQUIRED') {
+      } else if (errorData?.mustSetPassword || errorData?.code === ERROR_CODES.PASSWORD_SETUP_REQUIRED) {
         // User needs to set password via email link
         setError('Please set your password using the link sent to your email. If you haven\'t received it, contact your administrator.');
       } else if (errorData?.lockedUntil) {

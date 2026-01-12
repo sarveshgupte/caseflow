@@ -67,6 +67,10 @@ export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'refreshToken',
 };
 
+export const ERROR_CODES = {
+  PASSWORD_SETUP_REQUIRED: 'PASSWORD_SETUP_REQUIRED',
+};
+
 export const HTTP_STATUS = {
   OK: 200,
   CREATED: 201,
