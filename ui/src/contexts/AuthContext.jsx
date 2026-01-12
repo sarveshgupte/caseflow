@@ -73,8 +73,8 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setIsAuthenticated(false);
       // Force clear localStorage in case service didn't
-      localStorage.removeItem('xID');
-      localStorage.removeItem('user');
+      localStorage.removeItem(STORAGE_KEYS.X_ID);
+      localStorage.removeItem(STORAGE_KEYS.USER);
     }
   };
 
