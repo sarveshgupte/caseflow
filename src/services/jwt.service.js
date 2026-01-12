@@ -17,6 +17,8 @@ const REFRESH_TOKEN_EXPIRY_DAYS = 7; // 7 days
  * @param {Object} payload - Token payload
  * @param {string} payload.userId - MongoDB _id of user
  * @param {string} [payload.firmId] - Firm/Organization ID (null for SUPER_ADMIN)
+ * @param {string} [payload.firmSlug] - Firm slug for routing (null for SUPER_ADMIN)
+ * @param {string} [payload.defaultClientId] - Default client ID (null for SUPER_ADMIN)
  * @param {string} payload.role - User role (SUPER_ADMIN/Admin/Employee)
  * @returns {string} JWT access token
  */
@@ -28,16 +30,25 @@ const generateAccessToken = (payload) => {
   }
   
   // Create JWT with standard claims
-  // Note: firmId is optional for SUPER_ADMIN role
+  // Note: firmId, firmSlug, defaultClientId are optional for SUPER_ADMIN role
   const tokenPayload = {
     userId: payload.userId,
     role: payload.role,
     type: 'access',
   };
   
-  // Only include firmId if it's provided (not null/undefined)
+  // OBJECTIVE 2: Include firm context in token (firmId, firmSlug, defaultClientId)
+  // Only include firm context if provided (not null/undefined)
   if (payload.firmId) {
     tokenPayload.firmId = payload.firmId;
+  }
+  
+  if (payload.firmSlug) {
+    tokenPayload.firmSlug = payload.firmSlug;
+  }
+  
+  if (payload.defaultClientId) {
+    tokenPayload.defaultClientId = payload.defaultClientId;
   }
   
   return jwt.sign(

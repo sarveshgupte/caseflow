@@ -82,11 +82,24 @@ const verifyOAuthState = (stateToken) => {
 
 /**
  * Build tokens + audit entry for successful login
+ * OBJECTIVE 2: Ensure firm context (firmId, firmSlug, defaultClientId) is always in JWT
  */
 const buildTokenResponse = async (user, req, authMethod = 'Password') => {
+  // Fetch firm details if user has firmId
+  let firmSlug = null;
+  if (user.firmId) {
+    const firm = await Firm.findOne({ _id: user.firmId });
+    if (firm) {
+      firmSlug = firm.firmSlug;
+    }
+  }
+
+  // OBJECTIVE 2: Include ALL firm context in JWT token
   const accessToken = jwtService.generateAccessToken({
     userId: user._id.toString(),
     firmId: user.firmId ? user.firmId.toString() : undefined,
+    firmSlug: firmSlug || undefined, // NEW: Include firmSlug in token
+    defaultClientId: user.defaultClientId ? user.defaultClientId.toString() : undefined, // NEW: Include defaultClientId in token
     role: user.role,
   });
 
@@ -101,14 +114,6 @@ const buildTokenResponse = async (user, req, authMethod = 'Password') => {
     ipAddress: req.ip,
     userAgent: req.get('user-agent'),
   });
-
-  let firmSlug = null;
-  if (user.firmId) {
-    const firm = await Firm.findOne({ _id: user.firmId });
-    if (firm) {
-      firmSlug = firm.firmSlug;
-    }
-  }
 
   try {
     await AuthAudit.create({
@@ -594,10 +599,21 @@ const login = async (req, res) => {
       console.error('[AUTH AUDIT] Failed to record login event', auditError);
     }
     
-    // Generate JWT access token
+    // Fetch firmSlug for firm-scoped routing
+    let firmSlug = null;
+    if (user.firmId) {
+      const firm = await Firm.findOne({ _id: user.firmId });
+      if (firm) {
+        firmSlug = firm.firmSlug;
+      }
+    }
+    
+    // OBJECTIVE 2: Generate JWT access token with ALL firm context
     const accessToken = jwtService.generateAccessToken({
       userId: user._id.toString(),
       firmId: user.firmId ? user.firmId.toString() : undefined,
+      firmSlug: firmSlug || undefined, // NEW: Include firmSlug in token
+      defaultClientId: user.defaultClientId ? user.defaultClientId.toString() : undefined, // NEW: Include defaultClientId in token
       role: user.role,
     });
     
@@ -614,15 +630,6 @@ const login = async (req, res) => {
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
     });
-    
-    // Fetch firmSlug for firm-scoped routing
-    let firmSlug = null;
-    if (user.firmId) {
-      const firm = await Firm.findOne({ _id: user.firmId });
-      if (firm) {
-        firmSlug = firm.firmSlug;
-      }
-    }
     
     // Return user info with tokens (exclude sensitive fields)
     const response = {
@@ -964,7 +971,7 @@ const getProfile = async (req, res) => {
     const user = req.user;
     
     // Populate firm metadata for display
-    await user.populate('firmId', 'firmId name');
+    await user.populate('firmId', 'firmId name firmSlug');
     
     // Get profile info
     let profile = await UserProfile.findOne({ xID: user.xID });
@@ -999,6 +1006,7 @@ const getProfile = async (req, res) => {
         passwordSetAt: user.passwordSetAt,
         allowedCategories: user.allowedCategories,
         isActive: user.isActive,
+        // OBJECTIVE 2: Include firm context from token or user document
         // Firm metadata (read-only, admin-controlled)
         firm: user.firmId ? {
           id: user.firmId._id.toString(),
@@ -1006,6 +1014,8 @@ const getProfile = async (req, res) => {
           name: user.firmId.name,
         } : null,
         firmId: user.firmId ? user.firmId._id.toString() : null,
+        firmSlug: user.firmId?.firmSlug || req.jwt?.firmSlug || null, // NEW: Include firmSlug for frontend routing
+        defaultClientId: user.defaultClientId ? user.defaultClientId.toString() : null, // NEW: Include defaultClientId
         // Mutable fields from UserProfile model (editable)
         dateOfBirth: profile.dob || profile.dateOfBirth,
         gender: profile.gender,
@@ -2155,10 +2165,21 @@ const refreshAccessToken = async (req, res) => {
     storedToken.isRevoked = true;
     await storedToken.save();
     
-    // Generate new access token
+    // Fetch firmSlug for token
+    let firmSlug = null;
+    if (user.firmId) {
+      const firm = await Firm.findOne({ _id: user.firmId });
+      if (firm) {
+        firmSlug = firm.firmSlug;
+      }
+    }
+    
+    // OBJECTIVE 2: Generate new access token with ALL firm context
     const newAccessToken = jwtService.generateAccessToken({
       userId: user._id.toString(),
-      firmId: user.firmId,
+      firmId: user.firmId ? user.firmId.toString() : undefined,
+      firmSlug: firmSlug || undefined,
+      defaultClientId: user.defaultClientId ? user.defaultClientId.toString() : undefined,
       role: user.role,
     });
     
@@ -2389,6 +2410,31 @@ const handleGoogleCallback = async (req, res) => {
         message: 'Account is locked. Please try again later or contact an administrator.',
         lockedUntil: user.lockUntil,
       });
+    }
+
+    // OBJECTIVE 1: Enforce mustSetPassword on Google Login
+    // Block Google login if user must set password first
+    if (user.mustSetPassword) {
+      console.warn(`[AUTH] Google login blocked for ${user.xID} - mustSetPassword=true`);
+      
+      // Fetch firmSlug for redirect
+      let firmSlug = null;
+      if (user.firmId) {
+        const firm = await Firm.findById(user.firmId);
+        if (firm) {
+          firmSlug = firm.firmSlug;
+        }
+      }
+      
+      // Redirect to set-password page (do NOT issue tokens)
+      const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const redirectUrl = new URL('/set-password', frontendBase);
+      if (firmSlug) {
+        redirectUrl.searchParams.set('firmSlug', firmSlug);
+      }
+      redirectUrl.searchParams.set('message', 'Please set your password before using Google login');
+      
+      return res.redirect(redirectUrl.toString());
     }
 
     // Admin firm bootstrapping + default client guardrails

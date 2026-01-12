@@ -193,10 +193,13 @@ const authenticate = async (req, res, next) => {
     // Attach full user object to request
     req.user = user;
     
-    // Also attach decoded JWT data for convenience
+    // OBJECTIVE 2 & 3: Attach decoded JWT data including firm context for authorization
+    // This makes firmSlug and defaultClientId available for route handlers
     req.jwt = {
       userId: decoded.userId,
       firmId: decoded.firmId || null, // May be null for SUPER_ADMIN
+      firmSlug: decoded.firmSlug || null, // NEW: Make firmSlug available from token
+      defaultClientId: decoded.defaultClientId || null, // NEW: Make defaultClientId available from token
       role: decoded.role,
     };
     
