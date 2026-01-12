@@ -5,7 +5,7 @@ const { randomUUID } = require('crypto');
  * All logs include: requestId, firmId (optional), userXID (optional), route, severity
  */
 const buildContext = (level, event, meta = {}) => {
-  const { req, severity, ...rest } = meta;
+  const { req = null, severity, ...rest } = meta || {};
   const resolvedRequestId = meta.requestId || req?.requestId || req?.id || randomUUID();
   if (req && !req.requestId) {
     req.requestId = resolvedRequestId;
