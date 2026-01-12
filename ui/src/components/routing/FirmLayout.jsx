@@ -5,12 +5,13 @@
  */
 
 import React from 'react';
-import { Outlet, useParams, Navigate } from 'react-router-dom';
+import { Outlet, useParams, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Loading } from '../common/Loading';
 
 export const FirmLayout = () => {
   const { firmSlug } = useParams();
+  const navigate = useNavigate();
   const { user, loading, isAuthenticated } = useAuth();
 
   if (loading) {
@@ -28,7 +29,7 @@ export const FirmLayout = () => {
       <div style={{ padding: '2rem', textAlign: 'center' }}>
         <h1>Access Denied</h1>
         <p>You don't have access to this firm.</p>
-          <button onClick={() => window.location.assign(`/f/${user.firmSlug}/dashboard`)}>
+          <button onClick={() => navigate(`/f/${user.firmSlug}/dashboard`, { replace: true })}>
             Go to Your Dashboard
           </button>
       </div>
