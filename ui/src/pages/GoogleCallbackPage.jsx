@@ -15,7 +15,7 @@ export const GoogleCallbackPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [error, setError] = useState('');
-  const { user, loading, isAuthenticated, setAuthFromProfile } = useAuth();
+  const { user, loading, isAuthenticated } = useAuth();
   const params = new URLSearchParams(location.search);
   const firmSlugFromQuery = params.get('firmSlug');
   const errorParam = params.get('error');
@@ -34,16 +34,7 @@ export const GoogleCallbackPage = () => {
   useEffect(() => {
     if (error || loading) return;
 
-    if (!isAuthenticated) {
-      setError('Login session not found. Please sign in again.');
-      return;
-    }
-
-    if (!user) {
-      return;
-    }
-
-    setAuthFromProfile(user);
+    if (!isAuthenticated || !user) return;
 
     const effectiveFirmSlug =
       firmSlugFromQuery ||
@@ -56,10 +47,11 @@ export const GoogleCallbackPage = () => {
 
     if (effectiveFirmSlug) {
       navigate(`/f/${effectiveFirmSlug}/dashboard`, { replace: true });
-    } else {
-      setError('Firm context missing. Please use your firm-specific login URL.');
+      return;
     }
-  }, [error, loading, isAuthenticated, user, firmSlugFromQuery, navigate, setAuthFromProfile]);
+
+    setError('Firm context missing.');
+  }, [error, loading, isAuthenticated, user, firmSlugFromQuery, navigate]);
 
   return (
     <div className="login-page">

@@ -15,6 +15,11 @@ export const AuthProvider = ({ children }) => {
 
   const bootstrapOnceRef = useRef(false);
 
+  /**
+   * WARNING:
+   * This function MUST NOT be called outside AuthContext.
+   * Calling it elsewhere will cause auth bootstrap loops.
+   */
   const setAuthFromProfile = (userData) => {
     if (!userData) return;
 
