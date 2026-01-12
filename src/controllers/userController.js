@@ -80,6 +80,9 @@ const createUser = async (req, res) => {
   const responseMeta = { requestId, firmId: req.user?.firmId || null };
   const safeUser = (userDoc) => {
     if (!userDoc) return null;
+    if (typeof userDoc.toSafeObject === 'function') {
+      return userDoc.toSafeObject();
+    }
     return {
       _id: userDoc._id,
       name: userDoc.name,

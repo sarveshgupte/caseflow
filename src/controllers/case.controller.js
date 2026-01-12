@@ -114,7 +114,6 @@ const createCase = async (req, res) => {
   let responseMeta = { requestId, firmId: req.user?.firmId || null };
 
   try {
-
     const {
       title,
       description,
@@ -394,6 +393,7 @@ const createCase = async (req, res) => {
         if (idempotencyKey) {
           existingCase = await Case.findOne({ firmId, idempotencyKey });
           if (!existingCase) {
+            // Brief retry to handle concurrent commit visibility before responding idempotently
             await new Promise((resolve) => setTimeout(resolve, 25));
             existingCase = await Case.findOne({ firmId, idempotencyKey });
           }
