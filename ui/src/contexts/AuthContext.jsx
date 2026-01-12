@@ -2,8 +2,9 @@
  * Authentication Context
  */
 
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useRef } from 'react';
 import { authService } from '../services/authService';
+import { STORAGE_KEYS } from '../utils/constants';
 
 export const AuthContext = createContext(null);
 
@@ -11,9 +12,24 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const profileLoadAttempted = useRef(false);
 
   useEffect(() => {
-    // Check if user is already logged in
+    // Guard: Prevent multiple profile load attempts
+    if (profileLoadAttempted.current) {
+      return;
+    }
+    profileLoadAttempted.current = true;
+
+    // Only proceed if we have a valid access token
+    const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    if (!accessToken) {
+      // No token, no user - just mark as done
+      setLoading(false);
+      return;
+    }
+
+    // Check if user is already logged in from localStorage
     const currentUser = authService.getCurrentUser();
     const xID = authService.getCurrentXID();
     
@@ -24,11 +40,17 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    // If we have a token but no cached user, fetch from backend
     const bootstrapFromCookie = async () => {
       try {
         const response = await authService.getProfile();
         if (response?.success && response.data) {
-          setUser(response.data);
+          const userData = response.data;
+          // Store user data to localStorage to prevent re-fetching on subsequent renders
+          // Note: xID should always be present from backend; if missing, it indicates a backend issue
+          localStorage.setItem(STORAGE_KEYS.X_ID, userData.xID);
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+          setUser(userData);
           setIsAuthenticated(true);
         }
       } catch (err) {
@@ -39,7 +61,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     bootstrapFromCookie();
-  }, []);
+  }, []); // Empty dependency - runs once on mount, ref guard prevents re-execution
 
   const login = async (xID, password) => {
     const response = await authService.login(xID, password);
@@ -67,9 +89,10 @@ export const AuthProvider = ({ children }) => {
       // Always clear client-side state
       setUser(null);
       setIsAuthenticated(false);
+      profileLoadAttempted.current = false; // Reset guard to allow fresh login
       // Force clear localStorage in case service didn't
-      localStorage.removeItem('xID');
-      localStorage.removeItem('user');
+      localStorage.removeItem(STORAGE_KEYS.X_ID);
+      localStorage.removeItem(STORAGE_KEYS.USER);
     }
   };
 
