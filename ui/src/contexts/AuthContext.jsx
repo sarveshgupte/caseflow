@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }) => {
         if (cachedUser && cachedXID) {
           try {
             const parsedUser = JSON.parse(cachedUser);
-            if (parsedUser?.xID && parsedUser.xID === cachedXID) {
+            if (parsedUser?.xID && parsedUser.xID === cachedXID && parsedUser.role) {
               setAuthFromProfile(parsedUser);
               return;
             }
@@ -100,6 +100,7 @@ export const AuthProvider = ({ children }) => {
       // Always clear client-side state
       setUser(null);
       setIsAuthenticated(false);
+      bootstrapOnceRef.current = false;
       
       // Force clear localStorage in case service didn't
       localStorage.removeItem(STORAGE_KEYS.X_ID);

@@ -32,7 +32,10 @@ export const ProfilePage = () => {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     setProfileData(user);
     setFormData({

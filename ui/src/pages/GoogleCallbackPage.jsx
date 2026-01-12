@@ -34,8 +34,12 @@ export const GoogleCallbackPage = () => {
   useEffect(() => {
     if (error || loading) return;
 
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated) {
       setError('Login session not found. Please sign in again.');
+      return;
+    }
+
+    if (!user) {
       return;
     }
 
