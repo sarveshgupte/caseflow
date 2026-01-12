@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  
+
   /**
    * Execution guard to prevent infinite /api/auth/profile request loops.
    * 
@@ -31,6 +31,24 @@ export const AuthProvider = ({ children }) => {
    */
   const profileFetchAttemptedRef = useRef(false);
 
+  const setAuthFromProfile = (userData) => {
+    if (!userData) return;
+
+    if (userData.firmSlug) {
+      localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, userData.firmSlug);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
+    }
+
+    if (userData.xID) {
+      localStorage.setItem(STORAGE_KEYS.X_ID, userData.xID);
+    }
+
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+    setUser(userData);
+    setIsAuthenticated(true);
+  };
+
   useEffect(() => {
     // ============================================================================
     // GUARD: Prevent duplicate profile fetch attempts
@@ -44,17 +62,6 @@ export const AuthProvider = ({ children }) => {
     profileFetchAttemptedRef.current = true;
 
     // ============================================================================
-    // EARLY EXIT: No token means no authenticated user
-    // ============================================================================
-    // If no access token exists, the user is definitely not authenticated.
-    // Skip all profile loading logic and immediately mark loading as complete.
-    const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-    if (!accessToken) {
-      setLoading(false);
-      return;
-    }
-
-    // ============================================================================
     // EARLY EXIT: User data already cached in localStorage
     // ============================================================================
     // Check if user is already logged in from localStorage
@@ -62,8 +69,7 @@ export const AuthProvider = ({ children }) => {
     const xID = authService.getCurrentXID();
     
     if (currentUser && xID) {
-      setUser(currentUser);
-      setIsAuthenticated(true);
+      setAuthFromProfile(currentUser);
       setLoading(false);
       return;
     }
@@ -79,10 +85,7 @@ export const AuthProvider = ({ children }) => {
           const userData = response.data;
           // Store user data to localStorage to prevent re-fetching on subsequent renders
           // Note: xID should always be present from backend; if missing, it indicates a backend issue
-          localStorage.setItem(STORAGE_KEYS.X_ID, userData.xID);
-          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
-          setUser(userData);
-          setIsAuthenticated(true);
+          setAuthFromProfile(userData);
         }
       } catch (err) {
         // ignore - user not authenticated
@@ -99,8 +102,7 @@ export const AuthProvider = ({ children }) => {
     
     if (response.success) {
       const userData = response.data;
-      setUser(userData);
-      setIsAuthenticated(true);
+      setAuthFromProfile(userData);
       return response;
     } else {
       // Login failed or requires password change - don't set auth state
@@ -109,10 +111,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
+  const logout = async ({ preserveFirmSlug = false } = {}) => {
+    const firmSlugToPreserve = preserveFirmSlug
+      ? user?.firmSlug || localStorage.getItem(STORAGE_KEYS.FIRM_SLUG)
+      : null;
+
     try {
       // Call backend logout endpoint
-      await authService.logout();
+      await authService.logout(preserveFirmSlug);
     } catch (error) {
       // Even if backend call fails, clear client state
       console.error('Logout error:', error);
@@ -127,6 +133,14 @@ export const AuthProvider = ({ children }) => {
       // Force clear localStorage in case service didn't
       localStorage.removeItem(STORAGE_KEYS.X_ID);
       localStorage.removeItem(STORAGE_KEYS.USER);
+      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+
+      if (firmSlugToPreserve) {
+        localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlugToPreserve);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
+      }
     }
   };
 
@@ -141,6 +155,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     updateUser,
+    setAuthFromProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

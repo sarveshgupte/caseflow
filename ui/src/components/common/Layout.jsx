@@ -25,7 +25,7 @@ export const Layout = ({ children }) => {
   const currentFirmSlug = firmSlug || user?.firmSlug;
 
   const handleLogout = async () => {
-    await logout();
+    await logout({ preserveFirmSlug: !!currentFirmSlug });
     // Redirect to firm login if firmSlug is available
     if (currentFirmSlug) {
       navigate(`/f/${currentFirmSlug}/login`);
@@ -93,7 +93,7 @@ export const Layout = ({ children }) => {
           {/* Left: Logo */}
           <div className="enterprise-top-header__left">
             <Link 
-              to={`/${currentFirmSlug}/dashboard`}
+              to={`/f/${currentFirmSlug}/dashboard`}
               className="enterprise-top-header__logo"
             >
               <h1>Docketra</h1>
@@ -103,20 +103,20 @@ export const Layout = ({ children }) => {
           {/* Center: Primary Navigation */}
           <nav className="enterprise-top-header__nav">
             <Link
-              to={`/${currentFirmSlug}/dashboard`}
-              className={`enterprise-top-header__nav-link ${isActive(`/${currentFirmSlug}/dashboard`) ? 'active' : ''}`}
+              to={`/f/${currentFirmSlug}/dashboard`}
+              className={`enterprise-top-header__nav-link ${isActive(`/f/${currentFirmSlug}/dashboard`) ? 'active' : ''}`}
             >
               Dashboard
             </Link>
             <Link
-              to={`/${currentFirmSlug}/global-worklist`}
-              className={`enterprise-top-header__nav-link ${isActive(`/${currentFirmSlug}/global-worklist`) ? 'active' : ''}`}
+              to={`/f/${currentFirmSlug}/global-worklist`}
+              className={`enterprise-top-header__nav-link ${isActive(`/f/${currentFirmSlug}/global-worklist`) ? 'active' : ''}`}
             >
               Workbasket
             </Link>
             <Link
-              to={`/${currentFirmSlug}/worklist`}
-              className={`enterprise-top-header__nav-link ${isActive(`/${currentFirmSlug}/worklist`) ? 'active' : ''}`}
+              to={`/f/${currentFirmSlug}/worklist`}
+              className={`enterprise-top-header__nav-link ${isActive(`/f/${currentFirmSlug}/worklist`) ? 'active' : ''}`}
             >
               My Worklist
             </Link>
@@ -125,7 +125,7 @@ export const Layout = ({ children }) => {
           {/* Primary Action */}
           <div className="enterprise-top-header__action">
             <button
-              onClick={() => navigate(`/${currentFirmSlug}/cases/create`)}
+              onClick={() => navigate(`/f/${currentFirmSlug}/cases/create`)}
               className="btn-primary-cta"
             >
               Create Case
@@ -136,8 +136,8 @@ export const Layout = ({ children }) => {
           {hasAdminAccess && (
             <div className="enterprise-top-header__admin">
               <Link
-                to={`/${currentFirmSlug}/admin`}
-                className={`enterprise-top-header__nav-link ${location.pathname.startsWith(`/${currentFirmSlug}/admin`) ? 'active' : ''}`}
+                to={`/f/${currentFirmSlug}/admin`}
+                className={`enterprise-top-header__nav-link ${location.pathname.startsWith(`/f/${currentFirmSlug}/admin`) ? 'active' : ''}`}
               >
                 Admin
               </Link>
@@ -184,7 +184,7 @@ export const Layout = ({ children }) => {
               {profileDropdownOpen && (
                 <div className="dropdown-menu dropdown-menu-right">
                   <Link
-                    to={`/${currentFirmSlug}/profile`}
+                    to={`/f/${currentFirmSlug}/profile`}
                     className="dropdown-item"
                     onClick={() => setProfileDropdownOpen(false)}
                   >
@@ -217,29 +217,29 @@ export const Layout = ({ children }) => {
         {mobileMenuOpen && (
           <div className="enterprise-top-header__mobile-menu">
             <Link
-              to={`/${currentFirmSlug}/dashboard`}
-              className={`enterprise-top-header__mobile-link ${isActive(`/${currentFirmSlug}/dashboard`) ? 'active' : ''}`}
+              to={`/f/${currentFirmSlug}/dashboard`}
+              className={`enterprise-top-header__mobile-link ${isActive(`/f/${currentFirmSlug}/dashboard`) ? 'active' : ''}`}
               onClick={() => setMobileMenuOpen(false)}
             >
               Dashboard
             </Link>
             <Link
-              to={`/${currentFirmSlug}/global-worklist`}
-              className={`enterprise-top-header__mobile-link ${isActive(`/${currentFirmSlug}/global-worklist`) ? 'active' : ''}`}
+              to={`/f/${currentFirmSlug}/global-worklist`}
+              className={`enterprise-top-header__mobile-link ${isActive(`/f/${currentFirmSlug}/global-worklist`) ? 'active' : ''}`}
               onClick={() => setMobileMenuOpen(false)}
             >
               Workbasket
             </Link>
             <Link
-              to={`/${currentFirmSlug}/worklist`}
-              className={`enterprise-top-header__mobile-link ${isActive(`/${currentFirmSlug}/worklist`) ? 'active' : ''}`}
+              to={`/f/${currentFirmSlug}/worklist`}
+              className={`enterprise-top-header__mobile-link ${isActive(`/f/${currentFirmSlug}/worklist`) ? 'active' : ''}`}
               onClick={() => setMobileMenuOpen(false)}
             >
               My Worklist
             </Link>
             <button
               onClick={() => {
-                navigate(`/${currentFirmSlug}/cases/create`);
+                navigate(`/f/${currentFirmSlug}/cases/create`);
                 setMobileMenuOpen(false);
               }}
               className="btn-primary-cta btn-primary-cta--mobile"
@@ -248,8 +248,8 @@ export const Layout = ({ children }) => {
             </button>
             {hasAdminAccess && (
               <Link
-                to={`/${currentFirmSlug}/admin`}
-                className={`enterprise-top-header__mobile-link ${location.pathname.startsWith(`/${currentFirmSlug}/admin`) ? 'active' : ''}`}
+                to={`/f/${currentFirmSlug}/admin`}
+                className={`enterprise-top-header__mobile-link ${location.pathname.startsWith(`/f/${currentFirmSlug}/admin`) ? 'active' : ''}`}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Admin

@@ -28,6 +28,11 @@ export const authService = {
       
       // Store user data
       localStorage.setItem(STORAGE_KEYS.X_ID, userData.xID || 'SUPERADMIN');
+      if (userData.firmSlug) {
+        localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, userData.firmSlug);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
+      }
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
     }
     // Don't store anything if login fails or requires password change
@@ -38,7 +43,11 @@ export const authService = {
   /**
    * Logout
    */
-  logout: async () => {
+  logout: async (preserveFirmSlug = false) => {
+    const firmSlugToPreserve = preserveFirmSlug
+      ? localStorage.getItem(STORAGE_KEYS.FIRM_SLUG)
+      : null;
+
     try {
       await api.post('/auth/logout');
     } finally {
@@ -46,6 +55,12 @@ export const authService = {
       localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
       localStorage.removeItem(STORAGE_KEYS.X_ID);
       localStorage.removeItem(STORAGE_KEYS.USER);
+      
+      if (!firmSlugToPreserve) {
+        localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
+      } else {
+        localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlugToPreserve);
+      }
     }
   },
 

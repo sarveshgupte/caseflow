@@ -2,14 +2,15 @@
  * Login Page
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { validateXID, validatePassword } from '../utils/validators';
-import { USER_ROLES } from '../utils/constants';
+import { STORAGE_KEYS, USER_ROLES } from '../utils/constants';
+import { usePermissions } from '../hooks/usePermissions';
 import './LoginPage.css';
 
 export const LoginPage = () => {
@@ -18,13 +19,27 @@ export const LoginPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, user, isAuthenticated } = useAuth();
+  const { isSuperadmin } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
   
   // Get success message from location state if present
   const successMessage = location.state?.message;
   const messageType = location.state?.messageType;
+
+  useEffect(() => {
+    const storedFirmSlug = localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
+
+    if (isAuthenticated && !isSuperadmin) {
+      const targetFirmSlug = user?.firmSlug || storedFirmSlug;
+      if (targetFirmSlug) {
+        navigate(`/f/${targetFirmSlug}/dashboard`, { replace: true });
+      }
+    } else if (!isSuperadmin && storedFirmSlug) {
+      navigate(`/f/${storedFirmSlug}/login`, { replace: true });
+    }
+  }, [isAuthenticated, isSuperadmin, navigate, user]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -54,7 +69,8 @@ export const LoginPage = () => {
           // Regular users go to firm-scoped dashboard
           const firmSlug = response.data.firmSlug;
           if (firmSlug) {
-            navigate(`/${firmSlug}/dashboard`);
+            localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlug);
+            navigate(`/f/${firmSlug}/dashboard`);
           } else {
             // Fallback if firmSlug not available
             setError('Firm context not available. Please use your firm-specific login URL.');

@@ -112,7 +112,7 @@ export const DetailedReports = () => {
   };
 
   const handleCaseClick = (caseId) => {
-    navigate(`/${firmSlug}/cases/${caseId}`);
+    navigate(`/f/${firmSlug}/cases/${caseId}`);
   };
 
   const handleExport = (type) => {

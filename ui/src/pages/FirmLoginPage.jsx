@@ -11,7 +11,7 @@ import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { validateXID, validatePassword } from '../utils/validators';
-import { API_BASE_URL, USER_ROLES, ERROR_CODES } from '../utils/constants';
+import { API_BASE_URL, USER_ROLES, ERROR_CODES, STORAGE_KEYS } from '../utils/constants';
 import api from '../services/api';
 import './LoginPage.css';
 
@@ -24,7 +24,7 @@ export const FirmLoginPage = () => {
   const [firmLoading, setFirmLoading] = useState(true);
   const [firmData, setFirmData] = useState(null);
 
-  const { login } = useAuth();
+  const { setAuthFromProfile } = useAuth();
   const navigate = useNavigate();
 
   // Load firm metadata
@@ -41,14 +41,17 @@ export const FirmLoginPage = () => {
           if (firm.status !== 'ACTIVE') {
             setError('This firm is currently inactive. Please contact support.');
             setFirmData(null);
+            localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
           } else {
             setFirmData(firm);
+            localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlug);
           }
         }
       } catch (err) {
         console.error('Error loading firm:', err);
         setError('Firm not found. Please check your login URL.');
         setFirmData(null);
+        localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
       } finally {
         setFirmLoading(false);
       }
@@ -93,21 +96,27 @@ export const FirmLoginPage = () => {
         const { accessToken, refreshToken, data: userData } = response.data;
         
         // Store tokens and user data in localStorage
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', refreshToken);
-        localStorage.setItem('xID', userData.xID || 'UNKNOWN');
-        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
+        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+        localStorage.setItem(STORAGE_KEYS.X_ID, userData.xID || 'UNKNOWN');
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
 
         // Check if user is Superadmin (shouldn't happen via firm login, but check anyway)
         if (userData.role === USER_ROLES.SUPER_ADMIN) {
+          localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
+          setAuthFromProfile(userData);
           navigate('/superadmin');
         } else {
           // Regular users go to firm-scoped dashboard
           // Use firmSlug from backend response if available, fallback to URL firmSlug
           const userFirmSlug = userData.firmSlug || firmSlug;
+          if (userFirmSlug) {
+            localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, userFirmSlug);
+          }
+          setAuthFromProfile(userData);
           
           // Immediately navigate - do NOT poll profile or retry
-          navigate(`/${userFirmSlug}/dashboard`);
+          navigate(`/f/${userFirmSlug}/dashboard`);
         }
       }
     } catch (err) {
