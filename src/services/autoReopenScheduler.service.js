@@ -49,6 +49,10 @@ const runAutoReopenJob = async () => {
  * @param {number} intervalMinutes - Interval in minutes (default: 60)
  */
 const startScheduler = (intervalMinutes = 60) => {
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('[AutoReopen] Scheduler disabled in production to prevent background loops');
+    return;
+  }
   console.log(`[AutoReopen] Scheduler started (runs every ${intervalMinutes} minutes)`);
   
   // Run immediately on startup

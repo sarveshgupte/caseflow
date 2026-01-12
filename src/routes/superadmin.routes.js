@@ -12,6 +12,8 @@ const {
   updateFirmStatus,
   createFirmAdmin,
   getPlatformStats,
+  disableFirmImmediately,
+  getOperationalHealth,
 } = require('../controllers/superadmin.controller');
 
 /**
@@ -34,11 +36,13 @@ const {
 
 // Platform statistics
 router.get('/stats', authenticate, authorize(SuperAdminPolicy.canViewPlatformStats), superadminLimiter, getPlatformStats);
+router.get('/health', authenticate, requireSuperadmin, superadminLimiter, getOperationalHealth);
 
 // Firm management
 router.post('/firms', authenticate, authorize(FirmPolicy.canCreate), superadminLimiter, createFirm);
 router.get('/firms', authenticate, authorize(FirmPolicy.canView), superadminLimiter, listFirms);
 router.patch('/firms/:id', authenticate, authorize(FirmPolicy.canManageStatus), superadminLimiter, updateFirmStatus);
+router.post('/firms/:id/disable', authenticate, authorize(FirmPolicy.canManageStatus), superadminLimiter, disableFirmImmediately);
 
 // Firm admin creation
 router.post('/firms/:firmId/admin', authenticate, authorize(FirmPolicy.canCreateAdmin), superadminLimiter, createFirmAdmin);

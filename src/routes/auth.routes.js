@@ -3,7 +3,7 @@ const router = express.Router();
 const { authenticate } = require('../middleware/auth.middleware');
 const { requireAdmin } = require('../middleware/permission.middleware');
 const { optionalFirmResolution } = require('../middleware/firmResolution.middleware');
-const { authLimiter } = require('../middleware/rateLimiters');
+const { authLimiter, profileLimiter } = require('../middleware/rateLimiters');
 const {
   login,
   logout,
@@ -57,8 +57,8 @@ router.post('/logout', authenticate, logout);
 router.post('/change-password', authenticate, changePassword);
 
 // Profile endpoints - require authentication
-router.get('/profile', authLimiter, detectProfileLoop, authenticate, getProfile);
-router.put('/profile', authLimiter, authenticate, updateProfile);
+router.get('/profile', profileLimiter, detectProfileLoop, authenticate, getProfile);
+router.put('/profile', profileLimiter, authenticate, updateProfile);
 
 // Admin-only endpoints - require authentication and admin role
 router.post('/reset-password', authenticate, requireAdmin, resetPassword);

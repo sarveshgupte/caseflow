@@ -45,6 +45,10 @@ const getRedisClient = () => {
       connectTimeout: 10000,
       lazyConnect: false,
       retryStrategy: (times) => {
+        if (process.env.NODE_ENV === 'production') {
+          console.warn('[REDIS] Retry disabled in production for predictability');
+          return null;
+        }
         // Retry with exponential backoff, max 30 seconds
         const delay = Math.min(times * 100, 30000);
         console.log(`[REDIS] Retry attempt ${times}, waiting ${delay}ms`);

@@ -1,6 +1,9 @@
 const rateLimit = require('express-rate-limit');
 const { RedisStore } = require('rate-limit-redis');
 const { getRedisClient } = require('../config/redis');
+const log = require('../utils/log');
+const { recordRateLimitHit } = require('../utils/operationalMetrics');
+const { randomUUID } = require('crypto');
 
 /**
  * Rate Limiting Middleware for Docketra
@@ -39,18 +42,15 @@ const { getRedisClient } = require('../config/redis');
  * @param {string} limiterName - Name of the rate limiter that triggered
  */
 const logAbuseEvent = (req, limiterName) => {
-  const event = {
-    timestamp: new Date().toISOString(),
+  req.requestId = req.requestId || randomUUID();
+  const endpoint = `${req.method} ${req.originalUrl || req.url}`;
+  recordRateLimitHit(req, endpoint);
+  const event = `[RATE_LIMIT][${req.requestId || 'no-req'}][${req.firmId || 'no-firm'}][${req.originalUrl || req.url}]`;
+  log.warn(event, {
+    req,
     limiterName,
-    ip: req.ip || req.connection?.remoteAddress || 'unknown',
-    route: `${req.method} ${req.originalUrl || req.url}`,
-    userId: req.user?.xID || req.user?._id || 'unauthenticated',
-    firmId: req.user?.firmId || 'none',
-    role: req.user?.role || 'none',
-    userAgent: req.get('user-agent') || 'unknown',
-  };
-  
-  console.warn('[RATE_LIMIT] Abuse detected:', JSON.stringify(event));
+    endpoint,
+  });
 };
 
 /**
@@ -209,7 +209,7 @@ const userReadLimiter = createLimiter({
  */
 const userWriteLimiter = createLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: 30,
+  max: 10,
   keyGenerator: (req) => {
     if (!req.user) return req.ip || 'unknown';
     const userId = req.user.xID || req.user._id || 'unknown';
@@ -253,7 +253,7 @@ const attachmentLimiter = createLimiter({
  */
 const searchLimiter = createLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: 20,
+  max: 30,
   keyGenerator: (req) => {
     if (!req.user) return req.ip || 'unknown';
     return req.user.xID || req.user._id || 'unknown';
@@ -282,6 +282,21 @@ const superadminLimiter = createLimiter({
   name: 'superadminLimiter',
 });
 
+/**
+ * Profile limiter (user scoped)
+ * Protects profile endpoint from noisy callers
+ * Limit: 5 requests per minute per user
+ */
+const profileLimiter = createLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5,
+  keyGenerator: (req) => {
+    if (!req.user) return req.ip || 'unknown';
+    return req.user.xID || req.user._id || 'unknown';
+  },
+  name: 'profileLimiter',
+});
+
 module.exports = {
   authLimiter,
   userReadLimiter,
@@ -289,4 +304,5 @@ module.exports = {
   attachmentLimiter,
   searchLimiter,
   superadminLimiter,
+  profileLimiter,
 };

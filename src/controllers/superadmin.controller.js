@@ -8,6 +8,7 @@ const emailService = require('../services/email.service');
 const mongoose = require('mongoose');
 const { generateNextClientId } = require('../services/clientIdGenerator');
 const { slugify } = require('../utils/slugify');
+const { getDashboardSnapshot } = require('../utils/operationalMetrics');
 
 const SALT_ROUNDS = 10;
 
@@ -557,6 +558,57 @@ const updateFirmStatus = async (req, res) => {
 };
 
 /**
+ * Disable firm immediately (single action)
+ * POST /api/superadmin/firms/:id/disable
+ */
+const disableFirmImmediately = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const firm = await Firm.findById(id);
+
+    if (!firm) {
+      return res.status(404).json({
+        success: false,
+        message: 'Firm not found',
+      });
+    }
+
+    const oldStatus = firm.status;
+    firm.status = 'SUSPENDED';
+    await firm.save();
+
+    await logSuperadminAction({
+      actionType: 'FirmSuspended',
+      description: `Firm disabled immediately: ${firm.name} (${firm.firmId})`,
+      performedBy: req.user.email,
+      performedById: req.user._id,
+      targetEntityType: 'Firm',
+      targetEntityId: firm._id.toString(),
+      metadata: { firmId: firm.firmId, name: firm.name, oldStatus, newStatus: 'SUSPENDED' },
+      req,
+    });
+
+    return res.json({
+      success: true,
+      message: 'Firm disabled immediately',
+      data: {
+        _id: firm._id,
+        firmId: firm.firmId,
+        name: firm.name,
+        status: firm.status,
+      },
+    });
+  } catch (error) {
+    console.error('[SUPERADMIN] Error disabling firm immediately:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to disable firm',
+      error: error.message,
+    });
+  }
+};
+
+/**
  * Create firm admin
  * POST /api/superadmin/firms/:firmId/admin
  * 
@@ -752,11 +804,36 @@ const getFirmBySlug = async (req, res) => {
   }
 };
 
+/**
+ * Operational health snapshot for pilot safety dashboard
+ * GET /api/superadmin/health
+ */
+const getOperationalHealth = async (req, res) => {
+  try {
+    return res.json({
+      success: true,
+      data: {
+        timestamp: new Date().toISOString(),
+        firms: getDashboardSnapshot(),
+      },
+    });
+  } catch (error) {
+    console.error('[SUPERADMIN] Error generating operational health:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to generate health snapshot',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createFirm,
   listFirms,
   updateFirmStatus,
+  disableFirmImmediately,
   createFirmAdmin,
   getPlatformStats,
   getFirmBySlug,
+  getOperationalHealth,
 };

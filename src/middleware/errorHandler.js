@@ -3,9 +3,13 @@
  * Centralized error handling for the application
  */
 
+const log = require('../utils/log');
+const { recordError } = require('../utils/operationalMetrics');
+
 const errorHandler = (err, req, res, next) => {
+  recordError(req, err);
   // Logging sanitization is handled centrally by the global console.error override to avoid double-masking.
-  console.error('Error:', err);
+  log.error('REQUEST_FAILED', { req, error: err.message, stack: err.stack });
   
   // Mongoose validation error
   if (err.name === 'ValidationError') {

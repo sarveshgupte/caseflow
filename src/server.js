@@ -48,6 +48,7 @@ const notFound = require('./middleware/notFound');
 const { authenticate } = require('./middleware/auth.middleware');
 const { firmContext } = require('./middleware/firmContext.middleware');
 const { requireAdmin, requireSuperadmin } = require('./middleware/permission.middleware');
+const invariantGuard = require('./middleware/invariantGuard');
 
 // Routes
 const userRoutes = require('./routes/users');
@@ -214,28 +215,28 @@ app.use('/api/public', publicRoutes);
 app.use('/api/categories', categoryRoutes);
 
 // Admin routes (firm-scoped) - enforce auth + firm context + admin role boundary
-app.use('/api/admin', authenticate, firmContext, requireAdmin, adminRoutes);
+app.use('/api/admin', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), requireAdmin, adminRoutes);
 
 // Superadmin routes - platform scope only (no firm context)
 app.use('/api/sa', authenticate, requireSuperadmin, superadminRoutes);
 app.use('/api/superadmin', authenticate, requireSuperadmin, superadminRoutes);
 
 // Debug routes (PR #43) - require authentication and admin role
-app.use('/api/debug', authenticate, firmContext, requireAdmin, debugRoutes);
+app.use('/api/debug', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), requireAdmin, debugRoutes);
 
 // Inbound email routes (webhook - no authentication required)
 app.use('/api/inbound', inboundRoutes);
 
 // Protected routes - require authentication
 // Firm context must be attached for all tenant-scoped operations
-app.use('/api/users', authenticate, firmContext, userRoutes);
-app.use('/api/tasks', authenticate, firmContext, taskRoutes);
-app.use('/api/cases', authenticate, firmContext, newCaseRoutes);
-app.use('/api/search', authenticate, firmContext, searchRoutes);
-app.use('/api/worklists', authenticate, firmContext, searchRoutes);
-app.use('/api/client-approval', authenticate, firmContext, clientApprovalRoutes);
-app.use('/api/clients', authenticate, firmContext, clientRoutes);  // Client management (PR #39)
-app.use('/api/reports', authenticate, firmContext, reportsRoutes);  // Reports routes
+app.use('/api/users', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), userRoutes);
+app.use('/api/tasks', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), taskRoutes);
+app.use('/api/cases', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), newCaseRoutes);
+app.use('/api/search', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), searchRoutes);
+app.use('/api/worklists', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), searchRoutes);
+app.use('/api/client-approval', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), clientApprovalRoutes);
+app.use('/api/clients', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), clientRoutes);  // Client management (PR #39)
+app.use('/api/reports', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), reportsRoutes);  // Reports routes
 
 // Root route - API status
 app.get('/', (req, res) => {

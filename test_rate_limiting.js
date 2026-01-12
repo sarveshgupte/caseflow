@@ -24,6 +24,7 @@ try {
     attachmentLimiter,
     searchLimiter,
     superadminLimiter,
+    profileLimiter,
   } = require('./src/middleware/rateLimiters');
   
   // Test 2: Verify all limiters are functions
@@ -35,6 +36,7 @@ try {
     attachmentLimiter,
     searchLimiter,
     superadminLimiter,
+    profileLimiter,
   };
   
   for (const [name, limiter] of Object.entries(limiters)) {
@@ -95,9 +97,10 @@ try {
   console.log('\nRate Limiter Summary:');
   console.log('- authLimiter: 5 req/min per IP (authentication endpoints)');
   console.log('- userReadLimiter: 60 req/min per user+firm (case reads)');
-  console.log('- userWriteLimiter: 30 req/min per user+firm (case mutations)');
+  console.log('- userWriteLimiter: 10 req/min per user+firm (case mutations)');
   console.log('- attachmentLimiter: 10 req/min per user (attachments)');
-  console.log('- searchLimiter: 20 req/min per user (search/worklists)');
+  console.log('- searchLimiter: 30 req/min per user (search/worklists)');
+  console.log('- profileLimiter: 5 req/min per user (profile endpoints)');
   console.log('- superadminLimiter: 100 req/min per xID (admin operations)');
   console.log('\nAll routes have been protected with appropriate rate limiters.');
   
