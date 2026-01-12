@@ -12,9 +12,15 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   useEffect(() => {
-    // Check if user is already logged in
+    // Guard: Prevent multiple profile loads across remounts
+    if (profileLoaded) {
+      return;
+    }
+
+    // Check if user is already logged in from localStorage
     const currentUser = authService.getCurrentUser();
     const xID = authService.getCurrentXID();
     
@@ -22,6 +28,16 @@ export const AuthProvider = ({ children }) => {
       setUser(currentUser);
       setIsAuthenticated(true);
       setLoading(false);
+      setProfileLoaded(true);
+      return;
+    }
+
+    // Only fetch from backend if we have a valid token
+    const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    if (!accessToken) {
+      // No token, no user - just mark as done
+      setLoading(false);
+      setProfileLoaded(true);
       return;
     }
 
@@ -41,11 +57,12 @@ export const AuthProvider = ({ children }) => {
         // ignore - user not authenticated
       } finally {
         setLoading(false);
+        setProfileLoaded(true);
       }
     };
 
     bootstrapFromCookie();
-  }, []);
+  }, [profileLoaded]);
 
   const login = async (xID, password) => {
     const response = await authService.login(xID, password);
@@ -73,6 +90,7 @@ export const AuthProvider = ({ children }) => {
       // Always clear client-side state
       setUser(null);
       setIsAuthenticated(false);
+      setProfileLoaded(false); // Reset guard to allow fresh login
       // Force clear localStorage in case service didn't
       localStorage.removeItem(STORAGE_KEYS.X_ID);
       localStorage.removeItem(STORAGE_KEYS.USER);
