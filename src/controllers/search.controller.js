@@ -37,8 +37,6 @@ const globalSearch = async (req, res) => {
     // Get authenticated user from req.user (set by auth middleware)
     const user = req.user;
     const firmId = req.firmId;
-    const firmId = req.firmId;
-    const firmId = req.firmId;
     
     if (!user || !user.xID) {
       return res.status(401).json({

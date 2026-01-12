@@ -221,7 +221,7 @@ app.use('/api/sa', authenticate, requireSuperadmin, superadminRoutes);
 app.use('/api/superadmin', authenticate, requireSuperadmin, superadminRoutes);
 
 // Debug routes (PR #43) - require authentication and admin role
-app.use('/api/debug', debugRoutes);
+app.use('/api/debug', authenticate, firmContext, requireAdmin, debugRoutes);
 
 // Inbound email routes (webhook - no authentication required)
 app.use('/api/inbound', inboundRoutes);

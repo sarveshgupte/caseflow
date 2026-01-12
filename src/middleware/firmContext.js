@@ -97,12 +97,6 @@ const firmContext = async (req, res, next) => {
     req.firmId = firm._id.toString();
     req.firmSlug = firm.firmSlug;
 
-    if (!req.firmId && !req.isSuperAdmin) {
-      const error = new Error('Firm context missing');
-      error.statusCode = 400;
-      throw error;
-    }
-
     console.log(`[FIRM_CONTEXT][${requestId}] Firm context resolved`, { firmId: req.firmId, firmSlug: req.firmSlug });
     return next();
   } catch (error) {
