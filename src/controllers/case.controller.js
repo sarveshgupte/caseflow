@@ -362,9 +362,6 @@ const createCase = async (req, res) => {
         req,
         session,
       });
-      if (!historyEntry) {
-        throw new Error(`Case history logging failed for ${newCase.caseId || 'unknown'} [requestId:${requestId}]`);
-      }
       
       // Add system comment if duplicate was overridden
       if (systemComment) {
@@ -393,17 +390,22 @@ const createCase = async (req, res) => {
 
       if (error?.code === 11000) {
         console.error(`[CASE_CREATE][${requestId}] Duplicate key detected during case creation`, { firmId, error: error.message });
+        let existingCase = null;
         if (idempotencyKey) {
-          const existingCase = await Case.findOne({ firmId, idempotencyKey });
-          if (existingCase) {
-            return res.status(200).json({
-              success: true,
-              data: existingCase,
-              message: 'Case already exists for this idempotency key',
-              idempotent: true,
-              ...responseMeta,
-            });
+          existingCase = await Case.findOne({ firmId, idempotencyKey });
+          if (!existingCase) {
+            await new Promise((resolve) => setTimeout(resolve, 25));
+            existingCase = await Case.findOne({ firmId, idempotencyKey });
           }
+        }
+        if (existingCase) {
+          return res.status(200).json({
+            success: true,
+            data: existingCase,
+            message: 'Case already exists for this idempotency key',
+            idempotent: true,
+            ...responseMeta,
+          });
         }
         return res.status(409).json({
           success: false,

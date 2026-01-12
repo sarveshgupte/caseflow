@@ -79,19 +79,16 @@ const createUser = async (req, res) => {
   req.requestId = requestId;
   const responseMeta = { requestId, firmId: req.user?.firmId || null };
   const safeUser = (userDoc) => {
-      if (!userDoc) return null;
-      if (typeof userDoc.toSafeObject === 'function') {
-        return userDoc.toSafeObject();
-      }
-      return {
-        _id: userDoc._id,
-        name: userDoc.name,
-        email: userDoc.email,
-        role: userDoc.role,
-        firmId: userDoc.firmId,
-        defaultClientId: userDoc.defaultClientId,
-      };
+    if (!userDoc) return null;
+    return {
+      _id: userDoc._id,
+      name: userDoc.name,
+      email: userDoc.email,
+      role: userDoc.role,
+      firmId: userDoc.firmId,
+      defaultClientId: userDoc.defaultClientId,
     };
+  };
 
   try {
     const { name, email, role } = req.body;
