@@ -1,6 +1,17 @@
 const User = require('../models/User.model');
 const jwtService = require('../services/jwt.service');
 
+const MUST_SET_ALLOWED_PATHS = [
+  '/auth/profile',
+  '/api/auth/profile',
+  '/auth/set-password',
+  '/api/auth/set-password',
+  '/auth/reset-password',
+  '/api/auth/reset-password',
+  '/auth/reset-password-with-token',
+  '/api/auth/reset-password-with-token',
+];
+
 const getTokenFromCookies = (cookieHeader, name) => {
   if (!cookieHeader || !name) return null;
   return cookieHeader
@@ -113,6 +124,25 @@ const authenticate = async (req, res, next) => {
         message: 'Account is deactivated. Please contact administrator.',
       });
     }
+
+    // Hard guard: block all authenticated routes until password is set
+    const rawPath = (req.originalUrl || req.path || '').split('?')[0];
+    const normalizedCandidates = [
+      rawPath,
+      req.path,
+      `${req.baseUrl || ''}${req.path || ''}`,
+    ].filter(Boolean);
+    // DO NOT use passwordSet here; mustSetPassword is the only onboarding gate.
+    const isPasswordSetupAllowed = normalizedCandidates.some(p => MUST_SET_ALLOWED_PATHS.includes(p));
+    if (user.mustSetPassword && !isPasswordSetupAllowed) {
+      return res.status(403).json({
+        success: false,
+        code: 'PASSWORD_SETUP_REQUIRED',
+        mustSetPassword: true,
+        message: 'You must set your password before accessing this resource.',
+        redirectPath: '/auth/set-password',
+      });
+    }
     
     // Verify firmId matches (multi-tenancy check)
     // Skip this check for SUPER_ADMIN (they have no firmId)
@@ -140,9 +170,9 @@ const authenticate = async (req, res, next) => {
     
     // Special case: allow change-password and profile endpoints even if mustChangePassword is true
     // Check if this is the change-password or profile endpoint
-    const isChangePasswordEndpoint = req.path.endsWith('/change-password');
-    const isProfileEndpoint = req.path.endsWith('/profile');
-    const isRefreshEndpoint = req.path.endsWith('/refresh');
+    const isChangePasswordEndpoint = rawPath.endsWith('/change-password') || (req.path || '').endsWith('/change-password');
+    const isRefreshEndpoint = rawPath.endsWith('/refresh') || (req.path || '').endsWith('/refresh');
+    const isProfileEndpoint = rawPath.endsWith('/profile') || (req.path || '').endsWith('/profile');
     
     // Block access to other routes if password change is required
     // IMPORTANT: Admin users are exempt from this restriction to allow user management operations

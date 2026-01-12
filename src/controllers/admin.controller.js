@@ -115,7 +115,7 @@ const getAdminStats = async (req, res) => {
  * 
  * PR #48: Admin-only endpoint to resend invite emails
  * - Bypasses password enforcement middleware
- * - Only works for users who haven't set password (passwordSet === false)
+ * - Only works for users who haven't set password (mustSetPassword === true)
  * - Generates fresh invite token with 48-hour expiry
  * - Updates inviteSentAt timestamp
  */
@@ -146,8 +146,8 @@ const resendInviteEmail = async (req, res) => {
       });
     }
     
-    // Check if user has already activated their account
-    if (user.passwordSet) {
+    // Check if user has already activated their account (mustSetPassword=false means completed)
+    if (!user.mustSetPassword) {
       return res.status(400).json({
         success: false,
         message: 'User already activated. Cannot resend invite email for activated users.',

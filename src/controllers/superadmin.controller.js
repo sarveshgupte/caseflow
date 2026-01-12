@@ -228,37 +228,46 @@ const createFirm = async (req, res) => {
     console.log(`[FIRM_CREATE] ✓ Firm defaultClientId linked: ${defaultClient._id}`);
     
     // ============================================================
-    // STEP 4: Create Admin User (linked to default client)
-    // ============================================================
-    const xIDGenerator = require('../services/xIDGenerator');
-    const adminXID = await xIDGenerator.generateNextXID(firm._id, session);
-    
-    // Generate password setup token
-    const crypto = require('crypto');
-    const setupToken = crypto.randomBytes(32).toString('hex');
-    const setupTokenHash = crypto.createHash('sha256').update(setupToken).digest('hex');
-    const setupExpires = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
-    
-    const adminUser = new User({
-      xID: adminXID,
-      name: adminName.trim(),
-      email: adminEmail.toLowerCase(),
-      firmId: firm._id, // Link to firm
-      defaultClientId: defaultClient._id, // Must align with firm default client
-      role: 'Admin',
-      status: 'INVITED',
-      isActive: true,
-      isSystem: true, // Mark as system user - cannot be deleted or deactivated
-      passwordSet: false,
-      mustChangePassword: true,
-      passwordSetupTokenHash: setupTokenHash,
-      passwordSetupExpires: setupExpires,
-      inviteSentAt: new Date(),
-    });
-    
-    await adminUser.save({ session });
-    console.log(`[FIRM_CREATE] ✓ Admin user created and linked to default client: ${adminXID}`);
-    
+// STEP 4: Create Admin User (linked to default client)
+// ============================================================
+const xIDGenerator = require('../services/xIDGenerator');
+const adminXID = await xIDGenerator.generateNextXID(firm._id, session);
+
+// Generate password setup token
+const setupToken = crypto.randomBytes(32).toString('hex');
+const setupTokenHash = crypto
+  .createHash('sha256')
+  .update(setupToken)
+  .digest('hex');
+const setupExpires = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+
+const adminUser = new User({
+  xID: adminXID,
+  name: adminName.trim(),
+  email: adminEmail.toLowerCase(),
+  firmId: firm._id,
+  defaultClientId: defaultClient._id, // MUST align with firm default client
+  role: 'Admin',
+  status: 'INVITED',
+  isActive: true,
+  isSystem: true,
+  passwordSet: false,
+
+  // 🔒 First-login enforcement
+  mustSetPassword: true,
+  passwordSetAt: null,
+
+  mustChangePassword: true,
+  passwordSetupTokenHash: setupTokenHash,
+  passwordSetupExpires: setupExpires,
+  inviteSentAt: new Date(),
+});
+
+await adminUser.save({ session });
+console.log(
+  `[FIRM_CREATE] ✓ Admin user created and linked to default client: ${adminXID}`
+);
+
     // ============================================================
     // STEP 5: Mark Firm bootstrapStatus = COMPLETED
     // ============================================================
@@ -633,10 +642,12 @@ const createFirmAdmin = async (req, res) => {
       status: 'INVITED',
       isActive: true,
       passwordSet: false,
+      mustSetPassword: true,
       mustChangePassword: true,
       passwordSetupTokenHash: setupTokenHash,
       passwordSetupExpires: setupExpires,
       inviteSentAt: new Date(),
+      passwordSetAt: null,
     });
     
     await adminUser.save();
