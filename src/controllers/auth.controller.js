@@ -673,7 +673,7 @@ const login = async (req, res) => {
       response.forcePasswordReset = true;
     }
     
-    console.log(`[AUTH] Login successful for user ${user.xID}, sending response with tokens`);
+    console.log(`[AUTH] Login successful for user ${user.xID}, sending response with user data and token references`);
     
     return res.json(response);
   } catch (error) {
