@@ -2,7 +2,7 @@
  * Authentication Context
  */
 
-import React, { createContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useState, useCallback } from 'react';
 import { authService } from '../services/authService';
 import { STORAGE_KEYS, USER_ROLES } from '../utils/constants';
 
@@ -12,8 +12,6 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  const bootstrapOnceRef = useRef(false);
   const clearAuthStorage = (firmSlugToPreserve = null) => {
     localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
@@ -31,7 +29,7 @@ export const AuthProvider = ({ children }) => {
    * This function MUST NOT be called outside AuthContext.
    * Calling it elsewhere will cause auth bootstrap loops.
    */
-  const setAuthFromProfile = (userData) => {
+  const setAuthFromProfile = useCallback((userData) => {
     if (!userData) return;
 
     const { firmSlug, xID } = userData;
@@ -49,52 +47,50 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
     setUser(userData);
     setIsAuthenticated(true);
-  };
-
-  useEffect(() => {
-    if (bootstrapOnceRef.current) return;
-    bootstrapOnceRef.current = true;
-
-    const bootstrapAuth = async () => {
-      try {
-        const cachedUser = localStorage.getItem(STORAGE_KEYS.USER);
-        const cachedXID = localStorage.getItem(STORAGE_KEYS.X_ID);
-
-        if (cachedUser && cachedXID) {
-          try {
-            const parsedUser = JSON.parse(cachedUser);
-            const hasValidXID = typeof parsedUser?.xID === 'string' && parsedUser.xID.trim().length > 0;
-            const isValidRole = Object.values(USER_ROLES).includes(parsedUser?.role);
-
-            if (hasValidXID && parsedUser.xID === cachedXID && isValidRole) {
-              setAuthFromProfile(parsedUser);
-              return;
-            }
-          } catch (parseError) {
-            // Invalid cached user - fall back to server bootstrap
-          }
-        }
-
-        const response = await authService.getProfile();
-
-        if (response?.success && response.data) {
-          setAuthFromProfile(response.data);
-        }
-      } catch (err) {
-        // Fail fast on auth errors (401/403) to avoid hidden polling loops
-        const status = err?.response?.status;
-        if (status === 401 || status === 403) {
-          clearAuthStorage();
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    bootstrapAuth();
   }, []);
+
+  const fetchProfile = useCallback(async () => {
+    setLoading(true);
+    try {
+      const cachedUser = localStorage.getItem(STORAGE_KEYS.USER);
+      const cachedXID = localStorage.getItem(STORAGE_KEYS.X_ID);
+
+      if (cachedUser && cachedXID) {
+        try {
+          const parsedUser = JSON.parse(cachedUser);
+          const hasValidXID = typeof parsedUser?.xID === 'string' && parsedUser.xID.trim().length > 0;
+          const isValidRole = Object.values(USER_ROLES).includes(parsedUser?.role);
+
+          if (hasValidXID && parsedUser.xID === cachedXID && isValidRole) {
+            setAuthFromProfile(parsedUser);
+            return { success: true, data: parsedUser };
+          }
+        } catch (parseError) {
+          // Invalid cached user - fall back to server bootstrap
+        }
+      }
+
+      const response = await authService.getProfile();
+
+      if (response?.success && response.data) {
+        setAuthFromProfile(response.data);
+        return { success: true, data: response.data };
+      }
+
+      return { success: false, data: null };
+    } catch (err) {
+      // Fail fast on auth errors (401/403) to avoid hidden polling loops
+      const status = err?.response?.status;
+      if (status === 401 || status === 403) {
+        clearAuthStorage();
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+      return { success: false, data: null, error: err };
+    } finally {
+      setLoading(false);
+    }
+  }, [setAuthFromProfile]);
 
   const login = async (xID, password) => {
     const response = await authService.login(xID, password);
@@ -125,7 +121,6 @@ export const AuthProvider = ({ children }) => {
       // Always clear client-side state
       setUser(null);
       setIsAuthenticated(false);
-      bootstrapOnceRef.current = false;
       
       clearAuthStorage(firmSlugToPreserve);
     }
@@ -155,6 +150,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     login,
     logout,
+    fetchProfile,
     updateUser,
     setAuthFromProfile,
   };
