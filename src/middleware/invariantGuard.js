@@ -10,6 +10,9 @@ const invariantGuard = (rules = {}) => (req, res, next) => {
   const { requireFirm, forbidSuperAdmin } = rules;
   req.requestId = req.requestId || randomUUID();
 
+  const isSuperAdmin = req.isSuperAdmin ?? (req.user && req.user.role === 'SuperAdmin');
+  req.isSuperAdmin = isSuperAdmin;
+
   if (requireFirm && !req.firmId) {
     const error = new Error('Invariant violated: firmId required');
     error.statusCode = 400;
@@ -18,7 +21,7 @@ const invariantGuard = (rules = {}) => (req, res, next) => {
     return next(error);
   }
 
-  if (forbidSuperAdmin && req.isSuperAdmin) {
+  if (forbidSuperAdmin && isSuperAdmin) {
     const error = new Error('Invariant violated: SuperAdmin on firm route');
     error.statusCode = 403;
     recordInvariantViolation(req, error.message);

@@ -810,6 +810,12 @@ const getFirmBySlug = async (req, res) => {
  */
 const getOperationalHealth = async (req, res) => {
   try {
+    if (!req.user || req.user.role !== 'SuperAdmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden',
+      });
+    }
     return res.json({
       success: true,
       data: {

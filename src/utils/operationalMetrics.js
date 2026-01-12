@@ -7,12 +7,14 @@ const metrics = {
 
 const firmKey = (firmId) => firmId || 'none';
 const MAX_FIRM_TRACKING = 500;
+const firmOrder = [];
 
 const pruneIfNeeded = (key) => {
-  if (metrics.requests[key]) return;
-  const trackedFirms = Object.keys(metrics.requests);
-  if (trackedFirms.length >= MAX_FIRM_TRACKING) {
-    const oldest = trackedFirms[0];
+  if (!firmOrder.includes(key)) {
+    firmOrder.push(key);
+  }
+  if (firmOrder.length > MAX_FIRM_TRACKING) {
+    const oldest = firmOrder.shift();
     delete metrics.requests[oldest];
     delete metrics.lastError[oldest];
     delete metrics.lastInvariant[oldest];
