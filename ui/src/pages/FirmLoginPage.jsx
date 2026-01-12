@@ -11,7 +11,7 @@ import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { validateXID, validatePassword } from '../utils/validators';
-import { API_BASE_URL, USER_ROLES } from '../utils/constants';
+import { API_BASE_URL, USER_ROLES, ERROR_CODES } from '../utils/constants';
 import api from '../services/api';
 import './LoginPage.css';
 
@@ -82,7 +82,7 @@ export const FirmLoginPage = () => {
     setLoading(true);
 
     try {
-      // Login with firm context
+      // Login with firm context via API (not authService to include firmSlug)
       const response = await api.post('/auth/login', {
         xID: identifier,
         password: password,
@@ -92,7 +92,7 @@ export const FirmLoginPage = () => {
       if (response.data.success) {
         const { accessToken, refreshToken, data: userData } = response.data;
         
-        // Store tokens and user data
+        // Store tokens and user data in localStorage
         localStorage.setItem('accessToken', accessToken);
         localStorage.setItem('refreshToken', refreshToken);
         localStorage.setItem('xID', userData.xID || 'UNKNOWN');
@@ -103,7 +103,10 @@ export const FirmLoginPage = () => {
           navigate('/superadmin');
         } else {
           // Regular users go to firm-scoped dashboard
+          // Use firmSlug from backend response if available, fallback to URL firmSlug
           const userFirmSlug = userData.firmSlug || firmSlug;
+          
+          // Immediately navigate - do NOT poll profile or retry
           navigate(`/${userFirmSlug}/dashboard`);
         }
       }
@@ -113,7 +116,7 @@ export const FirmLoginPage = () => {
       if (errorData?.mustChangePassword) {
         // Redirect to change password page with identifier
         navigate('/change-password', { state: { xID: identifier } });
-      } else if (errorData?.passwordSetupRequired) {
+      } else if (errorData?.mustSetPassword || errorData?.code === ERROR_CODES.PASSWORD_SETUP_REQUIRED) {
         // User needs to set password via email link
         setError('Please set your password using the link sent to your email. If you haven\'t received it, contact your administrator.');
       } else if (errorData?.lockedUntil) {

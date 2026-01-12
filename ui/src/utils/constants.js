@@ -67,6 +67,15 @@ export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'refreshToken',
 };
 
+/**
+ * Error codes returned by backend API
+ * Used to identify specific error conditions and handle them appropriately in the UI
+ */
+export const ERROR_CODES = {
+  /** User must set initial password via email link before they can login */
+  PASSWORD_SETUP_REQUIRED: 'PASSWORD_SETUP_REQUIRED',
+};
+
 export const HTTP_STATUS = {
   OK: 200,
   CREATED: 201,

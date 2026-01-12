@@ -3,6 +3,7 @@
  * Centralized helpers to mask sensitive values before logging.
  *
  * Covered fields:
+ * - Passwords (all variations) -> ***REDACTED***
  * - PAN (e.g., ABCDE1234F) -> AB***1234F
  * - Aadhaar (12 digits) -> **** **** 1234
  * - Email -> j***@d***.com
@@ -76,6 +77,12 @@ const maskValue = (key, value, seen = new WeakSet()) => {
   if (['pan', 'pan_number', 'pannumber'].includes(lowerKey)) return maskPAN(value);
   if (['aadhaar', 'aadhar', 'aadhaarnumber'].includes(lowerKey)) return maskAadhaar(value);
   if (['authorization', 'token', 'refreshtoken', 'accesstoken', 'idtoken'].includes(lowerKey)) return maskToken(value);
+  
+  // CRITICAL SECURITY: Mask password fields (all variations)
+  // Passwords must NEVER appear in logs under any circumstance
+  if (['password', 'currentpassword', 'newpassword', 'oldpassword', 'passwordhash'].includes(lowerKey)) {
+    return '***REDACTED***';
+  }
 
   // Heuristic masking for strings that look like tokens
   if (typeof value === 'string' && value.length > MIN_JWT_LENGTH && JWT_REGEX.test(value)) {
