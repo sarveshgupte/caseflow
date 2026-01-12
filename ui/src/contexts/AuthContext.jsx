@@ -47,7 +47,7 @@ export const AuthProvider = ({ children }) => {
         if (cachedUser && cachedXID) {
           try {
             const parsedUser = JSON.parse(cachedUser);
-            if (parsedUser?.xID) {
+            if (parsedUser?.xID && parsedUser.xID === cachedXID) {
               setAuthFromProfile(parsedUser);
               return;
             }
