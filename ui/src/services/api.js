@@ -34,6 +34,21 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    const firmSlug = localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
+    const redirectToLogin = () => {
+      if (firmSlug) {
+        window.location.href = `/f/${firmSlug}/login`;
+      } else {
+        window.location.href = '/login';
+      }
+    };
+    const clearAuthStorage = () => {
+      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.X_ID);
+      localStorage.removeItem(STORAGE_KEYS.USER);
+      localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
+    };
     
     // Handle token expiry
     if (error.response?.status === 401 && error.response?.data?.code === 'TOKEN_EXPIRED' && !originalRequest._retry) {
@@ -63,11 +78,8 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         // Refresh failed - clear storage and redirect to login
-        localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
-        localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-        localStorage.removeItem(STORAGE_KEYS.X_ID);
-        localStorage.removeItem(STORAGE_KEYS.USER);
-        window.location.href = '/login';
+        clearAuthStorage();
+        redirectToLogin();
         return Promise.reject(refreshError);
       }
     }
@@ -75,11 +87,8 @@ api.interceptors.response.use(
     // Handle other 401 errors (invalid token, etc.)
     if (error.response?.status === 401) {
       // Unauthorized - clear storage and redirect to login
-      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
-      localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-      localStorage.removeItem(STORAGE_KEYS.X_ID);
-      localStorage.removeItem(STORAGE_KEYS.USER);
-      window.location.href = '/login';
+      clearAuthStorage();
+      redirectToLogin();
     }
     
     return Promise.reject(error);

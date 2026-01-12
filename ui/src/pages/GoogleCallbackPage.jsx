@@ -9,12 +9,14 @@ import { Card } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { STORAGE_KEYS, USER_ROLES } from '../utils/constants';
 import { authService } from '../services/authService';
+import { useAuth } from '../hooks/useAuth';
 import './LoginPage.css';
 
 export const GoogleCallbackPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [error, setError] = useState('');
+  const { setAuthFromProfile } = useAuth();
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -26,6 +28,10 @@ export const GoogleCallbackPage = () => {
       return;
     }
 
+    if (firmSlug) {
+      localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlug);
+    }
+
     const bootstrapSession = async () => {
       try {
         const response = await authService.getProfile();
@@ -33,6 +39,10 @@ export const GoogleCallbackPage = () => {
           const profile = response.data;
           localStorage.setItem(STORAGE_KEYS.X_ID, profile.xID || 'UNKNOWN');
           localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(profile));
+          if (profile.firmSlug) {
+            localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, profile.firmSlug);
+          }
+          setAuthFromProfile(profile);
 
           // Determine redirect path based on user role and firm context
           // NEVER redirect firm users to /login (SuperAdmin-only page)
@@ -43,7 +53,7 @@ export const GoogleCallbackPage = () => {
             navigate('/superadmin', { replace: true });
           } else if (effectiveFirmSlug) {
             // Firm users go to their firm dashboard
-            navigate(`/${effectiveFirmSlug}/dashboard`, { replace: true });
+            navigate(`/f/${effectiveFirmSlug}/dashboard`, { replace: true });
           } else {
             // Edge case: firm user without firm context - show error
             setError('Firm context missing. Please use your firm-specific login URL.');

@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { FirmLayout } from './components/routing/FirmLayout';
 import { DefaultRoute } from './components/routing/DefaultRoute';
@@ -27,6 +27,14 @@ import { ReportsDashboard } from './pages/reports/ReportsDashboard';
 import { DetailedReports } from './pages/reports/DetailedReports';
 import { FilteredCasesPage } from './pages/FilteredCasesPage';
 import { GoogleCallbackPage } from './pages/GoogleCallbackPage';
+
+const LegacyFirmRedirect = () => {
+  const { firmSlug } = useParams();
+  const location = useLocation();
+  const suffix = location.pathname.replace(`/${firmSlug}`, '') || '/dashboard';
+  const target = `/f/${firmSlug}${suffix}${location.search || ''}`;
+  return <Navigate to={target} replace />;
+};
 
 export const Router = () => {
   return (
@@ -61,7 +69,7 @@ export const Router = () => {
           />
           
           {/* Firm-Scoped Routes for Regular Users */}
-          <Route path="/:firmSlug" element={<FirmLayout />}>
+          <Route path="/f/:firmSlug" element={<FirmLayout />}>
             <Route
               path="dashboard"
               element={
@@ -161,8 +169,8 @@ export const Router = () => {
               }
             />
           </Route>
-          
           <Route path="/" element={<DefaultRoute />} />
+          <Route path="/:firmSlug/*" element={<LegacyFirmRedirect />} />
           <Route path="*" element={<DefaultRoute />} />
         </Routes>
     </BrowserRouter>

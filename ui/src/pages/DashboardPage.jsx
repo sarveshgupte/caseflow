@@ -186,36 +186,36 @@ export const DashboardPage = () => {
   };
 
   const handleCaseClick = (caseId) => {
-    navigate(`/${firmSlug}/cases/${caseId}`);
+    navigate(`/f/${firmSlug}/cases/${caseId}`);
   };
   
   // Navigation handlers for KPI cards
   const handleMyOpenCasesClick = () => {
-    navigate(`/${firmSlug}/my-worklist?status=OPEN`);
+    navigate(`/f/${firmSlug}/my-worklist?status=OPEN`);
   };
   
   const handleMyPendingCasesClick = () => {
-    navigate(`/${firmSlug}/my-worklist?status=PENDED`);
+    navigate(`/f/${firmSlug}/my-worklist?status=PENDED`);
   };
   
   const handleMyResolvedCasesClick = () => {
-    navigate(`/${firmSlug}/my-worklist?status=RESOLVED`);
+    navigate(`/f/${firmSlug}/my-worklist?status=RESOLVED`);
   };
   
   const handleMyUnassignedCreatedCasesClick = () => {
-    navigate(`/${firmSlug}/global-worklist?createdBy=me&status=UNASSIGNED`);
+    navigate(`/f/${firmSlug}/global-worklist?createdBy=me&status=UNASSIGNED`);
   };
   
   const handlePendingApprovalsClick = () => {
-    navigate(`/${firmSlug}/cases?approvalStatus=PENDING`);
+    navigate(`/f/${firmSlug}/cases?approvalStatus=PENDING`);
   };
   
   const handleFiledCasesClick = () => {
-    navigate(`/${firmSlug}/cases?status=FILED`);
+    navigate(`/f/${firmSlug}/cases?status=FILED`);
   };
   
   const handleAdminResolvedCasesClick = () => {
-    navigate(`/${firmSlug}/cases?status=RESOLVED`);
+    navigate(`/f/${firmSlug}/cases?status=RESOLVED`);
   };
 
   if (loading) {
