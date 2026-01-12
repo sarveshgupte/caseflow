@@ -176,45 +176,7 @@ const createFirm = async (req, res) => {
     console.log(`[FIRM_CREATE] Generated firmSlug: ${firmSlug}`);
     
     // ============================================================
-    // STEP 2: Create Admin User (defaultClientId = null initially)
-    // ============================================================
-    // PR-2: Create admin BEFORE default client to decouple dependencies
-    // Admin will have null defaultClientId initially, updated after client creation
-    // Pass firm ObjectId for transactional ID generation
-    // Bootstrap-safe: returns X000001 when no users exist
-    const xIDGenerator = require('../services/xIDGenerator');
-    const adminXID = await xIDGenerator.generateNextXID(firm._id, session);
-    
-    // Generate password setup token
-    const crypto = require('crypto');
-    const setupToken = crypto.randomBytes(32).toString('hex');
-    const setupTokenHash = crypto.createHash('sha256').update(setupToken).digest('hex');
-    const setupExpires = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
-    
-    const adminUser = new User({
-      xID: adminXID,
-      name: adminName.trim(),
-      email: adminEmail.toLowerCase(),
-      firmId: firm._id, // Link to firm
-      defaultClientId: null, // PR-2: Null initially, will be set after client creation
-      role: 'Admin',
-      status: 'INVITED',
-      isActive: true,
-      isSystem: true, // Mark as system user - cannot be deleted or deactivated
-      passwordSet: false,
-      mustSetPassword: true,
-      mustChangePassword: true,
-      passwordSetupTokenHash: setupTokenHash,
-      passwordSetupExpires: setupExpires,
-      inviteSentAt: new Date(),
-      passwordSetAt: null,
-    });
-    
-    await adminUser.save({ session });
-    console.log(`[FIRM_CREATE] ✓ Admin user created (defaultClientId=null): ${adminXID}`);
-    
-    // ============================================================
-    // STEP 3: Generate Client ID and Create Default Client
+    // STEP 2: Generate Client ID and Create Default Client
     // ============================================================
     // Pass firm ObjectId for transactional ID generation
     // Bootstrap-safe: returns C000001 when no clients exist
@@ -259,27 +221,45 @@ const createFirm = async (req, res) => {
     console.log(`[FIRM_CREATE] ✓ Default client created: ${clientId}`);
     
     // ============================================================
-    // STEP 4: Link Firm → defaultClientId
+    // STEP 3: Link Firm → defaultClientId
     // ============================================================
     firm.defaultClientId = defaultClient._id;
     await firm.save({ session });
     console.log(`[FIRM_CREATE] ✓ Firm defaultClientId linked: ${defaultClient._id}`);
     
     // ============================================================
-    // STEP 5: Link Admin → defaultClientId
+    // STEP 4: Create Admin User (linked to default client)
     // ============================================================
-    // PR-2: Update admin's defaultClientId now that client exists
-    // NOTE: We must use updateOne since defaultClientId is immutable
-    // Cannot use adminUser.defaultClientId = ... and save() due to immutability
-    await User.updateOne(
-      { _id: adminUser._id },
-      { $set: { defaultClientId: defaultClient._id } },
-      { session }
-    );
-    console.log(`[FIRM_CREATE] ✓ Admin defaultClientId linked: ${defaultClient._id}`);
+    const xIDGenerator = require('../services/xIDGenerator');
+    const adminXID = await xIDGenerator.generateNextXID(firm._id, session);
+    const crypto = require('crypto');
+    const setupToken = crypto.randomBytes(32).toString('hex');
+    const setupTokenHash = crypto.createHash('sha256').update(setupToken).digest('hex');
+    const setupExpires = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
     
-    // Reload admin user to get updated defaultClientId for response
-    const updatedAdminUser = await User.findById(adminUser._id).session(session);
+    const adminUser = new User({
+      xID: adminXID,
+      name: adminName.trim(),
+      email: adminEmail.toLowerCase(),
+      firmId: firm._id, // Link to firm
+      defaultClientId: defaultClient._id, // Link to default client immediately
+      role: 'Admin',
+      status: 'INVITED',
+      isActive: true,
+      isSystem: true, // Mark as system user - cannot be deleted or deactivated
+      passwordSet: false,
+      mustSetPassword: true,
+      mustChangePassword: true,
+      passwordSetupTokenHash: setupTokenHash,
+      passwordSetupExpires: setupExpires,
+      inviteSentAt: new Date(),
+      passwordSetAt: null,
+    });
+    
+    await adminUser.save({ session });
+    console.log(`[FIRM_CREATE] ✓ Admin user created with defaultClientId linked: ${adminXID}`);
+    
+    const updatedAdminUser = adminUser;
     
     // ============================================================
     // STEP 6: Mark Firm bootstrapStatus = COMPLETED
