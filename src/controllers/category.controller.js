@@ -1,6 +1,7 @@
 const Category = require('../models/Category.model');
 const Case = require('../models/Case.model');
 const mongoose = require('mongoose');
+const { wrapWriteHandler } = require('../utils/transactionGuards');
 
 /**
  * Category Controller for Admin-Managed Categories
@@ -482,12 +483,12 @@ const deleteSubcategory = async (req, res) => {
 module.exports = {
   getCategories,
   getCategoryById,
-  createCategory,
-  updateCategory,
-  toggleCategoryStatus,
-  deleteCategory,
-  addSubcategory,
-  updateSubcategory,
-  toggleSubcategoryStatus,
-  deleteSubcategory,
+  createCategory: wrapWriteHandler(createCategory),
+  updateCategory: wrapWriteHandler(updateCategory),
+  toggleCategoryStatus: wrapWriteHandler(toggleCategoryStatus),
+  deleteCategory: wrapWriteHandler(deleteCategory),
+  addSubcategory: wrapWriteHandler(addSubcategory),
+  updateSubcategory: wrapWriteHandler(updateSubcategory),
+  toggleSubcategoryStatus: wrapWriteHandler(toggleSubcategoryStatus),
+  deleteSubcategory: wrapWriteHandler(deleteSubcategory),
 };

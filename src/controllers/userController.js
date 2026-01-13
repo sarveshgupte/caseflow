@@ -1,5 +1,6 @@
 const { randomUUID } = require('crypto');
 const User = require('../models/User.model');
+const { wrapWriteHandler } = require('../utils/transactionGuards');
 
 /**
  * User Controller
@@ -238,7 +239,7 @@ const deleteUser = async (req, res) => {
 module.exports = {
   getUsers,
   getUserById,
-  createUser,
-  updateUser,
-  deleteUser,
+  createUser: wrapWriteHandler(createUser),
+  updateUser: wrapWriteHandler(updateUser),
+  deleteUser: wrapWriteHandler(deleteUser),
 };

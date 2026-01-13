@@ -1,6 +1,7 @@
 const Case = require('../models/Case.model');
 const Task = require('../models/Task');
 const { CaseRepository } = require('../repositories');
+const { wrapWriteHandler } = require('../utils/transactionGuards');
 
 /**
  * Case Controller
@@ -346,9 +347,9 @@ const getCaseStats = async (req, res) => {
 module.exports = {
   getCases,
   getCaseById,
-  createCase,
-  updateCase,
-  deleteCase,
-  addCaseNote,
+  createCase: wrapWriteHandler(createCase),
+  updateCase: wrapWriteHandler(updateCase),
+  deleteCase: wrapWriteHandler(deleteCase),
+  addCaseNote: wrapWriteHandler(addCaseNote),
   getCaseStats,
 };

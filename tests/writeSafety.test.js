@@ -199,6 +199,23 @@ async function testIdempotencySkipsCacheOnRollback() {
   assert.strictEqual(successReq.transactionCommitted, true, 'Commit flag should be true after successful transaction');
 }
 
+async function testControllerGuardWithoutTransaction() {
+  const { createUser } = require('../src/controllers/userController');
+  const req = { transactionActive: false };
+  const res = {};
+  let threw = false;
+
+  try {
+    await createUser(req, res);
+  } catch (err) {
+    threw = true;
+    assert.strictEqual(err.statusCode, 500);
+    assert.match(err.message, /transaction/i);
+  }
+
+  assert.strictEqual(threw, true, 'Mutating controller should throw when no transaction is active');
+}
+
 async function run() {
   try {
     await testIdempotentReplay();
@@ -208,6 +225,7 @@ async function run() {
     await testInvalidStateGuard();
     await testExecuteWriteEnforcesTransaction();
     await testIdempotencySkipsCacheOnRollback();
+    await testControllerGuardWithoutTransaction();
     console.log('Write safety tests passed.');
   } catch (err) {
     console.error('Write safety tests failed:', err);

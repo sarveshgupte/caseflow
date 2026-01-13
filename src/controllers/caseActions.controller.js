@@ -2,6 +2,7 @@ const Case = require('../models/Case.model');
 const caseActionService = require('../services/caseAction.service');
 const { CASE_STATUS } = require('../config/constants');
 const { logCaseListViewed } = require('../services/auditLog.service');
+const { wrapWriteHandler } = require('../utils/transactionGuards');
 
 /**
  * Case Actions Controller
@@ -471,11 +472,11 @@ const getMyUnassignedCreatedCases = async (req, res) => {
 };
 
 module.exports = {
-  resolveCase,
-  pendCase,
-  fileCase,
-  getMyPendingCases,
+  resolveCase: wrapWriteHandler(resolveCase),
+  pendCase: wrapWriteHandler(pendCase),
+  fileCase: wrapWriteHandler(fileCase),
+  getMyPendingCases: wrapWriteHandler(getMyPendingCases),
   getMyResolvedCases,
   getMyUnassignedCreatedCases,
-  triggerAutoReopen,
+  triggerAutoReopen: wrapWriteHandler(triggerAutoReopen),
 };

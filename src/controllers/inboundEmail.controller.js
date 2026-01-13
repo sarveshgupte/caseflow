@@ -5,6 +5,7 @@ const User = require('../models/User.model');
 const { CaseRepository } = require('../repositories');
 const { getMimeType } = require('../utils/fileUtils');
 const { StorageProviderFactory } = require('../services/storage/StorageProviderFactory');
+const { wrapWriteHandler } = require('../utils/transactionGuards');
 const path = require('path');
 const fs = require('fs').promises;
 
@@ -214,5 +215,5 @@ ${bodyHtml || '(no HTML body)'}
 };
 
 module.exports = {
-  handleInboundEmail,
+  handleInboundEmail: wrapWriteHandler(handleInboundEmail),
 };

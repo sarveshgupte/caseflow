@@ -12,6 +12,7 @@ const {
 const { getMimeType } = require('../utils/fileUtils');
 const { StorageProviderFactory } = require('../services/storage/StorageProviderFactory');
 const { areFileUploadsDisabled } = require('../services/featureFlags.service');
+const { wrapWriteHandler } = require('../utils/transactionGuards');
 const path = require('path');
 const fs = require('fs');
 
@@ -1337,16 +1338,16 @@ const downloadClientCFSFile = async (req, res) => {
 module.exports = {
   getClients,
   getClientById,
-  createClient,
-  updateClient,
-  toggleClientStatus,
-  changeLegalName,
-  updateClientFactSheet,
-  uploadFactSheetFile,
-  deleteFactSheetFile,
+  createClient: wrapWriteHandler(createClient),
+  updateClient: wrapWriteHandler(updateClient),
+  toggleClientStatus: wrapWriteHandler(toggleClientStatus),
+  changeLegalName: wrapWriteHandler(changeLegalName),
+  updateClientFactSheet: wrapWriteHandler(updateClientFactSheet),
+  uploadFactSheetFile: wrapWriteHandler(uploadFactSheetFile),
+  deleteFactSheetFile: wrapWriteHandler(deleteFactSheetFile),
   // Client CFS management
-  uploadClientCFSFile,
+  uploadClientCFSFile: wrapWriteHandler(uploadClientCFSFile),
   listClientCFSFiles,
-  deleteClientCFSFile,
+  deleteClientCFSFile: wrapWriteHandler(deleteClientCFSFile),
   downloadClientCFSFile,
 };
