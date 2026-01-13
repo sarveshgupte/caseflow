@@ -15,7 +15,7 @@ const { markDegraded, resetState, getState } = require('../src/services/systemSt
 
 const setBaseEnv = async () => {
   process.env.JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
-   process.env.MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/docketra-test';
+  process.env.MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/docketra-test';
   if (!process.env.SUPERADMIN_PASSWORD_HASH) {
     process.env.SUPERADMIN_PASSWORD_HASH = await bcrypt.hash('TestPassword123!', 10);
   }

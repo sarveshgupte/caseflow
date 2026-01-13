@@ -4,15 +4,16 @@ const User = require('../models/User.model');
 const { validateEnv } = require('../config/validateEnv');
 const { getRedisClient } = require('../config/redis');
 const { getBuildMetadata } = require('../services/buildInfo.service');
-const { STATES, resetState, markDegraded, getState, setState } = require('../services/systemState.service');
+const { STATES, markDegraded, getState, setState } = require('../services/systemState.service');
 const { isFirmCreationDisabled, isGoogleAuthDisabled, areFileUploadsDisabled } = require('../services/featureGate.service');
+
+const DB_LATENCY_THRESHOLD_MS = Number(process.env.DB_LATENCY_THRESHOLD_MS || 750);
 
 const liveness = (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 };
 
 const runReadinessChecks = async () => {
-  resetState();
   const build = getBuildMetadata();
   const checks = {
     env: 'ok',
@@ -41,7 +42,7 @@ const runReadinessChecks = async () => {
       await mongoose.connection.db.admin().ping();
       const latency = Date.now() - start;
       checks.dbLatencyMs = latency;
-      if (latency > 750) {
+      if (latency > DB_LATENCY_THRESHOLD_MS) {
         checks.db = 'degraded';
         markDegraded('db_slow', { latencyMs: latency });
       } else {
@@ -75,12 +76,11 @@ const runReadinessChecks = async () => {
     googleAuth: isGoogleAuthDisabled() ? 'disabled' : 'enabled',
   };
   checks.featureFlags = featureFlags;
-  if (Object.values(featureFlags).some((v) => v === 'disabled')) {
-    markDegraded('feature_disabled', featureFlags);
-  }
 
   const systemState = getState();
-  const ready = systemState.state === STATES.NORMAL && checks.env === 'ok' && ['ok', 'degraded', 'not_configured', 'unknown'].includes(checks.redis) && ['ok', 'degraded'].includes(checks.db);
+  const redisStatusOk = ['ok', 'degraded', 'not_configured', 'unknown'].includes(checks.redis);
+  const dbStatusOk = ['ok', 'degraded'].includes(checks.db);
+  const ready = systemState.state === STATES.NORMAL && checks.env === 'ok' && redisStatusOk && dbStatusOk;
   if (ready) {
     setState(STATES.NORMAL);
   }

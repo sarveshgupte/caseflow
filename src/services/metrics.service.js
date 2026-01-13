@@ -32,7 +32,10 @@ const recordRateLimitHit = (limiterName) => {
 };
 
 const getSnapshot = () => ({
-  ...metrics,
+  requests: { ...metrics.requests },
+  errors: { ...metrics.errors },
+  authFailures: metrics.authFailures,
+  rateLimitHits: { ...metrics.rateLimitHits },
 });
 
 module.exports = {

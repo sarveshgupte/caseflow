@@ -7,11 +7,16 @@ const normalize = (value) => {
   return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
 };
 
+const flagged = new Set();
+
 const flagStatus = (flagName, envVar) => {
   const disabled = normalize(envVar);
-  if (disabled) {
+  if (disabled && !flagged.has(flagName)) {
     log.warn('FEATURE_BLOCKED', { feature: flagName, reason: 'flag_disabled' });
     markDegraded(`feature_${flagName}_disabled`, { flag: flagName });
+    flagged.add(flagName);
+  } else if (!disabled && flagged.has(flagName)) {
+    flagged.delete(flagName);
   }
   return { disabled, enabled: !disabled };
 };
