@@ -160,40 +160,57 @@ const sendTransactionalEmail = async ({ to, subject, html, text }) => {
  * @param {Object} mailOptions - Email options (to, subject, html, text)
  * @returns {Promise<Object>} Result object with success status and messageId
  */
-const sendEmail = async (mailOptions) => {
+const { enqueueAfterCommit } = require('./sideEffectQueue.service');
+const { allow, recordFailure, recordSuccess } = require('./circuitBreaker.service');
+
+const sendEmail = async (mailOptions, req = null) => {
   const maskedEmail = maskEmail(mailOptions.to);
-  
-  if (isProduction) {
-    // Production: Use Brevo API
-    try {
-      console.log(`[EMAIL] Sending email via Brevo API to ${maskedEmail}`);
-      
-      const result = await sendTransactionalEmail({
-        to: mailOptions.to,
-        subject: mailOptions.subject,
-        html: mailOptions.html,
-        text: mailOptions.text
-      });
-      
-      console.log(`[EMAIL] Email sent successfully via Brevo: ${result.messageId || 'sent'}`);
-      return result;
-    } catch (error) {
-      console.error(`[EMAIL] Failed to send email via Brevo: ${error.message}`);
-      throw new Error('Failed to send email. Please check server logs for details.');
+
+  const execute = async () => {
+    if (!allow('smtp')) {
+      throw new Error('SMTP_CIRCUIT_OPEN');
     }
-  } else {
-    // Development: Log to console only
-    console.log('\n========================================');
-    console.log('📧 EMAIL (Development Mode - Console Only)');
-    console.log('========================================');
-    console.log(`To: ${maskedEmail}`);
-    console.log(`Subject: ${mailOptions.subject}`);
-    console.log('');
-    console.log('Note: Development mode active. Emails are logged to console only.');
-    console.log('Set NODE_ENV=production and configure Brevo API to enable email delivery.');
-    console.log('========================================\n');
-    return { success: true, console: true };
-  }
+
+    if (isProduction) {
+      try {
+        console.log(`[EMAIL] Sending email via Brevo API to ${maskedEmail}`);
+        const result = await sendTransactionalEmail({
+          to: mailOptions.to,
+          subject: mailOptions.subject,
+          html: mailOptions.html,
+          text: mailOptions.text
+        });
+        recordSuccess('smtp');
+        console.log(`[EMAIL] Email sent successfully via Brevo: ${result.messageId || 'sent'}`);
+        return result;
+      } catch (error) {
+        recordFailure('smtp');
+        console.error(`[EMAIL] Failed to send email via Brevo: ${error.message}`);
+        throw new Error('Failed to send email. Please check server logs for details.');
+      }
+    } else {
+      console.log('\n========================================');
+      console.log('📧 EMAIL (Development Mode - Console Only)');
+      console.log('========================================');
+      console.log(`To: ${maskedEmail}`);
+      console.log(`Subject: ${mailOptions.subject}`);
+      console.log('');
+      console.log('Note: Development mode active. Emails are logged to console only.');
+      console.log('Set NODE_ENV=production and configure Brevo API to enable email delivery.');
+      console.log('========================================\n');
+      recordSuccess('smtp');
+      return { success: true, console: true };
+    }
+  };
+
+  enqueueAfterCommit(req, {
+    type: 'SEND_EMAIL',
+    payload: { to: maskedEmail, subject: mailOptions.subject },
+    execute,
+    maxRetries: 3,
+  });
+
+  return { success: true, queued: true, messageId: null };
 };
 
 /**
@@ -230,7 +247,8 @@ const sendPasswordSetupEmail = async ({
   token, 
   xID, 
   firmSlug = null, 
-  frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000' 
+  frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000',
+  req = null,
 }) => {
   const setupLink = `${frontendUrl}/set-password?token=${token}`;
   
@@ -304,7 +322,7 @@ Docketra Team
     subject,
     html: htmlContent,
     text: textContent,
-  });
+  }, req);
 };
 
 /**
@@ -324,7 +342,8 @@ const sendPasswordSetupReminderEmail = async ({
   token, 
   xID, 
   firmSlug = null, 
-  frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000' 
+  frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000',
+  req = null,
 }) => {
   const setupLink = `${frontendUrl}/set-password?token=${token}`;
   
@@ -379,7 +398,7 @@ Docketra Team
     subject,
     html: htmlContent,
     text: textContent,
-  });
+  }, req);
 };
 
 /**

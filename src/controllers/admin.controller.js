@@ -184,7 +184,8 @@ const resendInviteEmail = async (req, res) => {
         name: user.name,
         token: token,
         xID: user.xID,
-        firmSlug: firmSlug
+        firmSlug: firmSlug,
+        req,
       });
       
       if (!emailResult.success) {

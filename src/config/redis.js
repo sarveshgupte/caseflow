@@ -1,4 +1,5 @@
 const Redis = require('ioredis');
+const { recordFailure, recordSuccess } = require('../services/circuitBreaker.service');
 
 /**
  * Redis Configuration for Rate Limiting
@@ -59,18 +60,22 @@ const getRedisClient = () => {
     // Handle connection events
     redisClient.on('connect', () => {
       console.log('[REDIS] Connected to Redis for rate limiting');
+      recordSuccess('redis');
     });
     
     redisClient.on('ready', () => {
       console.log('[REDIS] Redis client ready');
+      recordSuccess('redis');
     });
     
     redisClient.on('error', (err) => {
       console.error('[REDIS] Redis connection error:', err.message);
+      recordFailure('redis');
     });
     
     redisClient.on('close', () => {
       console.warn('[REDIS] Redis connection closed');
+      recordFailure('redis');
     });
     
     return redisClient;

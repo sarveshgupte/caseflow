@@ -16,6 +16,7 @@
  */
 
 const { google } = require('googleapis');
+const { allow, recordFailure, recordSuccess } = require('./circuitBreaker.service');
 
 class DriveService {
   constructor() {
@@ -97,6 +98,14 @@ class DriveService {
     }
   }
 
+  _guardCircuit() {
+    if (!allow('drive')) {
+      const error = new Error('Google Drive temporarily unavailable');
+      error.code = 'DRIVE_CIRCUIT_OPEN';
+      throw error;
+    }
+  }
+
   /**
    * Create a folder in Google Drive
    * 
@@ -107,6 +116,7 @@ class DriveService {
    */
   async createFolder(folderName, parentFolderId = null) {
     this._ensureInitialized();
+    this._guardCircuit();
 
     const parent = parentFolderId || this.rootFolderId;
 
@@ -128,8 +138,10 @@ class DriveService {
       } else {
         console.log(`[DriveService] Created folder: ${folderName}`);
       }
+      recordSuccess('drive');
       return response.data.id;
     } catch (error) {
+      recordFailure('drive');
       console.error(`[DriveService] Error creating folder ${folderName}:`, error.message);
       throw new Error(`Failed to create folder in Google Drive: ${error.message}`);
     }
@@ -144,6 +156,7 @@ class DriveService {
    */
   async findFolderByName(folderName, parentFolderId = null) {
     this._ensureInitialized();
+    this._guardCircuit();
 
     const parent = parentFolderId || this.rootFolderId;
 
@@ -161,11 +174,13 @@ class DriveService {
       });
 
       if (response.data.files && response.data.files.length > 0) {
+        recordSuccess('drive');
         return response.data.files[0].id;
       }
 
       return null;
     } catch (error) {
+      recordFailure('drive');
       console.error(`[DriveService] Error finding folder ${folderName}:`, error.message);
       return null;
     }
@@ -180,6 +195,7 @@ class DriveService {
    */
   async getOrCreateFolder(folderName, parentFolderId = null) {
     this._ensureInitialized();
+    this._guardCircuit();
 
     const parent = parentFolderId || this.rootFolderId;
 
@@ -211,6 +227,7 @@ class DriveService {
    */
   async uploadFile(fileContent, fileName, mimeType, folderId) {
     this._ensureInitialized();
+    this._guardCircuit();
 
     try {
       const fileMetadata = {
@@ -235,6 +252,7 @@ class DriveService {
       } else {
         console.log(`[DriveService] Uploaded file: ${fileName}`);
       }
+      recordSuccess('drive');
       return {
         id: response.data.id,
         name: response.data.name,
@@ -242,6 +260,7 @@ class DriveService {
         size: response.data.size,
       };
     } catch (error) {
+      recordFailure('drive');
       console.error(`[DriveService] Error uploading file ${fileName}:`, error.message);
       throw new Error(`Failed to upload file to Google Drive: ${error.message}`);
     }
@@ -256,6 +275,7 @@ class DriveService {
    */
   async downloadFile(fileId) {
     this._ensureInitialized();
+    this._guardCircuit();
 
     try {
       const response = await this.drive.files.get(
@@ -268,8 +288,10 @@ class DriveService {
         }
       );
 
+      recordSuccess('drive');
       return response.data;
     } catch (error) {
+      recordFailure('drive');
       console.error(`[DriveService] Error downloading file ${fileId}:`, error.message);
       throw new Error(`Failed to download file from Google Drive: ${error.message}`);
     }
@@ -284,6 +306,7 @@ class DriveService {
    */
   async getFileMetadata(fileId) {
     this._ensureInitialized();
+    this._guardCircuit();
 
     try {
       const response = await this.drive.files.get({
@@ -291,6 +314,7 @@ class DriveService {
         fields: 'id, name, mimeType, size',
       });
 
+      recordSuccess('drive');
       return {
         id: response.data.id,
         name: response.data.name,
@@ -298,6 +322,7 @@ class DriveService {
         size: response.data.size,
       };
     } catch (error) {
+      recordFailure('drive');
       console.error(`[DriveService] Error getting file metadata ${fileId}:`, error.message);
       throw new Error(`Failed to get file metadata from Google Drive: ${error.message}`);
     }
@@ -312,6 +337,7 @@ class DriveService {
    */
   async deleteFile(fileId) {
     this._ensureInitialized();
+    this._guardCircuit();
 
     try {
       await this.drive.files.delete({
@@ -320,6 +346,7 @@ class DriveService {
 
       console.log(`[DriveService] Deleted file: ${fileId}`);
     } catch (error) {
+      recordFailure('drive');
       console.error(`[DriveService] Error deleting file ${fileId}:`, error.message);
       throw new Error(`Failed to delete file from Google Drive: ${error.message}`);
     }

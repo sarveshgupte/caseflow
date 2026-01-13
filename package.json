@@ -9,7 +9,7 @@
     "build:ui": "cd ui && npm run build",
     "install:ui": "cd ui && npm install",
     "heroku-postbuild": "npm run install:ui && npm run build:ui",
-    "test:integrity": "node tests/adminIntegrity.test.js && node tests/firmRbac.test.js && node tests/writeSafety.test.js",
+    "test:integrity": "node tests/adminIntegrity.test.js && node tests/firmRbac.test.js && node tests/writeSafety.test.js && node tests/requestLifecycle.test.js && node tests/sideEffectQueue.test.js && node tests/circuitBreaker.test.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

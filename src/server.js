@@ -59,6 +59,7 @@ const { idempotencyMiddleware } = require('./middleware/idempotency.middleware')
 const transactionMiddleware = require('./middleware/transaction.middleware');
 const metricsService = require('./services/metrics.service');
 const { adminAuditTrail } = require('./middleware/adminAudit.middleware');
+const requestLifecycle = require('./middleware/requestLifecycle.middleware');
 
 // Routes
 const userRoutes = require('./routes/users');
@@ -199,6 +200,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(requestLifecycle);
 app.use(requestLogger);
 app.use(responseContract);
 app.use(degradedGuard);
