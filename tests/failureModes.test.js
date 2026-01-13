@@ -134,6 +134,71 @@ async function testReadinessReportsFeatureFlags() {
   console.log('✓ Readiness exposes feature flag state');
 }
 
+async function testDbLatencyCausesDegraded() {
+  console.log('\n[Test] DB latency degradation marks not ready');
+  await setBaseEnv();
+  const originalConnectionDescriptor = Object.getOwnPropertyDescriptor(mongoose, 'connection');
+  const originalFirmCount = Firm.estimatedDocumentCount;
+  const originalUserCount = User.estimatedDocumentCount;
+  const mockedConnection = {
+    readyState: 1,
+    db: {
+      admin: () => ({
+        ping: async () => new Promise((resolve) => setTimeout(resolve, 800)),
+      }),
+    },
+  };
+  Object.defineProperty(mongoose, 'connection', { value: mockedConnection, configurable: true, writable: true });
+  Firm.estimatedDocumentCount = async () => 0;
+  User.estimatedDocumentCount = async () => 0;
+  try {
+    const readiness = await runReadinessChecks();
+    assert.strictEqual(readiness.ready, false);
+    assert.strictEqual(readiness.checks.db, 'degraded');
+    assert.strictEqual(readiness.systemState.state, 'DEGRADED');
+    console.log('✓ DB latency degradation is not ready');
+  } finally {
+    if (originalConnectionDescriptor) {
+      Object.defineProperty(mongoose, 'connection', originalConnectionDescriptor);
+    }
+    Firm.estimatedDocumentCount = originalFirmCount;
+    User.estimatedDocumentCount = originalUserCount;
+  }
+}
+
+async function testDegradedAutoRecovers() {
+  console.log('\n[Test] System recovers from degraded state when checks pass');
+  await setBaseEnv();
+  resetState();
+  markDegraded('manual_test');
+  const originalConnectionDescriptor = Object.getOwnPropertyDescriptor(mongoose, 'connection');
+  const originalFirmCount = Firm.estimatedDocumentCount;
+  const originalUserCount = User.estimatedDocumentCount;
+  const mockedConnection = {
+    readyState: 1,
+    db: {
+      admin: () => ({
+        ping: async () => {},
+      }),
+    },
+  };
+  Object.defineProperty(mongoose, 'connection', { value: mockedConnection, configurable: true, writable: true });
+  Firm.estimatedDocumentCount = async () => 0;
+  User.estimatedDocumentCount = async () => 0;
+  try {
+    const readiness = await runReadinessChecks();
+    assert.strictEqual(readiness.ready, true);
+    assert.strictEqual(readiness.systemState.state, 'NORMAL');
+    console.log('✓ System auto-recovers to NORMAL when checks pass');
+  } finally {
+    if (originalConnectionDescriptor) {
+      Object.defineProperty(mongoose, 'connection', originalConnectionDescriptor);
+    }
+    Firm.estimatedDocumentCount = originalFirmCount;
+    User.estimatedDocumentCount = originalUserCount;
+  }
+}
+
 function testDegradedGuardBlocksWrites() {
   console.log('\n[Test] Degraded guard blocks writes but allows reads');
   resetState();
@@ -172,6 +237,8 @@ async function run() {
     await testReadinessWhenDbDown();
     await testFeatureFlagBlocksFirmCreation();
     await testReadinessReportsFeatureFlags();
+    await testDbLatencyCausesDegraded();
+    await testDegradedAutoRecovers();
     testDegradedGuardBlocksWrites();
     console.log('\nAll failure-mode tests passed.');
   } catch (err) {
