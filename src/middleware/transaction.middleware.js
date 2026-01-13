@@ -31,8 +31,8 @@ const transactionMiddleware = async (req, res, next) => {
 
   if (transactionSession) {
     const cleanup = () => transactionSession.endSession();
-    res.on('finish', cleanup);
-    res.on('close', cleanup);
+    res.once('finish', cleanup);
+    res.once('close', cleanup);
   }
 
   return next();

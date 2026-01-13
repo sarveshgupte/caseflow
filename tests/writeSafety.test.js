@@ -50,7 +50,12 @@ const buildRequest = (overrides = {}) => {
     get: (key) => {
       if (typeof key !== 'string') return undefined;
       const normalized = key.toLowerCase();
-      return headers[key] || headers[normalized] || headers['Idempotency-Key'] || headers['idempotency-key'];
+      const direct = headers[key] ?? headers[normalized];
+      if (direct !== undefined) return direct;
+      if (normalized === 'idempotency-key') {
+        return headers['Idempotency-Key'] ?? headers['idempotency-key'];
+      }
+      return undefined;
     },
     ...overrides,
   };

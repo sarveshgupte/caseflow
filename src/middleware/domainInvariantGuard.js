@@ -1,4 +1,5 @@
 const mutatingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const FINAL_STATES = ['CLOSED', 'FILED', 'ARCHIVED'];
 
 const isInvalidTransition = (fromStatus, toStatus) => {
   if (!fromStatus || !toStatus) return false;
@@ -8,7 +9,7 @@ const isInvalidTransition = (fromStatus, toStatus) => {
   if (normalizedFrom === 'CLOSED' && normalizedTo === 'IN_PROGRESS') {
     return true;
   }
-  if (['CLOSED', 'FILED', 'ARCHIVED'].includes(normalizedFrom) && !['CLOSED', 'FILED', 'ARCHIVED'].includes(normalizedTo)) {
+  if (FINAL_STATES.includes(normalizedFrom) && !FINAL_STATES.includes(normalizedTo)) {
     return true;
   }
   return false;
