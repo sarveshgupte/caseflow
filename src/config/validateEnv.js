@@ -5,6 +5,7 @@ const XID_DIGITS = 6;
 const SUPERADMIN_XID_REGEX = new RegExp(`^X\\d{${XID_DIGITS}}$`, 'i');
 const MIN_JWT_SECRET_LENGTH = 12;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const BCRYPT_HASH_REGEX = /^\$2[abxy]?\$\d{2}\$.+/;
 
 const logError = (logFn, details) => {
   (logFn || console.error)({ severity: 'ERROR', scope: 'env', ...details });
@@ -17,7 +18,7 @@ const validateEnv = ({ exitOnError = true, logger = console } = {}) => {
     errors.push({ field: 'JWT_SECRET', reason: 'missing or too short' });
   }
 
-  if (!process.env.SUPERADMIN_PASSWORD_HASH || !process.env.SUPERADMIN_PASSWORD_HASH.startsWith('$2')) {
+  if (!process.env.SUPERADMIN_PASSWORD_HASH || !BCRYPT_HASH_REGEX.test(process.env.SUPERADMIN_PASSWORD_HASH)) {
     errors.push({ field: 'SUPERADMIN_PASSWORD_HASH', reason: 'missing or not bcrypt hash' });
   }
 

@@ -67,11 +67,17 @@ const buildIds = async (deps, session, name) => {
     }
   }
   let firmSlug = slugify(name.trim());
-  let suffix = 1;
   const originalSlug = firmSlug;
-  while (await deps.Firm.findOne({ firmSlug }).session(session)) {
-    firmSlug = `${originalSlug}-${suffix}`;
-    suffix += 1;
+  const existingSlugs = await deps.Firm.find({
+    firmSlug: { $regex: new RegExp(`^${originalSlug}(?:-\\d+)?$`) },
+  }).session(session).select('firmSlug');
+  if (existingSlugs.length > 0) {
+    const maxSuffix = existingSlugs.reduce((max, doc) => {
+      const match = doc.firmSlug.match(/-(\d+)$/);
+      const suffixNumber = match ? parseInt(match[1], 10) : 0;
+      return Math.max(max, suffixNumber);
+    }, 0);
+    firmSlug = `${originalSlug}-${maxSuffix + 1}`;
   }
   return { firmId: `FIRM${firmNumber.toString().padStart(3, '0')}`, firmSlug };
 };

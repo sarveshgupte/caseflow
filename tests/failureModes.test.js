@@ -81,13 +81,18 @@ function testEnvValidationFailure() {
 async function testReadinessWhenDbDown() {
   console.log('\n[Test] Readiness fails when DB is down');
   await setBaseEnv();
+  const originalUri = process.env.MONGODB_URI;
   process.env.MONGODB_URI = 'mongodb://localhost:27017/test-db-down';
   if (mongoose.connection.readyState !== 0) {
     await mongoose.disconnect();
   }
-  const readiness = await runReadinessChecks();
-  assert.strictEqual(readiness.ok, false, 'Readiness should fail without DB connection');
-  console.log('✓ Readiness reports not ready when DB is unavailable');
+  try {
+    const readiness = await runReadinessChecks();
+    assert.strictEqual(readiness.ok, false, 'Readiness should fail without DB connection');
+    console.log('✓ Readiness reports not ready when DB is unavailable');
+  } finally {
+    process.env.MONGODB_URI = originalUri;
+  }
 }
 
 async function testFeatureFlagBlocksFirmCreation() {

@@ -158,6 +158,7 @@ const firmSchema = new mongoose.Schema({
 // Indexes for performance
 // Note: firmId and firmSlug already have unique indexes from schema definition
 firmSchema.index({ status: 1 });
+firmSchema.index({ createdAt: -1 });
 
 /**
  * PRE-SAVE HOOK: Enforce firm hierarchy guardrails
