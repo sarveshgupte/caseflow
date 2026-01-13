@@ -202,8 +202,8 @@ const login = async (req, res) => {
       } else if (superadminPasswordPlain) {
         // TEMPORARY: Plaintext SuperAdmin password support.
         // Must be removed once SUPERADMIN_PASSWORD_HASH is deployed.
-        const incoming = Buffer.from(password);
-        const configured = Buffer.from(superadminPasswordPlain);
+        const incoming = Buffer.from(password, 'utf8');
+        const configured = Buffer.from(superadminPasswordPlain, 'utf8');
         isSuperadminPasswordValid =
           incoming.length === configured.length && crypto.timingSafeEqual(incoming, configured);
       } else {
