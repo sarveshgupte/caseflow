@@ -945,7 +945,8 @@ const resetPassword = async (req, res) => {
         name: user.name,
         token: token,
         xID: user.xID,
-        firmSlug: firmSlug // Pass firmSlug for firm-specific URL in email
+        firmSlug: firmSlug, // Pass firmSlug for firm-specific URL in email
+        req,
       });
       
       // Log password setup email sent
@@ -1343,7 +1344,8 @@ const createUser = async (req, res) => {
         name: newUser.name,
         token: token,
         xID: newUser.xID,
-        firmSlug: firmSlug // Pass firmSlug for firm-specific URL in email
+        firmSlug: firmSlug, // Pass firmSlug for firm-specific URL in email
+        req,
       });
       
       // Log invite email sent
@@ -1868,7 +1870,8 @@ const resendSetupEmail = async (req, res) => {
         name: user.name,
         token: token,
         xID: user.xID,
-        firmSlug: firmSlug // Pass firmSlug for firm-specific URL in email
+        firmSlug: firmSlug, // Pass firmSlug for firm-specific URL in email
+        req,
       });
       
       if (!emailResult.success) {

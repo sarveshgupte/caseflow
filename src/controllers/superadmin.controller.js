@@ -483,7 +483,8 @@ const createFirmAdmin = async (req, res) => {
         name: adminUser.name,
         token: setupToken,
         xID: normalizedXID,
-        firmSlug: firm.firmSlug // Pass firmSlug for firm-specific URL in email
+        firmSlug: firm.firmSlug, // Pass firmSlug for firm-specific URL in email
+        req,
       });
     } catch (emailError) {
       console.error('[SUPERADMIN] Failed to send password setup email:', emailError);

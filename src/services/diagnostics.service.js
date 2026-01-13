@@ -5,6 +5,8 @@ const { getRedisClient } = require('../config/redis');
 const { getIdempotencyCacheSize } = require('../middleware/idempotency.middleware');
 const metricsService = require('./metrics.service');
 const { getTransactionMetrics } = require('./transactionMonitor.service');
+const { getQueueDepth, getFailed } = require('./sideEffectQueue.service');
+const { getSnapshot: getBreakerSnapshot, isAnyOpen } = require('./circuitBreaker.service');
 
 const CACHE_TTL_MS = 30 * 1000;
 const MAX_DEGRADED_REASONS = 10;
@@ -29,8 +31,10 @@ const measureDbLatency = async () => {
     if (!mongoose.connection?.db) return null;
     const start = Date.now();
     await mongoose.connection.db.admin().ping();
+    require('./circuitBreaker.service').recordSuccess('mongo');
     return Date.now() - start;
   } catch (err) {
+    require('./circuitBreaker.service').recordFailure('mongo');
     return null;
   }
 };
@@ -56,6 +60,13 @@ const getDiagnosticsSnapshot = async () => {
     idempotencyCacheSize: getIdempotencyCacheSize(),
     transactionFailures: getTransactionMetrics(),
     metrics: metricsService.getSnapshot(),
+    circuitBreakers: getBreakerSnapshot(),
+    sideEffectQueue: {
+      depth: getQueueDepth(),
+      failed: getFailed(),
+    },
+    requestLatency: metricsService.getLatencyPercentiles(),
+    circuitOpen: isAnyOpen(),
     generatedAt: new Date().toISOString(),
   };
 

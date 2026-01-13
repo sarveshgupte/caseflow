@@ -31,19 +31,24 @@ const adminAuditTrail = (scope = 'admin') => (req, res, next) => {
   const finalize = () => {
     if (finalized) return;
     finalized = true;
-    recordAdminAudit({
-      actor: req.user?.xID || 'UNKNOWN',
-      firmId: req.firm?.id || req.user?.firmId || null,
-      userId: req.user?._id,
-      action: `${req.method} ${req.originalUrl || req.url}`,
-      target,
-      scope,
-      requestId: req.requestId,
-      status: res.statusCode,
-      ipAddress: req.ip,
-      userAgent: req.headers?.['user-agent'],
-      durationMs: Date.now() - start,
-    }).catch((err) => console.error('[ADMIN_AUDIT] Failed to record audit:', err));
+    const { enqueueAfterCommit } = require('../services/sideEffectQueue.service');
+    enqueueAfterCommit(req, {
+      type: 'ADMIN_AUDIT',
+      payload: { action: `${req.method} ${req.originalUrl || req.url}`, target },
+      execute: async () => recordAdminAudit({
+        actor: req.user?.xID || 'UNKNOWN',
+        firmId: req.firm?.id || req.user?.firmId || null,
+        userId: req.user?._id,
+        action: `${req.method} ${req.originalUrl || req.url}`,
+        target,
+        scope,
+        requestId: req.requestId,
+        status: res.statusCode,
+        ipAddress: req.ip,
+        userAgent: req.headers?.['user-agent'],
+        durationMs: Date.now() - start,
+      }),
+    });
   };
 
   res.once('finish', finalize);
