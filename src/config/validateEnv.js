@@ -3,6 +3,7 @@ const { isGoogleAuthDisabled } = require('../services/featureFlags.service');
 
 const XID_DIGITS = 6;
 const SUPERADMIN_XID_REGEX = new RegExp(`^X\\d{${XID_DIGITS}}$`, 'i');
+const MIN_JWT_SECRET_LENGTH = 12;
 
 const logError = (logFn, details) => {
   logFn(JSON.stringify({ severity: 'ERROR', scope: 'env', ...details }));
@@ -11,7 +12,7 @@ const logError = (logFn, details) => {
 const validateEnv = ({ exitOnError = true, logger = console } = {}) => {
   const errors = [];
 
-  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 12) {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < MIN_JWT_SECRET_LENGTH) {
     errors.push({ field: 'JWT_SECRET', reason: 'missing or too short' });
   }
 

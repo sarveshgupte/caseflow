@@ -11,9 +11,11 @@ const Firm = require('../src/models/Firm.model');
 const Client = require('../src/models/Client.model');
 const User = require('../src/models/User.model');
 
-const setBaseEnv = () => {
+const setBaseEnv = async () => {
   process.env.JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
-  process.env.SUPERADMIN_PASSWORD_HASH = process.env.SUPERADMIN_PASSWORD_HASH || bcrypt.hashSync('TestPassword123!', 10);
+  if (!process.env.SUPERADMIN_PASSWORD_HASH) {
+    process.env.SUPERADMIN_PASSWORD_HASH = await bcrypt.hash('TestPassword123!', 10);
+  }
   process.env.SUPERADMIN_XID = process.env.SUPERADMIN_XID || 'X123456';
   process.env.SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || 'superadmin@test.com';
   process.env.DISABLE_GOOGLE_AUTH = process.env.DISABLE_GOOGLE_AUTH || 'true';
@@ -21,7 +23,7 @@ const setBaseEnv = () => {
 
 async function testTransactionalRollback() {
   console.log('\n[Test] Firm bootstrap rollback on failure');
-  setBaseEnv();
+  await setBaseEnv();
   let replset;
   try {
     replset = await MongoMemoryReplSet.create({
@@ -73,7 +75,7 @@ function testEnvValidationFailure() {
 
 async function testReadinessWhenDbDown() {
   console.log('\n[Test] Readiness fails when DB is down');
-  setBaseEnv();
+  await setBaseEnv();
   process.env.MONGODB_URI = 'mongodb://localhost:27017/test-db-down';
   if (mongoose.connection.readyState !== 0) {
     await mongoose.disconnect();
@@ -85,7 +87,7 @@ async function testReadinessWhenDbDown() {
 
 async function testFeatureFlagBlocksFirmCreation() {
   console.log('\n[Test] Feature flag blocks firm creation');
-  setBaseEnv();
+  await setBaseEnv();
   process.env.DISABLE_FIRM_CREATION = 'true';
   let blocked = false;
   try {

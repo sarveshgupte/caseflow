@@ -9,6 +9,8 @@ const { generateNextXID } = require('./xIDGenerator');
 const { slugify } = require('../utils/slugify');
 const { isFirmCreationDisabled } = require('./featureFlags.service');
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SYSTEM_EMAIL_DOMAIN = 'system.local';
+const SETUP_TOKEN_EXPIRY_HOURS = 48;
 
 class FirmBootstrapError extends Error {
   constructor(message, statusCode = 500, meta = {}) {
@@ -109,7 +111,7 @@ const createFirmHierarchy = async ({ payload, performedBy, requestId, deps = def
         businessName: normalizedName,
         businessAddress: 'Default Address',
         primaryContactNumber: '0000000000',
-        businessEmail: `${firmId.toLowerCase()}@system.local`,
+        businessEmail: `${firmId.toLowerCase()}@${SYSTEM_EMAIL_DOMAIN}`,
         firmId: firm._id,
         isSystemClient: true,
         isInternal: true,
@@ -117,7 +119,7 @@ const createFirmHierarchy = async ({ payload, performedBy, requestId, deps = def
         isActive: true,
         status: 'ACTIVE',
         createdByXid: 'SUPERADMIN',
-        createdBy: process.env.SUPERADMIN_EMAIL || 'superadmin@system.local',
+        createdBy: process.env.SUPERADMIN_EMAIL || `superadmin@${SYSTEM_EMAIL_DOMAIN}`,
       });
       await defaultClient.save({ session });
 
@@ -127,7 +129,7 @@ const createFirmHierarchy = async ({ payload, performedBy, requestId, deps = def
       const adminXID = await deps.generateNextXID(firm._id, session);
       const setupToken = crypto.randomBytes(32).toString('hex');
       const setupTokenHash = crypto.createHash('sha256').update(setupToken).digest('hex');
-      const setupExpires = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const setupExpires = new Date(Date.now() + SETUP_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
 
       const adminUser = new deps.User({
         xID: adminXID,
