@@ -6,7 +6,7 @@ const {
   reset,
 } = require('../src/services/sideEffectQueue.service');
 
-const wait = (ms = 10) => new Promise((resolve) => setTimeout(resolve, ms));
+const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function testSideEffectsSkipOnRollback() {
   reset();

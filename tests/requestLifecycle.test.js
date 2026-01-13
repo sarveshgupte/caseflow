@@ -39,7 +39,7 @@ async function testLifecycleLogsOnce() {
 
   const lifecycleLogs = logs.filter((l) => l.event === 'REQUEST_LIFECYCLE');
   assert.strictEqual(lifecycleLogs.length, 1, 'Lifecycle log should fire exactly once');
-  assert.strictEqual(res.headers['X-Request-ID'] ? typeof res.headers['X-Request-ID'] === 'string' : false, true);
+  assert.strictEqual(typeof res.headers['X-Request-ID'], 'string');
   assert.strictEqual(lifecycleLogs[0].meta.transactionCommitted, false);
 }
 

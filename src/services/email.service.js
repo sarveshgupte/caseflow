@@ -210,7 +210,7 @@ const sendEmail = async (mailOptions, req = null) => {
     maxRetries: 3,
   });
 
-  return { success: true, queued: true };
+  return { success: true, queued: true, messageId: null };
 };
 
 /**

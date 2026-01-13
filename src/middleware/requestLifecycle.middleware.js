@@ -33,7 +33,7 @@ const requestLifecycle = (req, res, next) => {
       lifecycleEnd: reason,
       transactionCommitted: !!req.transactionCommitted,
     });
-    flushRequestEffects(req);
+    setImmediate(() => flushRequestEffects(req));
   };
 
   res.once('finish', () => finalize('finish'));

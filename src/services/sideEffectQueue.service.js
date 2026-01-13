@@ -39,7 +39,7 @@ const processQueue = async () => {
     } catch (err) {
       recordFailure(effect, err);
       effect.attempts += 1;
-      log.warn('SIDE_EFFECT_FAILED', { ...effect, error: err.message });
+      log.warn('SIDE_EFFECT_FAILED', { id: effect.id, type: effect.type, attempts: effect.attempts, error: err.message });
       if (effect.attempts <= effect.maxRetries) {
         queue.push(effect);
       }
