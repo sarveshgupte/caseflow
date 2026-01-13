@@ -1,7 +1,7 @@
 const config = require('./config');
 const { isGoogleAuthDisabled } = require('../services/featureFlags.service');
 
-const XID_LENGTH = 6;
+const XID_DIGITS = 6;
 
 const logError = (logFn, details) => {
   logFn(JSON.stringify({ severity: 'ERROR', scope: 'env', ...details }));
@@ -19,8 +19,8 @@ const validateEnv = ({ exitOnError = true, logger = console } = {}) => {
   }
 
   const superadminXid = process.env.SUPERADMIN_XID;
-  if (!superadminXid || !new RegExp(`^X\\d{${XID_LENGTH}}$`, 'i').test(superadminXid.trim())) {
-    errors.push({ field: 'SUPERADMIN_XID', reason: 'missing or invalid format (expected X000001)' });
+  if (!superadminXid || !new RegExp(`^X\\d{${XID_DIGITS}}$`, 'i').test(superadminXid.trim())) {
+    errors.push({ field: 'SUPERADMIN_XID', reason: 'missing or invalid format (expected X followed by 6 digits, e.g., X000001)' });
   }
 
   if (!config.mongodbUri || !config.mongodbUri.startsWith('mongodb')) {

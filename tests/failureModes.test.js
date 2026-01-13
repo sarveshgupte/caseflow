@@ -14,7 +14,7 @@ const User = require('../src/models/User.model');
 const setBaseEnv = () => {
   process.env.JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
   process.env.SUPERADMIN_PASSWORD_HASH = process.env.SUPERADMIN_PASSWORD_HASH || bcrypt.hashSync('TestPassword123!', 10);
-  process.env.SUPERADMIN_XID = process.env.SUPERADMIN_XID || 'X999999';
+  process.env.SUPERADMIN_XID = process.env.SUPERADMIN_XID || 'X123456';
   process.env.SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || 'superadmin@test.com';
   process.env.DISABLE_GOOGLE_AUTH = process.env.DISABLE_GOOGLE_AUTH || 'true';
 };
