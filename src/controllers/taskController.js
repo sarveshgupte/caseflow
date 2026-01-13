@@ -1,4 +1,5 @@
 const Task = require('../models/Task');
+const { wrapWriteHandler } = require('../utils/transactionGuards');
 
 /**
  * Task Controller
@@ -257,8 +258,8 @@ const getTaskStats = async (req, res) => {
 module.exports = {
   getTasks,
   getTaskById,
-  createTask,
-  updateTask,
-  deleteTask,
+  createTask: wrapWriteHandler(createTask),
+  updateTask: wrapWriteHandler(updateTask),
+  deleteTask: wrapWriteHandler(deleteTask),
   getTaskStats,
 };

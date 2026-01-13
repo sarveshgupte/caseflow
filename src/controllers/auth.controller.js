@@ -15,6 +15,7 @@ const { isSuperAdminRole } = require('../utils/role.utils');
 const { ensureDefaultClientForFirm } = require('../services/defaultClient.service');
 const { resolveUserIdentity } = require('../services/identity.service');
 const { isGoogleAuthDisabled } = require('../services/featureFlags.service');
+const { wrapWriteHandler } = require('../utils/transactionGuards');
 
 /**
  * Authentication Controller for JWT-based Enterprise Authentication
@@ -2690,23 +2691,23 @@ const handleGoogleCallback = async (req, res) => {
 };
 
 module.exports = {
-  login,
-  logout,
-  changePassword,
-  resetPassword,
+  login: wrapWriteHandler(login),
+  logout: wrapWriteHandler(logout),
+  changePassword: wrapWriteHandler(changePassword),
+  resetPassword: wrapWriteHandler(resetPassword),
   getProfile,
-  updateProfile,
-  createUser,
-  activateUser,
-  deactivateUser,
-  setPassword,
-  resetPasswordWithToken,
+  updateProfile: wrapWriteHandler(updateProfile),
+  createUser: wrapWriteHandler(createUser),
+  activateUser: wrapWriteHandler(activateUser),
+  deactivateUser: wrapWriteHandler(deactivateUser),
+  setPassword: wrapWriteHandler(setPassword),
+  resetPasswordWithToken: wrapWriteHandler(resetPasswordWithToken),
   // resendSetupEmail - REMOVED: Deprecated in PR #48, use admin.controller.resendInviteEmail instead
-  updateUserStatus,
-  unlockAccount,
-  forgotPassword,
+  updateUserStatus: wrapWriteHandler(updateUserStatus),
+  unlockAccount: wrapWriteHandler(unlockAccount),
+  forgotPassword: wrapWriteHandler(forgotPassword),
   getAllUsers,
-  refreshAccessToken, // NEW: JWT token refresh
+  refreshAccessToken: wrapWriteHandler(refreshAccessToken), // NEW: JWT token refresh
   initiateGoogleAuth,
-  handleGoogleCallback,
+  handleGoogleCallback: wrapWriteHandler(handleGoogleCallback),
 };

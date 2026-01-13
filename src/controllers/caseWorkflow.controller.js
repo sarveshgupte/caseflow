@@ -3,6 +3,7 @@ const CaseHistory = require('../models/CaseHistory.model');
 const Comment = require('../models/Comment.model');
 const { CaseRepository } = require('../repositories');
 const { CASE_STATUS } = require('../config/constants');
+const { wrapWriteHandler } = require('../utils/transactionGuards');
 
 /**
  * Case Workflow Controller
@@ -297,8 +298,8 @@ const reopenCase = async (req, res) => {
 };
 
 module.exports = {
-  submitCase,
-  moveToUnderReview,
-  closeCase,
-  reopenCase,
+  submitCase: wrapWriteHandler(submitCase),
+  moveToUnderReview: wrapWriteHandler(moveToUnderReview),
+  closeCase: wrapWriteHandler(closeCase),
+  reopenCase: wrapWriteHandler(reopenCase),
 };

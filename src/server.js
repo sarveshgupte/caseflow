@@ -11,6 +11,7 @@ const { runBootstrap } = require('./services/bootstrap.service');
 const { maskSensitiveObject, sanitizeErrorForLog } = require('./utils/pii');
 const { validateEnv } = require('./config/validateEnv');
 const { logBuildMetadata } = require('./services/buildInfo.service');
+require('./utils/transactionSessionEnforcer');
 
 // Global error log sanitizer: ensure every console.error invocation masks PII (tokens, emails, phone numbers, auth headers).
 // This preserves existing logging behavior/verbosity while enforcing centralized masking via maskSensitiveObject.
@@ -75,9 +76,14 @@ const inboundRoutes = require('./routes/inbound.routes');  // Inbound email rout
 const publicRoutes = require('./routes/public.routes');  // Public routes (firm lookup)
 const healthRoutes = require('./routes/health.routes');  // Health endpoints
 const mutatingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const forceTransactionPaths = ['/google/callback', '/my-pending'];
 const writeGuardChain = (req, res, next) => {
-  if (!mutatingMethods.has(req.method)) {
+  const shouldForceTransaction = forceTransactionPaths.some((path) => req.path && req.path.startsWith(path));
+  if (!mutatingMethods.has(req.method) && !shouldForceTransaction) {
     return next();
+  }
+  if (shouldForceTransaction) {
+    req.forceTransaction = true;
   }
   return transactionMiddleware(req, res, (err) => {
     if (err) return next(err);

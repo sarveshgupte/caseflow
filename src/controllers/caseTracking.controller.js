@@ -3,6 +3,7 @@ const { CASE_ACTION_TYPES } = require('../config/constants');
 const Case = require('../models/Case.model');
 const CaseHistory = require('../models/CaseHistory.model');
 const { CaseRepository } = require('../repositories');
+const { wrapWriteHandler } = require('../utils/transactionGuards');
 
 /**
  * Case Tracking Controller
@@ -372,8 +373,8 @@ const getCaseHistory = async (req, res) => {
 };
 
 module.exports = {
-  trackCaseOpen,
-  trackCaseView,
-  trackCaseExit,
+  trackCaseOpen: wrapWriteHandler(trackCaseOpen),
+  trackCaseView: wrapWriteHandler(trackCaseView),
+  trackCaseExit: wrapWriteHandler(trackCaseExit),
   getCaseHistory,
 };

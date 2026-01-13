@@ -7,6 +7,7 @@ const Firm = require('../models/Firm.model');
 const emailService = require('../services/email.service');
 const { CASE_STATUS } = require('../config/constants');
 const { logAdminAction, logCaseListViewed } = require('../services/auditLog.service');
+const { wrapWriteHandler } = require('../utils/transactionGuards');
 
 /**
  * Admin Controller for Admin Panel Operations
@@ -724,13 +725,13 @@ const disconnectStorage = async (req, res) => {
 
 module.exports = {
   getAdminStats,
-  resendInviteEmail,
+  resendInviteEmail: wrapWriteHandler(resendInviteEmail),
   getAllOpenCases,
   getAllPendingCases,
   getAllFiledCases,
   getAllResolvedCases,
-  updateRestrictedClients,
+  updateRestrictedClients: wrapWriteHandler(updateRestrictedClients),
   getStorageConfig,
-  updateStorageConfig,
-  disconnectStorage,
+  updateStorageConfig: wrapWriteHandler(updateStorageConfig),
+  disconnectStorage: wrapWriteHandler(disconnectStorage),
 };

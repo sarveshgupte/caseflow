@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 const { generateNextClientId } = require('../services/clientIdGenerator');
 const { slugify } = require('../utils/slugify');
 const { getDashboardSnapshot } = require('../utils/operationalMetrics');
+const { wrapWriteHandler } = require('../utils/transactionGuards');
 
 const { createFirmHierarchy, FirmBootstrapError } = require('../services/firmBootstrap.service');
 const { isFirmCreationDisabled } = require('../services/featureFlags.service');
@@ -605,11 +606,11 @@ const getOperationalHealth = async (req, res) => {
 };
 
 module.exports = {
-  createFirm,
+  createFirm: wrapWriteHandler(createFirm),
   listFirms,
-  updateFirmStatus,
-  disableFirmImmediately,
-  createFirmAdmin,
+  updateFirmStatus: wrapWriteHandler(updateFirmStatus),
+  disableFirmImmediately: wrapWriteHandler(disableFirmImmediately),
+  createFirmAdmin: wrapWriteHandler(createFirmAdmin),
   getPlatformStats,
   getFirmBySlug,
   getOperationalHealth,

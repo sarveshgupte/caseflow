@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const mutatingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 const transactionMiddleware = async (req, res, next) => {
-  if (!mutatingMethods.has(req.method)) {
+  if (!mutatingMethods.has(req.method) && !req.forceTransaction) {
     return next();
   }
 

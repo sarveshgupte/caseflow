@@ -13,6 +13,7 @@ const { CASE_CATEGORIES, CASE_LOCK_CONFIG, CASE_STATUS, COMMENT_PREVIEW_LENGTH, 
 const { isProduction } = require('../config/config');
 const { logCaseListViewed, logAdminAction } = require('../services/auditLog.service');
 const caseActionService = require('../services/caseAction.service');
+const { wrapWriteHandler } = require('../utils/transactionGuards');
 const { getMimeType, sanitizeFilename } = require('../utils/fileUtils');
 const { cleanupTempFile } = require('../utils/tempFile');
 const { resolveCaseIdentifier, resolveCaseDocument } = require('../utils/caseIdentifier');
@@ -311,10 +312,8 @@ const createCase = async (req, res) => {
       }
     }
 
-    const session = await mongoose.startSession();
+    const session = req.transactionSession?.session;
     try {
-      session.startTransaction();
-
       // Create new case with defaults
       const newCase = new Case({
         title: title.trim(),
@@ -342,7 +341,7 @@ const createCase = async (req, res) => {
       const { logCaseHistory } = require('../services/auditLog.service');
       const { CASE_ACTION_TYPES } = require('../config/constants');
       
-      const historyEntry = await logCaseHistory({
+      await logCaseHistory({
         caseId: newCase.caseId,
         firmId: newCase.firmId,
         actionType: CASE_ACTION_TYPES.CASE_CREATED,
@@ -373,8 +372,6 @@ const createCase = async (req, res) => {
         }], { session });
       }
 
-      await session.commitTransaction();
-      
       return res.status(201).json({
         success: true,
         data: newCase,
@@ -386,8 +383,6 @@ const createCase = async (req, res) => {
         ...responseMeta,
       });
     } catch (error) {
-      await session.abortTransaction();
-
       if (error?.code === 11000) {
         console.error(`[CASE_CREATE][${requestId}] Duplicate key detected during case creation`, { firmId, error: error.message });
         let existingCase = null;
@@ -421,8 +416,6 @@ const createCase = async (req, res) => {
         error: error.message,
         ...responseMeta,
       });
-    } finally {
-      session.endSession();
     }
   } catch (error) {
     res.status(400).json({
@@ -2545,19 +2538,19 @@ const downloadClientCFSFileForCase = async (req, res) => {
 };
 
 module.exports = {
-  createCase,
-  addComment,
-  addAttachment,
-  cloneCase,
-  unpendCase,
-  updateCaseStatus,
+  createCase: wrapWriteHandler(createCase),
+  addComment: wrapWriteHandler(addComment),
+  addAttachment: wrapWriteHandler(addAttachment),
+  cloneCase: wrapWriteHandler(cloneCase),
+  unpendCase: wrapWriteHandler(unpendCase),
+  updateCaseStatus: wrapWriteHandler(updateCaseStatus),
   getCaseByCaseId,
   getCases,
-  lockCaseEndpoint,
-  unlockCaseEndpoint,
-  updateCaseActivity,
-  pullCases,
-  unassignCase,
+  lockCaseEndpoint: wrapWriteHandler(lockCaseEndpoint),
+  unlockCaseEndpoint: wrapWriteHandler(unlockCaseEndpoint),
+  updateCaseActivity: wrapWriteHandler(updateCaseActivity),
+  pullCases: wrapWriteHandler(pullCases),
+  unassignCase: wrapWriteHandler(unassignCase),
   viewAttachment,
   downloadAttachment,
   getClientFactSheetForCase,
