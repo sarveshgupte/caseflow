@@ -8,6 +8,7 @@ const { generateNextClientId } = require('./clientIdGenerator');
 const { generateNextXID } = require('./xIDGenerator');
 const { slugify } = require('../utils/slugify');
 const { isFirmCreationDisabled } = require('./featureFlags.service');
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 class FirmBootstrapError extends Error {
   constructor(message, statusCode = 500, meta = {}) {
@@ -38,8 +39,7 @@ const validatePayload = ({ name, adminName, adminEmail }) => {
   if (!adminEmail || !adminEmail.trim()) {
     throw new FirmBootstrapError('Admin email is required', 400);
   }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(adminEmail)) {
+  if (!EMAIL_REGEX.test(adminEmail)) {
     throw new FirmBootstrapError('Invalid admin email format', 400);
   }
 };
