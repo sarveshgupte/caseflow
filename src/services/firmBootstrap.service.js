@@ -38,7 +38,7 @@ const validatePayload = ({ name, adminName, adminEmail }) => {
   if (!adminEmail || !adminEmail.trim()) {
     throw new FirmBootstrapError('Admin email is required', 400);
   }
-  const emailRegex = /^\S+@\S+\.\S+$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(adminEmail)) {
     throw new FirmBootstrapError('Invalid admin email format', 400);
   }
@@ -72,7 +72,7 @@ const buildIds = async (deps, session, name) => {
   return { firmId: `FIRM${firmNumber.toString().padStart(3, '0')}`, firmSlug };
 };
 
-const createFirmHierarchy = async ({ payload, performedBy, requestId, deps = defaultDeps, options = {} }) => {
+const createFirmHierarchy = async ({ payload, performedBy, requestId, deps = defaultDeps }) => {
   if (isFirmCreationDisabled()) {
     throw new FirmBootstrapError('Firm creation is temporarily disabled', 503);
   }
@@ -129,10 +129,6 @@ const createFirmHierarchy = async ({ payload, performedBy, requestId, deps = def
       const setupTokenHash = crypto.createHash('sha256').update(setupToken).digest('hex');
       const setupExpires = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
-      if (options.simulateFailureAt === 'after-default-client') {
-        throw new Error('Simulated failure after default client');
-      }
-
       const adminUser = new deps.User({
         xID: adminXID,
         name: adminName.trim(),
@@ -152,10 +148,6 @@ const createFirmHierarchy = async ({ payload, performedBy, requestId, deps = def
         inviteSentAt: new Date(),
       });
       await adminUser.save({ session });
-
-      if (options.simulateFailureAt === 'after-admin') {
-        throw new Error('Simulated failure after admin creation');
-      }
 
       firm.bootstrapStatus = 'COMPLETED';
       await firm.save({ session });
@@ -215,4 +207,5 @@ const createFirmHierarchy = async ({ payload, performedBy, requestId, deps = def
 module.exports = {
   FirmBootstrapError,
   createFirmHierarchy,
+  defaultDeps,
 };

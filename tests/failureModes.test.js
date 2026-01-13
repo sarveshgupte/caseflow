@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 const assert = require('assert');
 const mongoose = require('mongoose');
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
-const { createFirmHierarchy, FirmBootstrapError } = require('../src/services/firmBootstrap.service');
+const { createFirmHierarchy, FirmBootstrapError, defaultDeps } = require('../src/services/firmBootstrap.service');
 const { validateEnv } = require('../src/config/validateEnv');
 const { runReadinessChecks } = require('../src/controllers/health.controller');
 const Firm = require('../src/models/Firm.model');
@@ -10,8 +12,8 @@ const Client = require('../src/models/Client.model');
 const User = require('../src/models/User.model');
 
 const setBaseEnv = () => {
-  process.env.JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtvalue';
-  process.env.SUPERADMIN_PASSWORD_HASH = process.env.SUPERADMIN_PASSWORD_HASH || '$2a$10$123456789012345678901uV7i0x';
+  process.env.JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+  process.env.SUPERADMIN_PASSWORD_HASH = process.env.SUPERADMIN_PASSWORD_HASH || bcrypt.hashSync('TestPassword123!', 10);
   process.env.SUPERADMIN_XID = process.env.SUPERADMIN_XID || 'X999999';
   process.env.SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || 'superadmin@test.com';
   process.env.DISABLE_GOOGLE_AUTH = process.env.DISABLE_GOOGLE_AUTH || 'true';
@@ -37,7 +39,7 @@ async function testTransactionalRollback() {
   try {
     await createFirmHierarchy({
       payload: { name: 'Rollback Co', adminName: 'Alice', adminEmail: 'alice@rollback.test' },
-      options: { simulateFailureAt: 'after-admin' },
+      deps: { ...defaultDeps, generateNextClientId: async () => { throw new Error('forced failure'); } },
       requestId: 'rollback-test',
     });
   } catch (error) {
