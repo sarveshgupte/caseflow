@@ -13,7 +13,7 @@ const { getMimeType } = require('../utils/fileUtils');
 const { StorageProviderFactory } = require('../services/storage/StorageProviderFactory');
 const { areFileUploadsDisabled } = require('../services/featureFlags.service');
 const path = require('path');
-const fs = require('fs').promises;
+const fs = require('fs');
 
 /**
  * Client Controller for Direct Client Management
@@ -807,7 +807,7 @@ const uploadFactSheetFile = async (req, res) => {
     let checksumSource = req.file.buffer;
     if (!checksumSource && req.file.path) {
       try {
-        checksumSource = await fs.readFile(req.file.path);
+        checksumSource = await fs.promises.readFile(req.file.path);
       } catch (err) {
         console.warn('[uploadFactSheetFile] Unable to read uploaded file for checksum:', err.message);
         checksumSource = '';

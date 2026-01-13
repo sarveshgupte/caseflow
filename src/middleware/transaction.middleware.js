@@ -22,19 +22,17 @@ const transactionMiddleware = async (req, res, next) => {
         withTransaction: (fn) => session.withTransaction(fn),
         endSession: () => session.endSession(),
       }
-    : {
-        session: null,
-        withTransaction: async (fn) => fn(),
-        endSession: () => {},
-      };
+    : null;
 
   req.mongoSession = session;
   req.transactionSession = transactionSession;
-  req.transactionActive = true;
+  req.transactionActive = !!session;
 
-  const cleanup = () => transactionSession.endSession();
-  res.on('finish', cleanup);
-  res.on('close', cleanup);
+  if (transactionSession) {
+    const cleanup = () => transactionSession.endSession();
+    res.on('finish', cleanup);
+    res.on('close', cleanup);
+  }
 
   return next();
 };

@@ -74,7 +74,19 @@ const debugRoutes = require('./routes/debug.routes');  // Debug routes (PR #43)
 const inboundRoutes = require('./routes/inbound.routes');  // Inbound email routes
 const publicRoutes = require('./routes/public.routes');  // Public routes (firm lookup)
 const healthRoutes = require('./routes/health.routes');  // Health endpoints
-const writeGuards = [transactionMiddleware, idempotencyMiddleware, domainInvariantGuard];
+const mutatingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const writeGuardChain = (req, res, next) => {
+  if (!mutatingMethods.has(req.method)) {
+    return next();
+  }
+  return transactionMiddleware(req, res, (err) => {
+    if (err) return next(err);
+    return idempotencyMiddleware(req, res, (idempotencyErr) => {
+      if (idempotencyErr) return next(idempotencyErr);
+      return domainInvariantGuard(req, res, next);
+    });
+  });
+};
 
 /**
  * Docketra - Task & Case Management System
@@ -230,37 +242,37 @@ app.get('/api', (req, res) => {
 });
 
 // Authentication routes (public - no authentication required for login)
-app.use('/api/auth', ...writeGuards, authRoutes);
+app.use('/api/auth', writeGuardChain, authRoutes);
 
 // Public routes (no authentication required)
-app.use('/api/public', ...writeGuards, publicRoutes);
+app.use('/api/public', writeGuardChain, publicRoutes);
 
 // Category routes (public GET for active categories, admin-only for modifications)
-app.use('/api/categories', ...writeGuards, categoryRoutes);
+app.use('/api/categories', writeGuardChain, categoryRoutes);
 
 // Admin routes (firm-scoped) - enforce auth + firm context + admin role boundary
-app.use('/api/admin', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), ...writeGuards, requireAdmin, adminRoutes);
+app.use('/api/admin', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), writeGuardChain, requireAdmin, adminRoutes);
 
 // Superadmin routes - platform scope only (no firm context)
-app.use('/api/sa', authenticate, ...writeGuards, requireSuperadmin, superadminRoutes);
-app.use('/api/superadmin', authenticate, ...writeGuards, requireSuperadmin, superadminRoutes);
+app.use('/api/sa', authenticate, writeGuardChain, requireSuperadmin, superadminRoutes);
+app.use('/api/superadmin', authenticate, writeGuardChain, requireSuperadmin, superadminRoutes);
 
 // Debug routes (PR #43) - require authentication and admin role
-app.use('/api/debug', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), ...writeGuards, requireAdmin, debugRoutes);
+app.use('/api/debug', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), writeGuardChain, requireAdmin, debugRoutes);
 
 // Inbound email routes (webhook - no authentication required)
-app.use('/api/inbound', ...writeGuards, inboundRoutes);
+app.use('/api/inbound', writeGuardChain, inboundRoutes);
 
 // Protected routes - require authentication
 // Firm context must be attached for all tenant-scoped operations
-app.use('/api/users', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), ...writeGuards, userRoutes);
-app.use('/api/tasks', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), ...writeGuards, taskRoutes);
-app.use('/api/cases', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), ...writeGuards, newCaseRoutes);
-app.use('/api/search', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), ...writeGuards, searchRoutes);
-app.use('/api/worklists', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), ...writeGuards, searchRoutes);
-app.use('/api/client-approval', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), ...writeGuards, clientApprovalRoutes);
-app.use('/api/clients', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), ...writeGuards, clientRoutes);  // Client management (PR #39)
-app.use('/api/reports', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), ...writeGuards, reportsRoutes);  // Reports routes
+app.use('/api/users', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), writeGuardChain, userRoutes);
+app.use('/api/tasks', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), writeGuardChain, taskRoutes);
+app.use('/api/cases', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), writeGuardChain, newCaseRoutes);
+app.use('/api/search', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), writeGuardChain, searchRoutes);
+app.use('/api/worklists', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), writeGuardChain, searchRoutes);
+app.use('/api/client-approval', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), writeGuardChain, clientApprovalRoutes);
+app.use('/api/clients', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), writeGuardChain, clientRoutes);  // Client management (PR #39)
+app.use('/api/reports', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), writeGuardChain, reportsRoutes);  // Reports routes
 
 // Root route - API status
 app.get('/', (req, res) => {

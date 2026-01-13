@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const mutatingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const idempotencyCache = new Map();
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+let inMemoryWarningLogged = false;
 
 const hash = (value) => crypto.createHash('sha256').update(value || '').digest('hex');
 
@@ -22,6 +23,11 @@ const idempotencyMiddleware = (req, res, next) => {
   const key = (req.headers && req.headers['idempotency-key']) || req.get?.('Idempotency-Key');
   if (!key) {
     return res.status(400).json({ error: 'idempotency_key_required' });
+  }
+
+  if (!inMemoryWarningLogged && process.env.NODE_ENV === 'production') {
+    console.warn('[idempotencyMiddleware] Using in-memory idempotency cache; enable shared store for multi-instance deployments.');
+    inMemoryWarningLogged = true;
   }
 
   const fingerprint = buildFingerprint(req);
