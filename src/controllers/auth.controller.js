@@ -38,6 +38,7 @@ const SUPERADMIN_ROLE = 'SUPERADMIN';
 const ROLE_SUPER_ADMIN = 'SUPER_ADMIN';
 const ROLE_ADMIN = 'Admin';
 const ROLE_EMPLOYEE = 'Employee';
+const BCRYPT_HASH_REGEX = /^\$2[abxy]?\$\d{2}\$.+/;
 
 const getSuperadminEnv = () => {
   const rawXID = process.env.SUPERADMIN_XID ? process.env.SUPERADMIN_XID.trim() : null;
@@ -194,22 +195,38 @@ const login = async (req, res) => {
       
       // Authenticate against .env ONLY (do NOT query MongoDB)
       const superadminPasswordHash = process.env.SUPERADMIN_PASSWORD_HASH;
-      
-      if (!superadminPasswordHash) {
-        console.error('[AUTH][superadmin] SUPERADMIN_PASSWORD_HASH not configured in environment');
+      const superadminPassword = process.env.SUPERADMIN_PASSWORD;
+      const hasValidHash = superadminPasswordHash && BCRYPT_HASH_REGEX.test(superadminPasswordHash);
+
+      if (hasValidHash) {
+        const isSuperadminPasswordValid = await bcrypt.compare(password, superadminPasswordHash);
+        
+        if (!isSuperadminPasswordValid) {
+          console.warn('[AUTH][superadmin] SuperAdmin login failed - invalid credentials');
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid xID or password',
+          });
+        }
+      } else if (superadminPassword) {
+        if (superadminPasswordHash) {
+          console.error('[AUTH][superadmin] SUPERADMIN_PASSWORD_HASH is present but invalid. Falling back to plaintext SUPERADMIN_PASSWORD.');
+        }
+        // TEMPORARY: Plaintext SuperAdmin password support.
+        // Must be removed once SUPERADMIN_PASSWORD_HASH is deployed.
+        if (password !== superadminPassword) {
+          console.warn('[AUTH][superadmin] SuperAdmin login failed - invalid credentials');
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid xID or password',
+          });
+        }
+        console.warn('[SECURITY] SuperAdmin authenticated using plaintext password');
+      } else {
+        console.error('[AUTH][superadmin] SuperAdmin authentication not configured (missing SUPERADMIN_PASSWORD_HASH or SUPERADMIN_PASSWORD)');
         return res.status(500).json({
           success: false,
           message: 'SuperAdmin authentication not configured',
-        });
-      }
-      
-      const isSuperadminPasswordValid = await bcrypt.compare(password, superadminPasswordHash);
-      
-      if (!isSuperadminPasswordValid) {
-        console.warn('[AUTH][superadmin] SuperAdmin login failed - invalid credentials');
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid xID or password',
         });
       }
       

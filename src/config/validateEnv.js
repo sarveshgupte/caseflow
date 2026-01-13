@@ -18,8 +18,19 @@ const validateEnv = ({ exitOnError = true, logger = console } = {}) => {
     errors.push({ field: 'JWT_SECRET', reason: 'missing or too short' });
   }
 
-  if (!process.env.SUPERADMIN_PASSWORD_HASH || !BCRYPT_HASH_REGEX.test(process.env.SUPERADMIN_PASSWORD_HASH)) {
-    errors.push({ field: 'SUPERADMIN_PASSWORD_HASH', reason: 'missing or not bcrypt hash' });
+  const superadminPasswordHash = process.env.SUPERADMIN_PASSWORD_HASH;
+  const superadminPassword = process.env.SUPERADMIN_PASSWORD;
+  const hasValidHash = superadminPasswordHash && BCRYPT_HASH_REGEX.test(superadminPasswordHash);
+
+  if (!hasValidHash) {
+    if (superadminPassword) {
+      (logger.warn || logger.log)('[SECURITY] SuperAdmin is using plaintext password. This is TEMPORARY and must be migrated to bcrypt.');
+      if (superadminPasswordHash) {
+        logError(logger.error || logger.log, { message: 'SUPERADMIN_PASSWORD_HASH is present but invalid. Falling back to plaintext SUPERADMIN_PASSWORD.' });
+      }
+    } else {
+      errors.push({ field: 'SUPERADMIN_PASSWORD', reason: 'missing (require SUPERADMIN_PASSWORD_HASH bcrypt hash or temporary SUPERADMIN_PASSWORD)' });
+    }
   }
 
   const superadminXid = process.env.SUPERADMIN_XID;

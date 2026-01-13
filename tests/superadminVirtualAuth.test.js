@@ -88,9 +88,92 @@ async function shouldShortCircuitSuperadminLogin() {
   console.log('✓ SuperAdmin login short-circuits DB and issues correct token payload');
 }
 
+async function shouldAllowPlaintextSuperadminLogin() {
+  const plainPassword = 'PlainPass!234';
+  delete process.env.SUPERADMIN_PASSWORD_HASH;
+  process.env.SUPERADMIN_PASSWORD = plainPassword;
+  process.env.SUPERADMIN_XID = 'SAPLAIN';
+  process.env.SUPERADMIN_EMAIL = 'sa-plain@test.com';
+  process.env.JWT_SECRET = 'test-secret';
+
+  let bcryptUsed = false;
+  const originalCompare = bcrypt.compare;
+  bcrypt.compare = async () => {
+    bcryptUsed = true;
+    throw new Error('bcrypt.compare should not be called for plaintext superadmin auth');
+  };
+
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (msg, ...rest) => {
+    warnings.push(msg);
+    return originalWarn.call(console, msg, ...rest);
+  };
+
+  const tokenPayloads = [];
+  const originalGenerateAccessToken = jwtService.generateAccessToken;
+  jwtService.generateAccessToken = (payload) => {
+    tokenPayloads.push(payload);
+    return 'access-token';
+  };
+
+  const originalGenerateRefreshToken = jwtService.generateRefreshToken;
+  const originalHashRefreshToken = jwtService.hashRefreshToken;
+  jwtService.generateRefreshToken = () => 'refresh-token';
+  jwtService.hashRefreshToken = () => 'hashed-refresh-token';
+
+  let refreshCreatePayload = null;
+  const originalRefreshCreate = RefreshToken.create;
+  RefreshToken.create = async (doc) => {
+    refreshCreatePayload = doc;
+    return doc;
+  };
+
+  const resBody = {};
+  const res = {
+    status: function (code) {
+      this.statusCode = code;
+      return this;
+    },
+    json: function (body) {
+      Object.assign(resBody, body);
+      return this;
+    },
+  };
+
+  try {
+    await login(
+      { body: { xID: 'SAPLAIN', password: plainPassword }, ip: '127.0.0.1', get: () => 'test-agent' },
+      res
+    );
+  } finally {
+    bcrypt.compare = originalCompare;
+    console.warn = originalWarn;
+    jwtService.generateAccessToken = originalGenerateAccessToken;
+    jwtService.generateRefreshToken = originalGenerateRefreshToken;
+    jwtService.hashRefreshToken = originalHashRefreshToken;
+    RefreshToken.create = originalRefreshCreate;
+  }
+
+  assert.strictEqual(bcryptUsed, false, 'bcrypt.compare should not be used for plaintext superadmin auth');
+  assert.strictEqual(resBody.success, true, 'Login should succeed with plaintext superadmin password');
+  assert(warnings.includes('[SECURITY] SuperAdmin authenticated using plaintext password'), 'Should log plaintext security warning');
+
+  const payload = tokenPayloads[0] || {};
+  assert.strictEqual(payload.role, 'SUPERADMIN', 'Token role must be SUPERADMIN');
+  assert.strictEqual(payload.isSuperAdmin, true, 'Token must carry isSuperAdmin: true');
+
+  assert(refreshCreatePayload, 'Refresh token should be persisted');
+  assert.strictEqual(refreshCreatePayload.userId, null, 'SuperAdmin refresh token userId must be null');
+  assert.strictEqual(refreshCreatePayload.firmId, null, 'SuperAdmin refresh token firmId must be null');
+
+  console.log('✓ SuperAdmin plaintext fallback authenticates with warning and without bcrypt');
+}
+
 async function run() {
   try {
     await shouldShortCircuitSuperadminLogin();
+    await shouldAllowPlaintextSuperadminLogin();
     console.log('\nAll SuperAdmin virtual auth checks passed.');
   } catch (err) {
     console.error('✗ SuperAdmin virtual auth check failed:', err.message);
