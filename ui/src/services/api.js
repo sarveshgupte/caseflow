@@ -21,6 +21,16 @@ const MAX_BACKOFF_MS = 4000;
 // Request interceptor - Add JWT Bearer token
 api.interceptors.request.use(
   (config) => {
+    const method = (config.method || '').toLowerCase();
+    if (['post', 'put', 'patch', 'delete'].includes(method)) {
+      if (!config.headers['Idempotency-Key']) {
+        const idempotencyKey = typeof crypto?.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        config.headers['Idempotency-Key'] = idempotencyKey;
+      }
+    }
+
     const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     if (accessToken) {
       config.headers['Authorization'] = `Bearer ${accessToken}`;

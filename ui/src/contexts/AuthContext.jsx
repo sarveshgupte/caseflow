@@ -52,6 +52,14 @@ export const AuthProvider = ({ children }) => {
   const fetchProfile = useCallback(async () => {
     setLoading(true);
     try {
+      const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+      if (!accessToken) {
+        clearAuthStorage();
+        setUser(null);
+        setIsAuthenticated(false);
+        return { success: false, data: null };
+      }
+
       const cachedUser = localStorage.getItem(STORAGE_KEYS.USER);
       const cachedXID = localStorage.getItem(STORAGE_KEYS.X_ID);
 
@@ -93,16 +101,25 @@ export const AuthProvider = ({ children }) => {
   }, [setAuthFromProfile]);
 
   const login = async (xID, password) => {
-    const response = await authService.login(xID, password);
-    
-    if (response.success) {
-      const userData = response.data;
-      setAuthFromProfile(userData);
-      return response;
-    } else {
-      // Login failed or requires password change - don't set auth state
+    try {
+      const response = await authService.login(xID, password);
+      
+      if (response.success) {
+        const userData = response.data;
+        setAuthFromProfile(userData);
+        return response;
+      }
+
+      clearAuthStorage();
+      setUser(null);
+      setIsAuthenticated(false);
       const errorMessage = response.message || 'Login failed';
       throw new Error(errorMessage);
+    } catch (error) {
+      clearAuthStorage();
+      setUser(null);
+      setIsAuthenticated(false);
+      throw error;
     }
   };
 
