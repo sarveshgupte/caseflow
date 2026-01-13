@@ -11,6 +11,8 @@ const { isFirmCreationDisabled } = require('./featureFlags.service');
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SYSTEM_EMAIL_DOMAIN = 'system.local';
 const SETUP_TOKEN_EXPIRY_HOURS = 48;
+const DEFAULT_BUSINESS_ADDRESS = 'Default Address';
+const DEFAULT_CONTACT_NUMBER = '0000000000';
 
 class FirmBootstrapError extends Error {
   constructor(message, statusCode = 500, meta = {}) {
@@ -109,8 +111,8 @@ const createFirmHierarchy = async ({ payload, performedBy, requestId, deps = def
       const defaultClient = new deps.Client({
         clientId,
         businessName: normalizedName,
-        businessAddress: 'Default Address',
-        primaryContactNumber: '0000000000',
+        businessAddress: DEFAULT_BUSINESS_ADDRESS,
+        primaryContactNumber: DEFAULT_CONTACT_NUMBER,
         businessEmail: `${firmId.toLowerCase()}@${SYSTEM_EMAIL_DOMAIN}`,
         firmId: firm._id,
         isSystemClient: true,

@@ -35,31 +35,36 @@ async function testTransactionalRollback() {
   }
   const uri = replset.getUri();
   process.env.MONGODB_URI = uri;
-  await mongoose.connect(uri);
-
-  let failed = false;
   try {
-    await createFirmHierarchy({
-      payload: { name: 'Rollback Co', adminName: 'Alice', adminEmail: 'alice@rollback.test' },
-      deps: { ...defaultDeps, generateNextClientId: async () => { throw new Error('forced failure'); } },
-      requestId: 'rollback-test',
-    });
-  } catch (error) {
-    failed = true;
-    assert(error instanceof FirmBootstrapError, 'Should throw FirmBootstrapError on failure');
+    await mongoose.connect(uri);
+
+    let failed = false;
+    try {
+      await createFirmHierarchy({
+        payload: { name: 'Rollback Co', adminName: 'Alice', adminEmail: 'alice@rollback.test' },
+        deps: { ...defaultDeps, generateNextClientId: async () => { throw new Error('forced failure'); } },
+        requestId: 'rollback-test',
+      });
+    } catch (error) {
+      failed = true;
+      assert(error instanceof FirmBootstrapError, 'Should throw FirmBootstrapError on failure');
+    }
+    assert(failed, 'Bootstrap should fail intentionally');
+
+    const firmCount = await Firm.countDocuments();
+    const clientCount = await Client.countDocuments();
+    const userCount = await User.countDocuments();
+    assert.strictEqual(firmCount, 0, 'Firm should not persist after rollback');
+    assert.strictEqual(clientCount, 0, 'Client should not persist after rollback');
+    assert.strictEqual(userCount, 0, 'Admin should not persist after rollback');
+
+    console.log('✓ Transaction rollback leaves no partial data');
+  } finally {
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+    }
+    await replset.stop();
   }
-  assert(failed, 'Bootstrap should fail intentionally');
-
-  const firmCount = await Firm.countDocuments();
-  const clientCount = await Client.countDocuments();
-  const userCount = await User.countDocuments();
-  assert.strictEqual(firmCount, 0, 'Firm should not persist after rollback');
-  assert.strictEqual(clientCount, 0, 'Client should not persist after rollback');
-  assert.strictEqual(userCount, 0, 'Admin should not persist after rollback');
-
-  await mongoose.disconnect();
-  await replset.stop();
-  console.log('✓ Transaction rollback leaves no partial data');
 }
 
 function testEnvValidationFailure() {
