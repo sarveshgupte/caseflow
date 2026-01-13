@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../models/User.model');
 const Client = require('../models/Client.model');
 const Category = require('../models/Category.model');
@@ -746,9 +747,14 @@ const getSystemDiagnostics = async (req, res) => {
 
 const restoreUser = async (req, res) => {
   try {
+    const clauses = [];
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      clauses.push({ _id: req.params.id });
+    }
+    clauses.push({ xID: req.params.id });
     const restored = await restoreDocument({
       model: User,
-      filter: { firmId: req.firmId, $or: [{ _id: req.params.id }, { xID: req.params.id }] },
+      filter: { firmId: req.firmId, $or: clauses },
       req,
     });
     if (!restored) {
@@ -766,9 +772,14 @@ const restoreUser = async (req, res) => {
 
 const restoreClient = async (req, res) => {
   try {
+    const clauses = [];
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      clauses.push({ _id: req.params.id });
+    }
+    clauses.push({ clientId: req.params.id });
     const restored = await restoreDocument({
       model: Client,
-      filter: { firmId: req.firmId, $or: [{ _id: req.params.id }, { clientId: req.params.id }] },
+      filter: { firmId: req.firmId, $or: clauses },
       req,
     });
     if (!restored) {
@@ -786,12 +797,14 @@ const restoreClient = async (req, res) => {
 
 const restoreCase = async (req, res) => {
   try {
+    const clauses = [];
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      clauses.push({ _id: req.params.id });
+    }
+    clauses.push({ caseNumber: req.params.id }, { caseId: req.params.id });
     const restored = await restoreDocument({
       model: Case,
-      filter: {
-        firmId: req.firmId,
-        $or: [{ _id: req.params.id }, { caseNumber: req.params.id }, { caseId: req.params.id }],
-      },
+      filter: { firmId: req.firmId, $or: clauses },
       req,
     });
     if (!restored) {
@@ -809,6 +822,9 @@ const restoreCase = async (req, res) => {
 
 const restoreTask = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid task id' });
+    }
     const restored = await restoreDocument({
       model: Task,
       filter: { _id: req.params.id },

@@ -2,9 +2,8 @@ const applyDefaultDeletedFilter = function(query) {
   if (!query) return { deletedAt: null };
   if (query.includeDeleted) {
     // Allow opt-in override while keeping filter object clean
-    // eslint-disable-next-line no-param-reassign
-    delete query.includeDeleted;
-    return query;
+    const { includeDeleted: _removed, ...cleanQuery } = query;
+    return cleanQuery;
   }
   if (query.deletedAt !== undefined) {
     return query;
@@ -53,9 +52,9 @@ const softDeletePlugin = (schema) => {
     const pipeline = this.pipeline();
     const includeDeleted = shouldIncludeDeleted(pipeline, this.options);
     if (includeDeleted && pipeline[0]?.$match?.includeDeleted !== undefined) {
-      // Clean up includeDeleted flag from match
+      const { includeDeleted: _removed, ...rest } = pipeline[0].$match;
       // eslint-disable-next-line no-param-reassign
-      delete pipeline[0].$match.includeDeleted;
+      pipeline[0].$match = rest;
       return;
     }
     const matchStage = { deletedAt: null };
