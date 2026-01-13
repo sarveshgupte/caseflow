@@ -810,7 +810,10 @@ const uploadFactSheetFile = async (req, res) => {
         checksumSource = await fs.promises.readFile(req.file.path);
       } catch (err) {
         console.warn('[uploadFactSheetFile] Unable to read uploaded file for checksum:', err.message);
-        checksumSource = '';
+        return res.status(500).json({
+          success: false,
+          message: 'Unable to read uploaded file for checksum',
+        });
       }
     }
     const checksum = createHash('sha256').update(checksumSource || '').digest('hex');

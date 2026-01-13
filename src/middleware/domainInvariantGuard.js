@@ -8,7 +8,7 @@ const isInvalidTransition = (fromStatus, toStatus) => {
   if (normalizedFrom === 'CLOSED' && normalizedTo === 'IN_PROGRESS') {
     return true;
   }
-  if (['CLOSED', 'FILED', 'ARCHIVED'].includes(normalizedFrom) && normalizedTo !== normalizedFrom) {
+  if (['CLOSED', 'FILED', 'ARCHIVED'].includes(normalizedFrom) && !['CLOSED', 'FILED', 'ARCHIVED'].includes(normalizedTo)) {
     return true;
   }
   return false;

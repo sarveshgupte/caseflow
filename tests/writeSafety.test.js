@@ -15,7 +15,7 @@ const createMockRes = () => {
     },
     json(payload) {
       this.body = payload;
-      if (!this.statusCode) {
+      if (this.statusCode == null) {
         this.statusCode = 200;
       }
       return this;

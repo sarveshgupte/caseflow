@@ -15,6 +15,9 @@ const transactionMiddleware = async (req, res, next) => {
     session = null;
     req.transactionStartFailed = true;
   }
+  if (!session) {
+    return res.status(503).json({ error: 'transaction_unavailable' });
+  }
 
   const transactionSession = session
     ? {

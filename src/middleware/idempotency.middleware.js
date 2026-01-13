@@ -20,7 +20,8 @@ const idempotencyMiddleware = (req, res, next) => {
     return next();
   }
 
-  const key = (req.headers && req.headers['idempotency-key']) || req.get?.('Idempotency-Key');
+  const headerKey = req.get?.('Idempotency-Key') || req.get?.('idempotency-key');
+  const key = headerKey || req.headers?.['idempotency-key'] || req.headers?.['Idempotency-Key'];
   if (!key) {
     return res.status(400).json({ error: 'idempotency_key_required' });
   }
