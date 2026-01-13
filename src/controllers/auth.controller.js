@@ -205,11 +205,13 @@ const login = async (req, res) => {
         try {
           const incoming = Buffer.from(password, 'utf8');
           const configured = Buffer.from(superadminPasswordPlain, 'utf8');
-          if (incoming.length === configured.length) {
-            isSuperadminPasswordValid = crypto.timingSafeEqual(incoming, configured);
-          } else {
-            isSuperadminPasswordValid = false;
-          }
+          const maxLength = Math.max(incoming.length, configured.length);
+          const incomingPadded = Buffer.alloc(maxLength);
+          const configuredPadded = Buffer.alloc(maxLength);
+          incoming.copy(incomingPadded);
+          configured.copy(configuredPadded);
+          const matches = crypto.timingSafeEqual(incomingPadded, configuredPadded);
+          isSuperadminPasswordValid = matches && incoming.length === configured.length;
         } catch (encodingError) {
           console.error('[AUTH][superadmin] Failed to encode plaintext password for comparison', encodingError);
           isSuperadminPasswordValid = false;

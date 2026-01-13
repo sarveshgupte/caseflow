@@ -130,7 +130,8 @@ function shouldFailValidationWhenNoSuperadminPassword() {
   process.env.SUPERADMIN_EMAIL = 'sa@missing.test';
   process.env.DISABLE_GOOGLE_AUTH = 'true';
 
-  const result = validateEnv({ exitOnError: false, logger: console });
+  const silentLogger = { error: () => {}, warn: () => {}, log: () => {} };
+  const result = validateEnv({ exitOnError: false, logger: silentLogger });
   assert.strictEqual(result.valid, false, 'Env validation should fail when SuperAdmin credentials are missing');
   assert(
     result.errors.some((e) => e.field === 'SUPERADMIN_PASSWORD'),
