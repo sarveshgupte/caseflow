@@ -202,7 +202,10 @@ const login = async (req, res) => {
       } else if (superadminPasswordPlain) {
         // TEMPORARY: Plaintext SuperAdmin password support.
         // Must be removed once SUPERADMIN_PASSWORD_HASH is deployed.
-        isSuperadminPasswordValid = password === superadminPasswordPlain;
+        const incoming = Buffer.from(password);
+        const configured = Buffer.from(superadminPasswordPlain);
+        isSuperadminPasswordValid =
+          incoming.length === configured.length && crypto.timingSafeEqual(incoming, configured);
       } else {
         console.error('[AUTH][superadmin] SUPERADMIN_PASSWORD_HASH or SUPERADMIN_PASSWORD not configured in environment');
         return res.status(500).json({
