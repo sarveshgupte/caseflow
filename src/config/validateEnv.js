@@ -26,7 +26,7 @@ const validateEnv = ({ exitOnError = true, logger = console } = {}) => {
       errors.push({ field: 'SUPERADMIN_PASSWORD_HASH', reason: 'not bcrypt hash' });
     }
   } else if (superadminPassword && superadminPassword.trim().length > 0) {
-    (logger.warn || logger.log)?.('[SECURITY] SuperAdmin is using plaintext password. This is TEMPORARY and must be migrated to bcrypt.');
+    (logger.warn || logger.log)('[SECURITY] SuperAdmin is using plaintext password. This is TEMPORARY and must be migrated to bcrypt.');
   } else {
     errors.push({ field: 'SUPERADMIN_PASSWORD', reason: 'missing (configure SUPERADMIN_PASSWORD_HASH or SUPERADMIN_PASSWORD)' });
   }
