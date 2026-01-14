@@ -5,10 +5,14 @@
 export const APP_NAME = 'Docketra';
 
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+const isAbsoluteUrl = /^https?:\/\//i.test(rawApiBaseUrl);
+const origin = typeof window !== 'undefined' && window.location?.origin
+  ? window.location.origin
+  : '';
 
-export const API_BASE_URL = rawApiBaseUrl.startsWith('http')
+export const API_BASE_URL = isAbsoluteUrl
   ? rawApiBaseUrl
-  : `${window.location.origin}${rawApiBaseUrl}`;
+  : `${origin}${rawApiBaseUrl}`;
 
 export const CASE_STATUS = {
   // Canonical lifecycle states (NEW - use these)
