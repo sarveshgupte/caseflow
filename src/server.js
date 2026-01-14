@@ -173,6 +173,10 @@ if (isProduction) {
 // Initialize Express app
 const app = express();
 
+const allowedOrigins = [
+  'https://caseflow-1-tm8i.onrender.com',
+];
+
 // Connect to MongoDB and run bootstrap
 connectDB()
   .then(() => runBootstrap())
@@ -190,14 +194,26 @@ app.use(helmet({
 
 // CORS Configuration
 const corsOptions = {
-  origin: true, // reflect request origin
-  credentials: false,
+  origin: function (origin, callback) {
+    // Allow non-browser requests (health checks, server-to-server)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('CORS origin not allowed'), false);
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key']
 };
 
 // Middleware
 app.use(cors(corsOptions));
+app.options('*', cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLifecycle);
