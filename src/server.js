@@ -173,6 +173,25 @@ if (isProduction) {
 // Initialize Express app
 const app = express();
 
+const defaultFrontendOrigin = process.env.DEFAULT_FRONTEND_ORIGIN || 'https://caseflow-1-tm8i.onrender.com';
+const envFrontendUrl = process.env.FRONTEND_URL;
+let parsedFrontendOrigin = null;
+
+if (envFrontendUrl) {
+  try {
+    parsedFrontendOrigin = new URL(envFrontendUrl).origin;
+  } catch (err) {
+    console.warn(`[CORS] Ignoring invalid FRONTEND_URL: ${envFrontendUrl}`);
+  }
+}
+
+const allowedOrigins = [
+  parsedFrontendOrigin,
+  defaultFrontendOrigin,
+].filter(Boolean);
+const uniqueAllowedOrigins = [...new Set(allowedOrigins)];
+console.log('[CORS] Allowed origins:', uniqueAllowedOrigins);
+
 // Connect to MongoDB and run bootstrap
 connectDB()
   .then(() => runBootstrap())
@@ -190,14 +209,29 @@ app.use(helmet({
 
 // CORS Configuration
 const corsOptions = {
-  origin: true, // reflect request origin
-  credentials: false,
+  origin: function (origin, callback) {
+    // Allow non-browser requests (health checks, server-to-server)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (uniqueAllowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    if (!isProduction) {
+      console.warn(`[CORS] Blocked request from disallowed origin: ${origin}`);
+    }
+    return callback(new Error('CORS origin not allowed'), false);
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key']
 };
 
 // Middleware
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLifecycle);
