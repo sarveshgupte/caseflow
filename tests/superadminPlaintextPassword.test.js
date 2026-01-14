@@ -32,21 +32,21 @@ const createTxnReq = (body) => ({
   },
 });
 
-async function shouldPreferHashWhenAvailable() {
-  const password = 'Candidate#123';
-  const hash = await bcrypt.hash(password, 10);
+async function shouldPreferPlaintextWhenProvided() {
+  const plaintextPassword = 'Plaintext#789';
+  const hash = await bcrypt.hash('Different#123', 10);
 
   process.env.SUPERADMIN_PASSWORD_HASH = hash;
-  process.env.SUPERADMIN_PASSWORD = 'plaintext-should-not-be-used';
+  process.env.SUPERADMIN_PASSWORD = plaintextPassword;
   process.env.SUPERADMIN_XID = 'XHASH01';
   process.env.SUPERADMIN_EMAIL = 'sa@hash.test';
   process.env.JWT_SECRET = 'test-secret-hash-path';
 
-  let compareCalledWith = null;
+  let compareCalled = false;
   const originalCompare = bcrypt.compare;
-  bcrypt.compare = async (candidate, stored) => {
-    compareCalledWith = { candidate, stored };
-    return originalCompare(candidate, stored);
+  bcrypt.compare = async () => {
+    compareCalled = true;
+    return false;
   };
 
   const originalRefreshCreate = RefreshToken.create;
@@ -63,7 +63,7 @@ async function shouldPreferHashWhenAvailable() {
 
   try {
     await login(
-      createTxnReq({ xID: 'XHASH01', password }),
+      createTxnReq({ xID: 'XHASH01', password: plaintextPassword }),
       res
     );
   } finally {
@@ -74,15 +74,14 @@ async function shouldPreferHashWhenAvailable() {
     jwtService.hashRefreshToken = originalHashRefreshToken;
   }
 
-  assert.strictEqual(body.success, true, 'Hash-backed login should succeed');
-  assert(compareCalledWith, 'bcrypt.compare must be invoked when hash is present');
-  assert.strictEqual(compareCalledWith.stored, hash, 'Hash path must use SUPERADMIN_PASSWORD_HASH');
-  assert.strictEqual(compareCalledWith.candidate, password, 'Hash path must compare provided password');
+  assert.strictEqual(body.success, true, 'Plaintext-backed login should succeed when SUPERADMIN_PASSWORD is set');
+  assert.strictEqual(compareCalled, false, 'bcrypt.compare must be bypassed when SUPERADMIN_PASSWORD is provided');
 }
 
 async function shouldReturn401WhenHashMismatch() {
   const correctPassword = 'Plaintext#123';
   const wrongPassword = 'Wrong#123';
+  delete process.env.SUPERADMIN_PASSWORD;
   process.env.SUPERADMIN_PASSWORD_HASH = await bcrypt.hash(correctPassword, 10);
   process.env.SUPERADMIN_XID = 'XPLAIN1';
   process.env.SUPERADMIN_EMAIL = 'sa@plain.test';
@@ -116,6 +115,7 @@ async function shouldReturn401WhenHashMismatch() {
 }
 
 function shouldFailValidationWhenNoSuperadminPassword() {
+  delete process.env.SUPERADMIN_PASSWORD;
   delete process.env.SUPERADMIN_PASSWORD_HASH;
   process.env.JWT_SECRET = 'test-secret-env-check';
   process.env.MONGODB_URI = 'mongodb://localhost:27017/test-db';
@@ -132,11 +132,26 @@ function shouldFailValidationWhenNoSuperadminPassword() {
   );
 }
 
+function shouldPassValidationWithPlaintextPassword() {
+  process.env.SUPERADMIN_PASSWORD = 'Bootstrap#123';
+  delete process.env.SUPERADMIN_PASSWORD_HASH;
+  process.env.JWT_SECRET = 'test-secret-env-check-2';
+  process.env.MONGODB_URI = 'mongodb://localhost:27017/test-db';
+  process.env.SUPERADMIN_XID = 'X111111';
+  process.env.SUPERADMIN_EMAIL = 'sa@plaintext.test';
+  process.env.DISABLE_GOOGLE_AUTH = 'true';
+
+  const silentLogger = { error: () => {}, warn: () => {}, log: () => {} };
+  const result = validateEnv({ exitOnError: false, logger: silentLogger });
+  assert.strictEqual(result.valid, true, 'Env validation should pass when SUPERADMIN_PASSWORD is provided');
+}
+
 async function run() {
   try {
-    await shouldPreferHashWhenAvailable();
+    await shouldPreferPlaintextWhenProvided();
     await shouldReturn401WhenHashMismatch();
     shouldFailValidationWhenNoSuperadminPassword();
+    shouldPassValidationWithPlaintextPassword();
     console.log('\nAll SuperAdmin bcrypt authentication tests passed.');
   } catch (err) {
     console.error('SuperAdmin plaintext password tests failed:', err.message);
