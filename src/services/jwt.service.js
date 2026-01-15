@@ -34,8 +34,8 @@ const parseRefreshExpiryMs = () => {
   }
 
   const value = parseInt(match[1], 10);
-  const unit = (match[2] || DEFAULT_REFRESH_UNIT).toLowerCase();
-  const unitMs = TIME_UNIT_MS[unit];
+  const unitKey = (match[2] || DEFAULT_REFRESH_UNIT).toLowerCase();
+  const unitMs = TIME_UNIT_MS[unitKey];
 
   if (!Number.isFinite(value) || value <= 0 || !unitMs) {
     return REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000;

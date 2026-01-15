@@ -117,6 +117,7 @@ const getFirmSlug = async (firmId) => {
  * @param {string|null} params.firmId Firm id or null for platform scope
  * @param {Object} params.req
  * @returns {Promise<{refreshToken: string, expiresAt: Date}>} Raw refresh token (unhashed) and its expiry timestamp
+ * @throws {Error} When request context is missing or refresh token persistence fails
  */
 const generateAndStoreRefreshToken = async ({ userId = null, firmId = null, req }) => {
   if (!req) {
