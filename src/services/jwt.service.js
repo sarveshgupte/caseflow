@@ -11,6 +11,13 @@ const crypto = require('crypto');
 // Token expiry durations
 const ACCESS_TOKEN_EXPIRY = '15m'; // 15 minutes
 const REFRESH_TOKEN_EXPIRY_DAYS = 7; // 7 days
+const TIME_UNIT_REGEX = /^(\d+)\s*([smhd])?$/;
+const TIME_UNIT_MS = {
+  s: 1000,
+  m: 60 * 1000,
+  h: 60 * 60 * 1000,
+  d: 24 * 60 * 60 * 1000,
+};
 
 const parseRefreshExpiryMs = () => {
   const raw = process.env.JWT_REFRESH_EXPIRES_IN;
@@ -19,19 +26,14 @@ const parseRefreshExpiryMs = () => {
   }
 
   const trimmed = raw.trim();
-  const match = /^(\d+)\s*([smhd])?$/.exec(trimmed);
+  const match = TIME_UNIT_REGEX.exec(trimmed);
   if (!match) {
     return REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
   }
 
   const value = parseInt(match[1], 10);
   const unit = (match[2] || 'd').toLowerCase();
-  const unitMs = {
-    s: 1000,
-    m: 60 * 1000,
-    h: 60 * 60 * 1000,
-    d: 24 * 60 * 60 * 1000,
-  }[unit];
+  const unitMs = TIME_UNIT_MS[unit];
 
   if (!Number.isFinite(value) || value < 0 || !unitMs) {
     return REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000;

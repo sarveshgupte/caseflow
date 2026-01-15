@@ -120,7 +120,7 @@ const getFirmSlug = async (firmId) => {
  */
 const generateAndStoreRefreshToken = async ({ userId = null, firmId = null, req }) => {
   if (!req) {
-    throw new Error('Request context is required to issue a refresh token');
+    throw new Error('Request object is required to capture client IP and user agent for refresh token security');
   }
 
   const refreshToken = jwtService.generateRefreshToken();
