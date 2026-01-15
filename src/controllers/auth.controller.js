@@ -113,13 +113,13 @@ const getFirmSlug = async (firmId) => {
 /**
  * Generate a refresh token, hash it for storage, persist with expiry, and return the raw token.
  * @param {Object} params
+ * @param {Object} params.req
  * @param {string|null} params.userId User id or null for SuperAdmin
  * @param {string|null} params.firmId Firm id or null for platform scope
- * @param {Object} params.req
  * @returns {Promise<{refreshToken: string, expiresAt: Date}>} Raw refresh token (unhashed) and its expiry timestamp
  * @throws {Error} When request context is missing or refresh token persistence fails
  */
-const generateAndStoreRefreshToken = async ({ userId = null, firmId = null, req }) => {
+const generateAndStoreRefreshToken = async ({ req, userId = null, firmId = null }) => {
   if (!req) {
     throw new Error('Request object is required to capture client IP and user agent for refresh token security');
   }
