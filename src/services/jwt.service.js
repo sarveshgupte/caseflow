@@ -11,6 +11,8 @@ const crypto = require('crypto');
 // Token expiry durations
 const ACCESS_TOKEN_EXPIRY = '15m'; // 15 minutes
 const REFRESH_TOKEN_EXPIRY_DAYS = 7; // 7 days
+const DEFAULT_REFRESH_UNIT = 'd'; // days
+// Supported refresh token expiry units: seconds (s), minutes (m), hours (h), days (d)
 const TIME_UNIT_REGEX = /^(\d+)\s*([smhd])?$/;
 const TIME_UNIT_MS = {
   s: 1000,
@@ -32,7 +34,7 @@ const parseRefreshExpiryMs = () => {
   }
 
   const value = parseInt(match[1], 10);
-  const unit = (match[2] || 'd').toLowerCase();
+  const unit = (match[2] || DEFAULT_REFRESH_UNIT).toLowerCase();
   const unitMs = TIME_UNIT_MS[unit];
 
   if (!Number.isFinite(value) || value <= 0 || !unitMs) {
