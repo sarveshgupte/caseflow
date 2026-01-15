@@ -2253,21 +2253,15 @@ const refreshAccessToken = async (req, res) => {
         isSuperAdmin: true,
       });
       
-      const newRefreshToken = jwtService.generateRefreshToken();
-      const newTokenHash = jwtService.hashRefreshToken(newRefreshToken);
-      
-      await RefreshToken.create({
-        tokenHash: newTokenHash,
+      const { refreshToken: newRefreshToken } = await generateAndStoreRefreshToken({
+        req,
         userId: null,
         firmId: null,
-        expiresAt: jwtService.getRefreshTokenExpiry(),
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
       });
       
       const secureCookies = process.env.NODE_ENV === 'production';
       const fifteenMinutesMs = 15 * 60 * 1000;
-      const refreshMs = (jwtService.REFRESH_TOKEN_EXPIRY_DAYS || 7) * 24 * 60 * 60 * 1000;
+      const refreshMs = jwtService.getRefreshTokenExpiryMs();
       
       res.cookie('accessToken', newAccessToken, {
         httpOnly: true,
@@ -2332,22 +2326,15 @@ const refreshAccessToken = async (req, res) => {
     });
     
     // Generate new refresh token
-    const newRefreshToken = jwtService.generateRefreshToken();
-    const newTokenHash = jwtService.hashRefreshToken(newRefreshToken);
-    
-    // Store new refresh token
-    await RefreshToken.create({
-      tokenHash: newTokenHash,
+    const { refreshToken: newRefreshToken } = await generateAndStoreRefreshToken({
+      req,
       userId: user._id,
       firmId: user.firmId,
-      expiresAt: jwtService.getRefreshTokenExpiry(),
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent'),
     });
 
     const secureCookies = process.env.NODE_ENV === 'production';
     const fifteenMinutesMs = 15 * 60 * 1000;
-    const refreshMs = (jwtService.REFRESH_TOKEN_EXPIRY_DAYS || 7) * 24 * 60 * 60 * 1000;
+    const refreshMs = jwtService.getRefreshTokenExpiryMs();
 
     res.cookie('accessToken', newAccessToken, {
       httpOnly: true,
@@ -2714,4 +2701,5 @@ module.exports = {
   refreshAccessToken: wrapWriteHandler(refreshAccessToken), // NEW: JWT token refresh
   initiateGoogleAuth,
   handleGoogleCallback: wrapWriteHandler(handleGoogleCallback),
+  generateAndStoreRefreshToken,
 };

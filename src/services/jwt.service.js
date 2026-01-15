@@ -128,6 +128,8 @@ const getRefreshTokenExpiry = () => {
   return new Date(Date.now() + expiryMs);
 };
 
+const getRefreshTokenExpiryMs = () => parseRefreshExpiryMs();
+
 /**
  * Verify and decode access token
  * @param {string} token - JWT access token
@@ -187,6 +189,7 @@ module.exports = {
   generateRefreshToken,
   hashRefreshToken,
   getRefreshTokenExpiry,
+  getRefreshTokenExpiryMs,
   verifyAccessToken,
   extractTokenFromHeader,
   ACCESS_TOKEN_EXPIRY,
