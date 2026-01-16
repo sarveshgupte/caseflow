@@ -3,7 +3,6 @@ const router = express.Router();
 const { authenticate } = require('../middleware/auth.middleware');
 const { requireAdmin } = require('../middleware/permission.middleware');
 const { optionalFirmResolution } = require('../middleware/firmResolution.middleware');
-const { noFirmNoTransaction } = require('../middleware/noFirmNoTransaction.middleware');
 const { authLimiter, profileLimiter } = require('../middleware/rateLimiters');
 const {
   login,
@@ -45,7 +44,7 @@ const detectProfileLoop = (req, res, next) => {
 // Public authentication endpoints - NO authentication required
 // Login supports optional firm resolution for firm-scoped login
 // Rate limited to prevent brute-force attacks
-router.post('/login', noFirmNoTransaction, authLimiter, optionalFirmResolution, login);
+router.post('/login', authLimiter, optionalFirmResolution, login);
 router.post('/set-password', authLimiter, setPassword);
 router.post('/reset-password-with-token', authLimiter, resetPasswordWithToken);
 router.post('/forgot-password', authLimiter, forgotPassword);

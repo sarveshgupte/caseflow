@@ -286,7 +286,7 @@ app.get('/api', (req, res) => {
   });
 });
 
-// Authentication routes (public - no authentication required for login)
+// Authentication routes (public - login skips firm/transaction guards before write chain)
 app.post('/api/auth/login', noFirmNoTransaction);
 app.use('/api/auth', writeGuardChain, authRoutes);
 
