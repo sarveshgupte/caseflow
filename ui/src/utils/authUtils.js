@@ -1,5 +1,6 @@
 import { STORAGE_KEYS, USER_ROLES } from './constants';
 
+// Backend tokens may emit SUPERADMIN in uppercase, so normalize for both variants.
 const SUPERADMIN_ROLES = new Set([
   USER_ROLES.SUPER_ADMIN,
   USER_ROLES.SUPER_ADMIN.toUpperCase(),

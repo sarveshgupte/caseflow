@@ -2246,6 +2246,7 @@ const refreshAccessToken = async (req, res) => {
     const isSuperAdminToken = !storedToken.userId;
     const isTokenMissingFirmContext = !storedToken.firmId;
     if (isSuperAdminToken || isTokenMissingFirmContext) {
+      // Use the SuperAdmin message for missing firm context to avoid exposing tenant details.
       return res.status(401).json({
         success: false,
         code: 'REFRESH_NOT_SUPPORTED',

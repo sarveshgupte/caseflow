@@ -115,7 +115,11 @@ export const FirmLoginPage = () => {
         }
         localStorage.setItem(STORAGE_KEYS.X_ID, userData.xID || 'UNKNOWN');
         const storedUser = buildStoredUser(authUser, refreshEnabled);
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(storedUser));
+        if (storedUser) {
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(storedUser));
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.USER);
+        }
 
         // Check if user is Superadmin (shouldn't happen via firm login, but check anyway)
         if (userData.role === USER_ROLES.SUPER_ADMIN) {
