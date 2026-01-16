@@ -6,7 +6,7 @@ const { runWithSession, runWithoutTransaction } = require('./transactionContext'
 
 const executeWrite = async ({ req, fn }) => {
   if (req?.skipTransaction) {
-    req.transactionCommitted = true;
+    req.transactionSkipped = true;
     return runWithoutTransaction(() => fn());
   }
   if (!req || !req.transactionActive || !req.transactionSession?.withTransaction) {

@@ -3,5 +3,4 @@ const noFirmNoTransaction = (req, _res, next) => {
   req.skipTransaction = true;
   next();
 };
-
 module.exports = { noFirmNoTransaction };
