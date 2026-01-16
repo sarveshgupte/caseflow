@@ -1,9 +1,10 @@
 import { STORAGE_KEYS, USER_ROLES } from './constants';
 
-// Backend tokens may emit SUPERADMIN in uppercase, so normalize for both variants.
+// Backend tokens use the SUPERADMIN role constant, so handle both casings.
+const SUPERADMIN_ROLE_UPPER = 'SUPERADMIN';
 const SUPERADMIN_ROLES = new Set([
   USER_ROLES.SUPER_ADMIN,
-  USER_ROLES.SUPER_ADMIN.toUpperCase(),
+  SUPERADMIN_ROLE_UPPER,
 ]);
 
 export const isSuperAdminRole = (role) => SUPERADMIN_ROLES.has(role);
@@ -20,14 +21,11 @@ export const getStoredUser = () => {
 
 export const isAccessTokenOnlyUser = (user) => {
   if (!user) return false;
-  if (user.refreshEnabled === false) {
-    return true;
-  }
   if (user.isSuperAdmin === true) {
     return true;
   }
   if (user.refreshEnabled !== undefined) {
-    return false;
+    return user.refreshEnabled === false;
   }
   return isSuperAdminRole(user.role);
 };
