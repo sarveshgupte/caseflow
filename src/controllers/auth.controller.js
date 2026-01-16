@@ -129,6 +129,13 @@ const generateAndStoreRefreshToken = async ({ req, userId = null, firmId = null 
   const refreshTokenHash = jwtService.hashRefreshToken(refreshToken);
   const expiresAt = jwtService.getRefreshTokenExpiry();
 
+  if (!refreshTokenHash) {
+    throw new Error('[AUTH][refresh-token] Failed to generate refresh token payload (tokenHash missing)');
+  }
+  if (!(expiresAt instanceof Date) || Number.isNaN(expiresAt.getTime())) {
+    throw new Error('[AUTH][refresh-token] Failed to generate refresh token payload (expiresAt invalid)');
+  }
+
   await RefreshToken.create({
     tokenHash: refreshTokenHash,
     userId,
