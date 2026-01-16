@@ -125,25 +125,31 @@ const generateAndStoreRefreshToken = async ({ req, userId = null, firmId = null 
   }
 
   const refreshToken = jwtService.generateRefreshToken();
-
   const refreshTokenHash = jwtService.hashRefreshToken(refreshToken);
   const expiresAt = jwtService.getRefreshTokenExpiry();
+  const session = req.transactionSession?.session || req.mongoSession || null;
 
-  if (!refreshTokenHash) {
-    throw new Error('[AUTH][refresh-token] Failed to generate refresh token payload (tokenHash missing)');
+  if (!refreshTokenHash || !expiresAt) {
+    throw new Error('[AUTH][refresh-token] Refresh token generation failed: missing required fields');
   }
   if (!(expiresAt instanceof Date) || Number.isNaN(expiresAt.getTime())) {
     throw new Error('[AUTH][refresh-token] Failed to generate refresh token payload (expiresAt invalid)');
   }
 
-  await RefreshToken.create({
+  const refreshTokenDoc = {
     tokenHash: refreshTokenHash,
     userId,
     firmId,
     expiresAt,
     ipAddress: req.ip,
     userAgent: req.get('user-agent'),
-  });
+  };
+
+  if (session) {
+    await RefreshToken.create([refreshTokenDoc], { session });
+  } else {
+    await RefreshToken.create(refreshTokenDoc);
+  }
 
   return { refreshToken, expiresAt };
 };
@@ -269,11 +275,16 @@ const login = async (req, res) => {
         isSuperAdmin: true,
       });
       
-      const { refreshToken } = await generateAndStoreRefreshToken({
-        userId: null,
-        firmId: null,
-        req,
-      });
+      let refreshToken = null;
+      try {
+        ({ refreshToken } = await generateAndStoreRefreshToken({
+          userId: null,
+          firmId: null,
+          req,
+        }));
+      } catch (tokenError) {
+        console.error('[AUTH] Refresh token persistence failed', tokenError);
+      }
       
       return res.json({
         success: true,
@@ -667,11 +678,16 @@ const login = async (req, res) => {
       role: user.role,
     });
     
-    const { refreshToken } = await generateAndStoreRefreshToken({
-      userId: user._id,
-      firmId: user.firmId || null,
-      req,
-    });
+    let refreshToken = null;
+    try {
+      ({ refreshToken } = await generateAndStoreRefreshToken({
+        userId: user._id,
+        firmId: user.firmId || null,
+        req,
+      }));
+    } catch (tokenError) {
+      console.error('[AUTH] Refresh token persistence failed', tokenError);
+    }
     
     // Return user info with tokens (exclude sensitive fields)
     const response = {
