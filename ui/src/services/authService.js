@@ -4,7 +4,7 @@
 
 import api from './api';
 import { STORAGE_KEYS } from '../utils/constants';
-import { getStoredUser, isAccessTokenOnlyUser } from '../utils/authUtils';
+import { buildStoredUser, getStoredUser, isAccessTokenOnlyUser } from '../utils/authUtils';
 
 export const authService = {
   /**
@@ -43,7 +43,7 @@ export const authService = {
       }
       
       // Store user data
-      const storedUser = userData ? { ...userData, refreshEnabled } : userData;
+      const storedUser = buildStoredUser(userData, refreshEnabled);
       localStorage.setItem(STORAGE_KEYS.X_ID, userData?.xID || 'SUPERADMIN');
       if (userData.firmSlug) {
         localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, userData.firmSlug);

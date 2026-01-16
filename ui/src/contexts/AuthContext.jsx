@@ -5,6 +5,7 @@
 import React, { createContext, useState, useCallback } from 'react';
 import { authService } from '../services/authService';
 import { STORAGE_KEYS, USER_ROLES } from '../utils/constants';
+import { buildStoredUser, getStoredUser } from '../utils/authUtils';
 
 export const AuthContext = createContext(null);
 
@@ -39,12 +40,8 @@ export const AuthProvider = ({ children }) => {
     if (!userData) return;
     let refreshEnabled = userData.refreshEnabled;
     if (refreshEnabled === undefined) {
-      try {
-        const cachedUser = JSON.parse(localStorage.getItem(STORAGE_KEYS.USER) || 'null');
-        refreshEnabled = cachedUser?.refreshEnabled;
-      } catch (error) {
-        refreshEnabled = undefined;
-      }
+      const cachedUser = getStoredUser();
+      refreshEnabled = cachedUser?.refreshEnabled;
     }
 
     const { firmSlug, xID } = userData;
@@ -59,9 +56,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEYS.X_ID, xID);
     }
 
-    const nextUser = refreshEnabled === undefined
-      ? userData
-      : { ...userData, refreshEnabled };
+    const nextUser = buildStoredUser(userData, refreshEnabled);
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(nextUser));
     setUser(nextUser);
     setIsAuthenticated(true);
