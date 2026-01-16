@@ -1,6 +1,9 @@
 const { executeWrite } = require('./executeWrite');
 
 const guardTransaction = (req) => {
+  if (req?.skipTransaction) {
+    return;
+  }
   if (!req || !req.transactionActive) {
     const err = new Error('Write attempted without active transaction');
     err.statusCode = 500;

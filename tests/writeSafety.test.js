@@ -134,6 +134,11 @@ async function testExecuteWriteEnforcesTransaction() {
   }
   assert.strictEqual(threw, true, 'executeWrite should throw without transaction');
 
+  const skipReq = { skipTransaction: true };
+  const skipResult = await executeWrite({ req: skipReq, fn: async () => 'skip' });
+  assert.strictEqual(skipResult, 'skip');
+  assert.strictEqual(skipReq.transactionSkipped, true, 'Skip transactions should mark skipped for idempotency');
+
   const req = {
     transactionActive: true,
     transactionSession: {

@@ -6,6 +6,9 @@ const ensureSession = (providedSession = null) => {
     return providedSession;
   }
   const session = getActiveSession();
+  if (session?.skipTransaction) {
+    return null;
+  }
   if (!session) {
     const err = new Error('Write attempted without active transaction');
     err.statusCode = 500;
@@ -15,6 +18,9 @@ const ensureSession = (providedSession = null) => {
 };
 
 const applyOptionsSession = (args, index, session) => {
+  if (!session) {
+    return;
+  }
   if (args.length <= index) {
     args[index] = { session };
     return;
@@ -37,6 +43,9 @@ const wrapStaticMethod = (methodName, optionsIndex) => {
     const session = ensureSession(
       existingOptions && typeof existingOptions === 'object' ? existingOptions.session : null
     );
+    if (!session) {
+      return original.apply(this, args);
+    }
     applyOptionsSession(args, optionsIndex, session);
     return original.apply(this, args);
   };
@@ -45,6 +54,9 @@ const wrapStaticMethod = (methodName, optionsIndex) => {
 const originalSave = mongoose.Model.prototype.save;
 mongoose.Model.prototype.save = function (options, ...rest) {
   const session = ensureSession(options && typeof options === 'object' ? options.session : null);
+  if (!session) {
+    return originalSave.call(this, options, ...rest);
+  }
   let finalOptions = options;
   if (!options || typeof options !== 'object') {
     finalOptions = { session };
@@ -63,6 +75,12 @@ mongoose.Model.create = function (docs, options, callback) {
     finalOptions = undefined;
   }
   const session = ensureSession(finalOptions && typeof finalOptions === 'object' ? finalOptions.session : null);
+  if (!session) {
+    if (cb) {
+      return originalCreate.call(this, docs, finalOptions, cb);
+    }
+    return originalCreate.call(this, docs, finalOptions);
+  }
   if (!finalOptions || typeof finalOptions !== 'object') {
     finalOptions = { session };
   } else if (!finalOptions.session) {

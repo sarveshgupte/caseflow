@@ -4,6 +4,9 @@ const { recordTransactionFailure } = require('../services/transactionMonitor.ser
 const mutatingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 const transactionMiddleware = async (req, res, next) => {
+  if (req?.skipTransaction) {
+    return next();
+  }
   if (!mutatingMethods.has(req.method) && !req.forceTransaction) {
     return next();
   }

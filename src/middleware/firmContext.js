@@ -15,6 +15,9 @@ const firmContext = async (req, res, next) => {
   req.requestId = requestId;
 
   try {
+    if (req.skipFirmContext) {
+      return next();
+    }
     const isSuperAdmin = req.user && isSuperAdminRole(req.user.role);
     req.isSuperAdmin = isSuperAdmin;
 
