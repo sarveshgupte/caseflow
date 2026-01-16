@@ -4,7 +4,7 @@
  * Read-only fields render as text, not disabled inputs
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 
 export const Input = ({
   label,
@@ -15,8 +15,13 @@ export const Input = ({
   required = false,
   className = '',
   value,
+  type = 'text',
   ...props
 }) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPasswordType = type === 'password';
+  const resolvedType = isPasswordType ? (showPassword ? 'text' : 'password') : type;
+
   // If read-only, render as static text instead of disabled input
   if (readOnly && value !== undefined) {
     return (
@@ -48,12 +53,89 @@ export const Input = ({
           {required && <span className="text-danger"> *</span>}
         </label>
       )}
-      <input
-        className={`input ${error ? 'input-error' : ''}`}
-        disabled={disabled}
-        value={value}
-        {...props}
-      />
+      <div className={`input-wrapper ${isPasswordType ? 'input-wrapper--password' : ''}`}>
+        <input
+          className={`input ${error ? 'input-error' : ''} ${isPasswordType ? 'input-with-toggle' : ''}`}
+          disabled={disabled}
+          value={value}
+          type={resolvedType}
+          {...props}
+        />
+        {isPasswordType && (
+          <button
+            type="button"
+            className="input-toggle"
+            onClick={() => setShowPassword((prev) => !prev)}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+          >
+            {showPassword ? (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M3 3l18 18"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M10.58 10.58a3 3 0 004.16 4.16"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M9.88 4.24A9.55 9.55 0 0121 12s-3 5-9 5a9.42 9.42 0 01-2.35-.29"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M6.12 6.12A9.53 9.53 0 003 12s3 5 9 5a9.59 9.59 0 004.77-1.23"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            ) : (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="3"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </button>
+        )}
+      </div>
       {error && <div className="form-error">{error}</div>}
       {!error && helpText && <div className="form-help">{helpText}</div>}
     </div>
