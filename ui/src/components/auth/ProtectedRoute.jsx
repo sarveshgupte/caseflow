@@ -7,12 +7,12 @@ import React from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
-import { STORAGE_KEYS } from '../../utils/constants.js';
+import { SESSION_KEYS, STORAGE_KEYS } from '../../utils/constants.js';
 import { Loading } from '../common/Loading';
 
 // Use sessionStorage to persist toasts across redirects in auth guard flows.
 const setAccessToast = (message) => {
-  sessionStorage.setItem('GLOBAL_TOAST', JSON.stringify({
+  sessionStorage.setItem(SESSION_KEYS.GLOBAL_TOAST, JSON.stringify({
     message,
     type: 'warning'
   }));
@@ -41,7 +41,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadm
   if (!isAuthenticated) {
     const hadSession = !!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     if (hadSession) {
-      sessionStorage.setItem('GLOBAL_TOAST', JSON.stringify({
+      sessionStorage.setItem(SESSION_KEYS.GLOBAL_TOAST, JSON.stringify({
         message: 'Your session expired. Please sign in again.',
         type: 'info'
       }));

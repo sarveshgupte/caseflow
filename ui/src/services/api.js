@@ -4,7 +4,7 @@
  */
 
 import axios from 'axios';
-import { API_BASE_URL, ERROR_CODES, STORAGE_KEYS } from '../utils/constants';
+import { API_BASE_URL, ERROR_CODES, SESSION_KEYS, STORAGE_KEYS } from '../utils/constants';
 import { isAccessTokenOnlySession } from '../utils/authUtils';
 
 const api = axios.create({
@@ -112,7 +112,7 @@ api.interceptors.response.use(
 
       if (isAccessTokenOnlySession()) {
         clearAuthStorage();
-        sessionStorage.setItem('GLOBAL_TOAST', JSON.stringify({
+        sessionStorage.setItem(SESSION_KEYS.GLOBAL_TOAST, JSON.stringify({
           message: 'Your admin session has expired. Please log in again.',
           type: 'info'
         }));
@@ -146,7 +146,7 @@ api.interceptors.response.use(
         // Refresh failed - clear storage and redirect to login
         clearAuthStorage();
         const refreshCode = refreshError?.code || refreshError?.response?.data?.code;
-        sessionStorage.setItem('GLOBAL_TOAST', JSON.stringify({
+        sessionStorage.setItem(SESSION_KEYS.GLOBAL_TOAST, JSON.stringify({
           message: refreshCode === ERROR_CODES.REFRESH_NOT_SUPPORTED
             ? 'Your admin session has expired. Please log in again.'
             : 'Your session expired. Please log in again.',
@@ -160,7 +160,7 @@ api.interceptors.response.use(
     // Handle other 401 errors (invalid token, etc.)
     if (status === 401) {
       clearAuthStorage();
-      sessionStorage.setItem('GLOBAL_TOAST', JSON.stringify({
+      sessionStorage.setItem(SESSION_KEYS.GLOBAL_TOAST, JSON.stringify({
         message: 'Your session expired. Please log in again.',
         type: 'info'
       }));
@@ -172,7 +172,7 @@ api.interceptors.response.use(
     if (status === 403) {
       // Forbidden - clear storage and redirect to login
       clearAuthStorage();
-      sessionStorage.setItem('GLOBAL_TOAST', JSON.stringify({
+      sessionStorage.setItem(SESSION_KEYS.GLOBAL_TOAST, JSON.stringify({
         message: 'Access denied for this action. Please log in again.',
         type: 'warning'
       }));

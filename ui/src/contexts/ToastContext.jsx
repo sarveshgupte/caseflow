@@ -7,6 +7,7 @@
  */
 
 import React, { createContext, useState, useCallback, useEffect } from 'react';
+import { SESSION_KEYS } from '../utils/constants';
 
 export const ToastContext = createContext(null);
 
@@ -74,7 +75,7 @@ export const ToastProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('GLOBAL_TOAST');
+    const stored = sessionStorage.getItem(SESSION_KEYS.GLOBAL_TOAST);
     if (stored) {
       try {
         const { message, type = 'info' } = JSON.parse(stored);
@@ -82,7 +83,7 @@ export const ToastProvider = ({ children }) => {
       } catch {
         // Ignore malformed payload
       } finally {
-        sessionStorage.removeItem('GLOBAL_TOAST');
+        sessionStorage.removeItem(SESSION_KEYS.GLOBAL_TOAST);
       }
     }
 

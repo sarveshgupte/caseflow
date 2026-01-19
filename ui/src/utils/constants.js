@@ -76,6 +76,10 @@ export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'refreshToken',
 };
 
+export const SESSION_KEYS = {
+  GLOBAL_TOAST: 'GLOBAL_TOAST',
+};
+
 /**
  * Error codes returned by backend API
  * Used to identify specific error conditions and handle them appropriately in the UI

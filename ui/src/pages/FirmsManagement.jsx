@@ -52,13 +52,12 @@ export const FirmsManagement = () => {
     try {
       setLoading(true);
       const response = await superadminService.listFirms();
-      if (response?.status === 304) {
-        return;
-      }
-      if (response?.success) {
-        setFirms(Array.isArray(response.data) ? response.data : []);
-      } else {
-        toast.error('Failed to load firms');
+      if (response?.status !== 304) {
+        if (response?.success) {
+          setFirms(Array.isArray(response.data) ? response.data : []);
+        } else {
+          toast.error('Failed to load firms');
+        }
       }
     } catch (error) {
       toast.error('Failed to load firms');
