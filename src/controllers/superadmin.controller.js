@@ -193,17 +193,18 @@ const createFirm = async (req, res) => {
 const getPlatformStats = async (req, res) => {
   try {
     const firmId = req.user?.firmId || null;
-    const firmFilter = firmId ? { firmId } : {};
+    const firmFilter = firmId ? { _id: firmId } : {};
+    const firmScope = firmId ? { firmId } : {};
 
     // Get total firms
-    const totalFirms = await Firm.countDocuments();
-    const activeFirms = await Firm.countDocuments({ status: 'ACTIVE' });
+    const totalFirms = await Firm.countDocuments(firmFilter);
+    const activeFirms = await Firm.countDocuments({ ...firmFilter, status: 'ACTIVE' });
     
     // Get total clients across all firms
-    const totalClients = await Client.countDocuments(firmFilter);
+    const totalClients = await Client.countDocuments(firmScope);
     
     // Get total users across all firms (excluding SUPER_ADMIN)
-    const totalUsers = await User.countDocuments({ ...firmFilter, role: { $ne: 'SuperAdmin' } });
+    const totalUsers = await User.countDocuments({ ...firmScope, role: { $ne: 'SuperAdmin' } });
     
     res.json({
       success: true,
