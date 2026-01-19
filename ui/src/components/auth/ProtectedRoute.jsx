@@ -10,6 +10,7 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import { STORAGE_KEYS } from '../../utils/constants.js';
 import { Loading } from '../common/Loading';
 
+// Use sessionStorage to persist toasts across redirects in auth guard flows.
 const setAccessToast = (message) => {
   sessionStorage.setItem('GLOBAL_TOAST', JSON.stringify({
     message,

@@ -221,7 +221,8 @@ export const FirmsManagement = () => {
                 <tbody>
                   {firms.map(firm => {
                     const statusLabel = firm.status || 'UNKNOWN';
-                    const statusKey = statusLabel.toLowerCase();
+                    const normalizedStatus = statusLabel.toUpperCase();
+                    const statusKey = normalizedStatus === 'ACTIVE' ? 'active' : 'suspended';
                     const loginUrl = firm.firmSlug
                       ? `${window.location.origin}/f/${firm.firmSlug}/login`
                       : null;

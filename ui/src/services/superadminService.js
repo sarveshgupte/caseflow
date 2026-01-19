@@ -31,6 +31,7 @@ export const superadminService = {
     const payload = Array.isArray(responseData)
       ? { success: true, data: responseData }
       : responseData || {};
+    // Treat 304 (Not Modified) as success to keep cached firm lists intact.
     const success = response.status === 304 ? true : Boolean(payload.success);
     return {
       ...payload,
