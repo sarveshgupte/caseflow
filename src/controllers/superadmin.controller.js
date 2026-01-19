@@ -193,17 +193,17 @@ const createFirm = async (req, res) => {
 const getPlatformStats = async (req, res) => {
   try {
     const firmId = req.user?.firmId || null;
-    const firmScope = firmId ? { firmId } : {};
+    const firmFilter = firmId ? { firmId } : {};
 
     // Get total firms
     const totalFirms = await Firm.countDocuments();
     const activeFirms = await Firm.countDocuments({ status: 'ACTIVE' });
     
     // Get total clients across all firms
-    const totalClients = await Client.countDocuments(firmScope);
+    const totalClients = await Client.countDocuments(firmFilter);
     
     // Get total users across all firms (excluding SUPER_ADMIN)
-    const totalUsers = await User.countDocuments({ ...firmScope, role: { $ne: 'SuperAdmin' } });
+    const totalUsers = await User.countDocuments({ ...firmFilter, role: { $ne: 'SuperAdmin' } });
     
     res.json({
       success: true,
@@ -219,6 +219,8 @@ const getPlatformStats = async (req, res) => {
     console.error('[SUPERADMIN] Error getting platform stats:', error);
     res.status(200).json({
       success: true,
+      degraded: true,
+      message: 'Platform statistics unavailable; returning empty totals.',
       data: {
         totalFirms: 0,
         activeFirms: 0,
