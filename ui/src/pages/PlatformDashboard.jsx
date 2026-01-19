@@ -41,9 +41,12 @@ export const PlatformDashboard = () => {
 
   // Load platform stats once per dashboard load
   useEffect(() => {
-    if (user?.role === USER_ROLES.SUPER_ADMIN && !hasLoadedRef.current) {
-      hasLoadedRef.current = true;
+    if (user?.role === USER_ROLES.SUPER_ADMIN && !hasLoadedRef.current && !isFetchingRef.current) {
       loadStats();
+    }
+    if (user && user.role !== USER_ROLES.SUPER_ADMIN) {
+      // Release the loading state on non-superadmin redirects so guarded stats fetching can't block the UI.
+      setLoading(false);
     }
   }, [user?.role]);
 
@@ -70,6 +73,7 @@ export const PlatformDashboard = () => {
       }
       console.error('Error loading platform stats:', error);
     } finally {
+      hasLoadedRef.current = true;
       setLoading(false);
       isFetchingRef.current = false;
     }
