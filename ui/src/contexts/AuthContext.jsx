@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }) => {
     const nextUser = buildStoredUser(userData, refreshEnabled);
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(nextUser));
     setUser(nextUser);
-    setIsAuthenticated(true);
+    setIsAuthenticated(nextUser?.isSuperAdmin === true || !!nextUser?.firmSlug);
   }, []);
 
   const fetchProfile = useCallback(async () => {
@@ -160,7 +160,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(mergedUser));
-      setIsAuthenticated(true);
+      setIsAuthenticated(mergedUser?.isSuperAdmin === true || !!mergedUser?.firmSlug);
       return mergedUser;
     });
   };

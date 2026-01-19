@@ -16,6 +16,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadm
   const { firmSlug } = useParams();
   const storedFirmSlug = localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
   const effectiveFirmSlug = firmSlug || storedFirmSlug;
+  const isSuperAdminUser = user?.isSuperAdmin === true || isSuperadmin;
 
   if (firmSlug && storedFirmSlug && firmSlug !== storedFirmSlug) {
     console.warn(`[TENANCY] Firm slug mismatch detected. URL firm="${firmSlug}", session firm="${storedFirmSlug}"`);
@@ -37,15 +38,16 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadm
         type: 'info'
       }));
     }
-    // Redirect to firm login if firmSlug is in URL, otherwise generic login
-    if (effectiveFirmSlug) {
-      return <Navigate to={`/f/${effectiveFirmSlug}/login`} replace />;
-    }
+    return <Navigate to="/login" replace />;
+  }
+
+  // Authenticated users must have firm context unless they are SuperAdmin.
+  if (!effectiveFirmSlug && !isSuperAdminUser) {
     return <Navigate to="/login" replace />;
   }
 
   // SuperAdmin trying to access superadmin routes
-  if (requireSuperadmin && !isSuperadmin) {
+  if (requireSuperadmin && !isSuperAdminUser) {
     // Redirect authenticated users to their firm dashboard
     if (effectiveFirmSlug) {
       return <Navigate to={`/f/${effectiveFirmSlug}/dashboard`} replace />;
@@ -54,7 +56,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadm
   }
 
   // SuperAdmin trying to access regular/admin routes (block them)
-  if (!requireSuperadmin && isSuperadmin) {
+  if (!requireSuperadmin && isSuperAdminUser) {
     return <Navigate to="/superadmin" replace />;
   }
 

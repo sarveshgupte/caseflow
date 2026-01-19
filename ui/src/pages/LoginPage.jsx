@@ -65,8 +65,9 @@ export const LoginPage = () => {
 
       if (response.success) {
         showSuccess('Signed in successfully.');
+        const isSuperAdmin = response.data?.isSuperAdmin === true || response.data.role === USER_ROLES.SUPER_ADMIN;
         // Check if user is Superadmin - redirect to superadmin dashboard
-        if (response.data.role === USER_ROLES.SUPER_ADMIN) {
+        if (isSuperAdmin) {
           navigate('/superadmin');
         } else {
           // Regular users go to firm-scoped dashboard
