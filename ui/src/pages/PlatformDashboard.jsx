@@ -3,7 +3,7 @@
  * SuperAdmin view of platform-level metrics
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { superadminService } from '../services/superadminService';
@@ -19,14 +19,18 @@ export const PlatformDashboard = () => {
   const navigate = useNavigate();
   const toast = useToast();
   
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
+  const emptyStats = {
     totalFirms: 0,
     activeFirms: 0,
     inactiveFirms: 0,
     totalClients: 0,
     totalUsers: 0,
-  });
+  };
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(emptyStats);
+  const isFetchingRef = useRef(false);
+  const hasLoadedRef = useRef(false);
+  const hasShownErrorRef = useRef(false);
 
   // Verify user is Superadmin
   useEffect(() => {
@@ -35,23 +39,39 @@ export const PlatformDashboard = () => {
     }
   }, [user, navigate]);
 
-  // Load platform stats
+  // Load platform stats once per dashboard load
   useEffect(() => {
-    loadStats();
-  }, []);
+    if (user?.role === USER_ROLES.SUPER_ADMIN && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      loadStats();
+    }
+  }, [user?.role]);
 
   const loadStats = async () => {
+    if (isFetchingRef.current) {
+      return;
+    }
+    isFetchingRef.current = true;
     try {
       setLoading(true);
       const response = await superadminService.getPlatformStats();
-      if (response.success) {
+      if (response?.success) {
         setStats(response.data);
+      } else if (response?.degraded) {
+        setStats(response?.data || emptyStats);
+      } else if (!hasShownErrorRef.current) {
+        toast.error('Failed to load platform statistics');
+        hasShownErrorRef.current = true;
       }
     } catch (error) {
-      toast.error('Failed to load platform statistics');
+      if (!hasShownErrorRef.current) {
+        toast.error('Failed to load platform statistics');
+        hasShownErrorRef.current = true;
+      }
       console.error('Error loading platform stats:', error);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
