@@ -36,11 +36,11 @@ export const formatDateTime = (dateString) => {
 
 export const getFirmStatusInfo = (status) => {
   const normalizedStatus = (status || 'UNKNOWN').toUpperCase();
-  const key = normalizedStatus === 'ACTIVE'
-    ? 'active'
-    : normalizedStatus === 'SUSPENDED'
-      ? 'suspended'
-      : 'unknown';
+  const statusKeyMap = {
+    ACTIVE: 'active',
+    SUSPENDED: 'suspended',
+  };
+  const key = statusKeyMap[normalizedStatus] || 'unknown';
   return {
     normalizedStatus,
     label: normalizedStatus,

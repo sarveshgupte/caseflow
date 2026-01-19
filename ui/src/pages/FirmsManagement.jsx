@@ -253,8 +253,8 @@ export const FirmsManagement = () => {
                             <span className="text-secondary">N/A</span>
                           )}
                         </td>
-                        <td>{firm.clientCount ?? 'N/A'}</td>
-                        <td>{firm.userCount ?? 'N/A'}</td>
+                        <td>{firm.clientCount ?? 0}</td>
+                        <td>{firm.userCount ?? 0}</td>
                         <td>{formatDate(firm.createdAt)}</td>
                         <td>
                           {isActive ? (
