@@ -31,10 +31,11 @@ export const superadminService = {
     const payload = Array.isArray(responseData)
       ? { success: true, data: responseData }
       : responseData || {};
+    const success = response.status === 304 ? true : Boolean(payload.success);
     return {
       ...payload,
       status: response.status,
-      success: response.status === 304 ? true : payload.success,
+      success,
     };
   },
 

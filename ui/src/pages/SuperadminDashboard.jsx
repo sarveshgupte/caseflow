@@ -53,6 +53,7 @@ export const SuperadminDashboard = () => {
       setLoading(true);
       const response = await superadminService.listFirms();
       if (response?.status === 304) {
+        // 304 keeps the current firms list without triggering an error toast.
         return;
       }
       if (response?.success) {

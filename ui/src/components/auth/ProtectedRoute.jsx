@@ -10,6 +10,13 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import { STORAGE_KEYS } from '../../utils/constants.js';
 import { Loading } from '../common/Loading';
 
+const setAccessToast = (message) => {
+  sessionStorage.setItem('GLOBAL_TOAST', JSON.stringify({
+    message,
+    type: 'warning'
+  }));
+};
+
 export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadmin = false }) => {
   const { isAuthenticated, loading, user } = useAuth();
   const { isAdmin, isSuperadmin } = usePermissions();
@@ -17,12 +24,6 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadm
   const storedFirmSlug = localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
   const effectiveFirmSlug = firmSlug || storedFirmSlug;
   const isSuperAdminUser = user?.isSuperAdmin === true || isSuperadmin;
-  const setAccessToast = (message) => {
-    sessionStorage.setItem('GLOBAL_TOAST', JSON.stringify({
-      message,
-      type: 'warning'
-    }));
-  };
 
   if (firmSlug && storedFirmSlug && firmSlug !== storedFirmSlug) {
     console.warn(`[TENANCY] Firm slug mismatch detected. URL firm="${firmSlug}", session firm="${storedFirmSlug}"`);
