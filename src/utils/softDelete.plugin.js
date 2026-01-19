@@ -47,7 +47,12 @@ const softDeletePlugin = (schema) => {
   schema.pre('countDocuments', function softDeleteCountHook() {
     const filtered = applyDefaultDeletedFilter(this.getFilter());
     if (filtered) {
-      this.setFilter(filtered);
+      if (typeof this.setFilter === 'function') {
+        this.setFilter(filtered);
+      } else {
+        // Mongoose query instances don't always expose setFilter; setQuery preserves compatibility.
+        this.setQuery(filtered);
+      }
     }
   });
 
