@@ -152,12 +152,36 @@ async function testManualDeletedAtGuard() {
   assert.doesNotThrow(() => applyDefaultDeletedFilter({ deletedAt: { $ne: null }, includeDeleted: true }));
 }
 
+function testCountDocumentsHookFallback() {
+  const hooks = {};
+  const schema = {
+    add() {},
+    pre(name, handler) {
+      if (name === 'countDocuments') {
+        hooks.countDocuments = handler;
+      }
+    },
+    query: {},
+  };
+  plugin(schema);
+  let setQueryArgs;
+  const query = {
+    getFilter: () => ({}),
+    setQuery: (value) => {
+      setQueryArgs = value;
+    },
+  };
+  hooks.countDocuments.call(query);
+  assert.deepStrictEqual(setQueryArgs, { deletedAt: null }, 'countDocuments hook should update query filter safely');
+}
+
 async function run() {
   await testSoftDeleteIdempotent();
   await testRestore();
   await testUserDeleteRestorePreservesAuthState();
   await testAuditNotWrittenOnRollback();
   await testManualDeletedAtGuard();
+  testCountDocumentsHookFallback();
   console.log('Soft delete service tests passed.');
 }
 
