@@ -14,7 +14,7 @@ import { Input } from '../components/common/Input';
 import { Loading } from '../components/common/Loading';
 import { useToast } from '../hooks/useToast';
 import { STORAGE_KEYS, USER_ROLES } from '../utils/constants';
-import { formatDate } from '../utils/formatters';
+import { formatDate, getFirmStatusInfo } from '../utils/formatters';
 import './FirmsManagement.css';
 
 export const FirmsManagement = () => {
@@ -221,13 +221,7 @@ export const FirmsManagement = () => {
                 </thead>
                 <tbody>
                   {firms.map(firm => {
-                    const statusLabel = firm.status || 'UNKNOWN';
-                    const normalizedStatus = statusLabel.toUpperCase();
-                    const statusKey = normalizedStatus === 'ACTIVE'
-                      ? 'active'
-                      : normalizedStatus === 'SUSPENDED'
-                        ? 'suspended'
-                        : 'unknown';
+                    const { label: statusLabel, key: statusKey, isActive } = getFirmStatusInfo(firm.status);
                     const loginUrl = firm.firmSlug
                       ? `${window.location.origin}/f/${firm.firmSlug}/login`
                       : null;
@@ -263,7 +257,7 @@ export const FirmsManagement = () => {
                         <td>{firm.userCount ?? 'N/A'}</td>
                         <td>{formatDate(firm.createdAt)}</td>
                         <td>
-                          {firm.status === 'ACTIVE' ? (
+                          {isActive ? (
                             <Button
                               size="small"
                               variant="danger"

@@ -12,7 +12,7 @@ import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { useToast } from '../hooks/useToast';
 import { STORAGE_KEYS, USER_ROLES } from '../utils/constants';
-import { formatDate } from '../utils/formatters';
+import { formatDate, getFirmStatusInfo } from '../utils/formatters';
 import './SuperadminDashboard.css';
 
 export const SuperadminDashboard = () => {
@@ -277,37 +277,40 @@ export const SuperadminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {firms.map(firm => (
-                    <tr key={firm._id}>
-                      <td>{firm.firmId}</td>
-                      <td>{firm.name}</td>
-                      <td>
-                        <span className={`status-badge status-${firm.status.toLowerCase()}`}>
-                          {firm.status}
-                        </span>
-                      </td>
-                      <td>{formatDate(firm.createdAt)}</td>
-                      <td>
-                        {firm.status === 'ACTIVE' ? (
-                          <Button
-                            size="small"
-                            variant="danger"
-                            onClick={() => handleUpdateFirmStatus(firm._id, 'SUSPENDED')}
-                          >
-                            Suspend
-                          </Button>
-                        ) : (
-                          <Button
-                            size="small"
-                            variant="success"
-                            onClick={() => handleUpdateFirmStatus(firm._id, 'ACTIVE')}
-                          >
-                            Activate
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {firms.map(firm => {
+                    const { label: statusLabel, key: statusKey, isActive } = getFirmStatusInfo(firm.status);
+                    return (
+                      <tr key={firm._id}>
+                        <td>{firm.firmId}</td>
+                        <td>{firm.name}</td>
+                        <td>
+                          <span className={`status-badge status-${statusKey}`}>
+                            {statusLabel}
+                          </span>
+                        </td>
+                        <td>{formatDate(firm.createdAt)}</td>
+                        <td>
+                          {isActive ? (
+                            <Button
+                              size="small"
+                              variant="danger"
+                              onClick={() => handleUpdateFirmStatus(firm._id, 'SUSPENDED')}
+                            >
+                              Suspend
+                            </Button>
+                          ) : (
+                            <Button
+                              size="small"
+                              variant="success"
+                              onClick={() => handleUpdateFirmStatus(firm._id, 'ACTIVE')}
+                            >
+                              Activate
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

@@ -28,8 +28,10 @@ export const superadminService = {
   listFirms: async () => {
     const response = await api.get('/superadmin/firms');
     const responseData = response.data;
-    const payload = Array.isArray(responseData)
-      ? { success: true, data: responseData }
+    const isArrayResponse = Array.isArray(responseData);
+    const isSuccessfulStatus = response.status >= 200 && response.status < 300;
+    const payload = isArrayResponse
+      ? { success: isSuccessfulStatus, data: responseData }
       : responseData || {};
     const isNotModified = response.status === 304;
     // Treat 304 (Not Modified) as success so cached firm lists remain in place.

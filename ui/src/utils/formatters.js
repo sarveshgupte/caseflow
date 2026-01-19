@@ -34,6 +34,21 @@ export const formatDateTime = (dateString) => {
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
 
+export const getFirmStatusInfo = (status) => {
+  const normalizedStatus = (status || 'UNKNOWN').toUpperCase();
+  const key = normalizedStatus === 'ACTIVE'
+    ? 'active'
+    : normalizedStatus === 'SUSPENDED'
+      ? 'suspended'
+      : 'unknown';
+  return {
+    normalizedStatus,
+    label: normalizedStatus,
+    key,
+    isActive: normalizedStatus === 'ACTIVE',
+  };
+};
+
 export const formatCaseName = (caseName) => {
   return caseName || 'N/A';
 };
