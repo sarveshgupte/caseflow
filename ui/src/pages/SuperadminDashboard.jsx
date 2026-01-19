@@ -11,7 +11,7 @@ import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { useToast } from '../hooks/useToast';
-import { USER_ROLES } from '../utils/constants';
+import { STORAGE_KEYS, USER_ROLES } from '../utils/constants';
 import { formatDate } from '../utils/formatters';
 import './SuperadminDashboard.css';
 
@@ -34,8 +34,12 @@ export const SuperadminDashboard = () => {
 
   // Verify user is Superadmin
   useEffect(() => {
-    if (!user || user.role !== USER_ROLES.SUPER_ADMIN) {
-      navigate('/dashboard');
+    if (!user) {
+      return;
+    }
+    if (user.role !== USER_ROLES.SUPER_ADMIN) {
+      const fallbackSlug = user.firmSlug || localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
+      navigate(fallbackSlug ? `/f/${fallbackSlug}/dashboard` : '/login', { replace: true });
     }
   }, [user, navigate]);
 
@@ -48,8 +52,13 @@ export const SuperadminDashboard = () => {
     try {
       setLoading(true);
       const response = await superadminService.listFirms();
-      if (response.success) {
-        setFirms(response.data);
+      if (response?.status === 304) {
+        return;
+      }
+      if (response?.success) {
+        setFirms(Array.isArray(response.data) ? response.data : []);
+      } else {
+        toast.error('Failed to load firms');
       }
     } catch (error) {
       toast.error('Failed to load firms');

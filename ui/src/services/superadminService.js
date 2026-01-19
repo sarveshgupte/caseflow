@@ -27,7 +27,18 @@ export const superadminService = {
    */
   listFirms: async () => {
     const response = await api.get('/superadmin/firms');
-    return response.data;
+    const responseData = response.data;
+    let payload = {};
+    if (Array.isArray(responseData)) {
+      payload = { success: true, data: responseData };
+    } else if (responseData && typeof responseData === 'object') {
+      payload = responseData;
+    }
+    return {
+      ...payload,
+      status: response.status,
+      success: response.status === 304 ? true : payload.success,
+    };
   },
 
   /**

@@ -11,7 +11,7 @@ import { SuperAdminLayout } from '../components/common/SuperAdminLayout';
 import { Card } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { useToast } from '../hooks/useToast';
-import { USER_ROLES } from '../utils/constants';
+import { STORAGE_KEYS, USER_ROLES } from '../utils/constants';
 import './PlatformDashboard.css';
 
 export const PlatformDashboard = () => {
@@ -34,8 +34,12 @@ export const PlatformDashboard = () => {
 
   // Verify user is Superadmin
   useEffect(() => {
-    if (!user || user.role !== USER_ROLES.SUPER_ADMIN) {
-      navigate('/dashboard');
+    if (!user) {
+      return;
+    }
+    if (user.role !== USER_ROLES.SUPER_ADMIN) {
+      const fallbackSlug = user.firmSlug || localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
+      navigate(fallbackSlug ? `/f/${fallbackSlug}/dashboard` : '/login', { replace: true });
     }
   }, [user, navigate]);
 

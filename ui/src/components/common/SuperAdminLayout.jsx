@@ -49,7 +49,7 @@ export const SuperAdminLayout = ({ children }) => {
           </div>
           <div className="superadmin-layout__nav-user">
             <span className="superadmin-layout__user-info">
-              {user?.xID} (SuperAdmin)
+              {(user?.xID || user?.email || 'SuperAdmin')} (SuperAdmin)
             </span>
             <button onClick={handleLogout} className="neo-button">
               Logout
