@@ -65,16 +65,20 @@ export const LoginPage = () => {
 
       if (response.success) {
         showSuccess('Signed in successfully.');
-        const isSuperAdmin = response.data?.isSuperAdmin === true || response.data.role === USER_ROLES.SUPER_ADMIN;
+        const userData = response.data;
+        const isSuperAdmin = response.isSuperAdmin === true
+          || userData?.isSuperAdmin === true
+          || userData?.role === USER_ROLES.SUPER_ADMIN;
         // Check if user is Superadmin - redirect to superadmin dashboard
         if (isSuperAdmin) {
-          navigate('/superadmin');
+          navigate('/superadmin', { replace: true });
+          return;
         } else {
           // Regular users go to firm-scoped dashboard
-          const firmSlug = response.data.firmSlug;
+          const firmSlug = userData?.firmSlug;
           if (firmSlug) {
             localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlug);
-            navigate(`/f/${firmSlug}/dashboard`);
+            navigate(`/f/${firmSlug}/dashboard`, { replace: true });
           } else {
             // Fallback if firmSlug not available
             setError('Unable to resolve your firm. Please contact your administrator.');
