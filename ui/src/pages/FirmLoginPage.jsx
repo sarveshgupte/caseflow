@@ -12,7 +12,7 @@ import { Card } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { validateXID, validatePassword } from '../utils/validators';
 import { API_BASE_URL, USER_ROLES, ERROR_CODES, STORAGE_KEYS } from '../utils/constants';
-import { buildStoredUser, isAccessTokenOnlyUser, mergeAuthUser } from '../utils/authUtils';
+import { isAccessTokenOnlyUser } from '../utils/authUtils';
 import api from '../services/api';
 import { useToast } from '../hooks/useToast';
 import './LoginPage.css';
@@ -100,25 +100,24 @@ export const FirmLoginPage = () => {
           accessToken,
           refreshToken,
           data: userData,
-          isSuperAdmin,
           refreshEnabled,
         } = response.data;
-        const authUser = mergeAuthUser(userData, { isSuperAdmin, refreshEnabled });
-        const accessTokenOnly = isAccessTokenOnlyUser(authUser);
         
-        // Store tokens and user data in localStorage
+        // Merge backend flags with user data for access-token-only determination
+        const userWithFlags = {
+          ...userData,
+          refreshEnabled: refreshEnabled !== undefined ? refreshEnabled : userData.refreshEnabled,
+          isSuperAdmin: response.data.isSuperAdmin !== undefined ? response.data.isSuperAdmin : userData.isSuperAdmin,
+        };
+        
+        const accessTokenOnly = isAccessTokenOnlyUser(userWithFlags);
+        
+        // Store tokens only (no user object)
         localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
         if (!accessTokenOnly && refreshToken) {
           localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
         } else {
           localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-        }
-        localStorage.setItem(STORAGE_KEYS.X_ID, userData.xID || 'UNKNOWN');
-        const storedUser = buildStoredUser(authUser, refreshEnabled);
-        if (storedUser) {
-          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(storedUser));
-        } else {
-          localStorage.removeItem(STORAGE_KEYS.USER);
         }
 
         // Check if user is Superadmin (shouldn't happen via firm login, but check anyway)

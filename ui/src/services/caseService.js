@@ -3,22 +3,6 @@
  */
 
 import api from './api';
-import { STORAGE_KEYS } from '../utils/constants';
-
-/**
- * Get authenticated user from localStorage
- * Throws error if not authenticated
- */
-const getAuthenticatedUser = () => {
-  const userStr = localStorage.getItem(STORAGE_KEYS.USER);
-  const user = userStr ? JSON.parse(userStr) : null;
-  
-  if (!user?.email) {
-    throw new Error('User not authenticated. Please log in again.');
-  }
-  
-  return user;
-};
 
 export const caseService = {
   /**
@@ -56,29 +40,33 @@ export const caseService = {
 
   /**
    * Add comment to case
-   * PR #41: Fixed to send text and createdBy as expected by backend
+   * Note: createdBy (email) must be provided by the caller from AuthContext
    */
-  addComment: async (caseId, commentText) => {
-    const user = getAuthenticatedUser();
+  addComment: async (caseId, commentText, userEmail) => {
+    if (!userEmail) {
+      throw new Error('User email is required to create comments. This should be provided by the caller.');
+    }
     
     const response = await api.post(`/cases/${caseId}/comments`, {
       text: commentText,
-      createdBy: user.email,
+      createdBy: userEmail,
     });
     return response.data;
   },
 
   /**
    * Add attachment to case
-   * PR #41: Fixed to send createdBy as expected by backend
+   * Note: createdBy (email) must be provided by the caller from AuthContext
    */
-  addAttachment: async (caseId, file, description) => {
-    const user = getAuthenticatedUser();
+  addAttachment: async (caseId, file, description, userEmail) => {
+    if (!userEmail) {
+      throw new Error('User email is required to create attachments. This should be provided by the caller.');
+    }
     
     const formData = new FormData();
     formData.append('file', file);
     formData.append('description', description);
-    formData.append('createdBy', user.email);
+    formData.append('createdBy', userEmail);
     
     const response = await api.post(`/cases/${caseId}/attachments`, formData, {
       headers: {
@@ -217,11 +205,11 @@ export const caseService = {
   /**
    * View attachment inline
    * Opens attachment in new tab
+   * Note: Authentication is handled by the backend via the token in cookies/headers
    */
   viewAttachment: (caseId, attachmentId) => {
-    const xID = localStorage.getItem(STORAGE_KEYS.X_ID);
     const apiBaseUrl = window.location.origin;
-    const url = `${apiBaseUrl}/api/cases/${caseId}/attachments/${attachmentId}/view?xID=${encodeURIComponent(xID)}`;
+    const url = `${apiBaseUrl}/api/cases/${caseId}/attachments/${attachmentId}/view`;
     
     // Open in new tab
     window.open(url, '_blank');

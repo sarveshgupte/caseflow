@@ -206,7 +206,7 @@ export const CaseDetailPage = () => {
     
     setSubmitting(true);
     try {
-      await caseService.addComment(caseId, newComment);
+      await caseService.addComment(caseId, newComment, user?.email);
       setNewComment('');
       await loadCase(); // Reload to show new comment
     } catch (error) {
@@ -231,7 +231,7 @@ export const CaseDetailPage = () => {
 
     setUploadingFile(true);
     try {
-      await caseService.addAttachment(caseId, selectedFile, fileDescription);
+      await caseService.addAttachment(caseId, selectedFile, fileDescription, user?.email);
       setSelectedFile(null);
       setFileDescription('');
       // Reset file input using ref

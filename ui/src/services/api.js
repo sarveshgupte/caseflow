@@ -88,8 +88,6 @@ api.interceptors.response.use(
     const clearAuthStorage = () => {
       localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
       localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-      localStorage.removeItem(STORAGE_KEYS.X_ID);
-      localStorage.removeItem(STORAGE_KEYS.USER);
       localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
     };
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

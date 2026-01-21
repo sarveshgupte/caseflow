@@ -4,7 +4,7 @@
 
 import api from './api';
 import { ERROR_CODES, STORAGE_KEYS } from '../utils/constants';
-import { buildStoredUser, getStoredUser, isAccessTokenOnlyUser, mergeAuthUser } from '../utils/authUtils';
+import { isAccessTokenOnlyUser } from '../utils/authUtils';
 
 export const authService = {
   /**
@@ -25,13 +25,19 @@ export const authService = {
         accessToken,
         refreshToken,
         data: userData,
-        isSuperAdmin,
         refreshEnabled,
       } = response.data;
-      const authUser = mergeAuthUser(userData, { isSuperAdmin, refreshEnabled });
-      const accessTokenOnly = isAccessTokenOnlyUser(authUser);
       
-      // Store JWT tokens
+      // Merge backend flags with user data for access-token-only determination
+      const userWithFlags = {
+        ...userData,
+        refreshEnabled: refreshEnabled !== undefined ? refreshEnabled : userData.refreshEnabled,
+        isSuperAdmin: response.data.isSuperAdmin !== undefined ? response.data.isSuperAdmin : userData.isSuperAdmin,
+      };
+      
+      const accessTokenOnly = isAccessTokenOnlyUser(userWithFlags);
+      
+      // Store JWT tokens only
       localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
       if (!accessTokenOnly && refreshToken) {
         localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
@@ -39,18 +45,11 @@ export const authService = {
         localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
       }
       
-      // Store user data
-      const storedUser = buildStoredUser(authUser, refreshEnabled);
-      if (storedUser) {
-        localStorage.setItem(STORAGE_KEYS.X_ID, storedUser.xID || 'SUPERADMIN');
-        if (storedUser.firmSlug) {
-          localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, storedUser.firmSlug);
-        } else {
-          localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
-        }
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(storedUser));
+      // Store firmSlug as a routing hint (optional)
+      if (userData?.firmSlug) {
+        localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, userData.firmSlug);
       } else {
-        localStorage.removeItem(STORAGE_KEYS.USER);
+        localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
       }
     }
     // Don't store anything if login fails or requires password change
@@ -71,8 +70,6 @@ export const authService = {
     } finally {
       localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
       localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-      localStorage.removeItem(STORAGE_KEYS.X_ID);
-      localStorage.removeItem(STORAGE_KEYS.USER);
       
       if (!firmSlugToPreserve) {
         localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
@@ -150,30 +147,24 @@ export const authService = {
    */
   updateProfile: async (profileData) => {
     const response = await api.put('/auth/profile', profileData);
-    
-    if (response.data.success) {
-      // Update stored user data
-      const storedUser = JSON.parse(localStorage.getItem(STORAGE_KEYS.USER) || '{}');
-      const updatedUser = { ...storedUser, ...response.data.data };
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
-    }
-    
+    // User data is managed by AuthContext, not localStorage
     return response.data;
   },
 
   /**
-   * Get current user from storage
+   * Get current user from storage (deprecated - always returns null)
+   * @deprecated User data should be fetched from API via AuthContext
    */
   getCurrentUser: () => {
-    const userStr = localStorage.getItem(STORAGE_KEYS.USER);
-    return userStr ? JSON.parse(userStr) : null;
+    return null;
   },
 
   /**
-   * Get current xID from storage
+   * Get current xID from storage (deprecated - always returns null)
+   * @deprecated User data should be fetched from API via AuthContext
    */
   getCurrentXID: () => {
-    return localStorage.getItem(STORAGE_KEYS.X_ID);
+    return null;
   },
 
   /**
@@ -187,17 +178,14 @@ export const authService = {
    * Refresh access token
    */
   refreshToken: async () => {
-    const storedUser = getStoredUser();
-    const accessTokenOnly = isAccessTokenOnlyUser(storedUser);
-    if (accessTokenOnly) {
+    const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+    
+    // If no refresh token, this is an access-token-only session
+    if (!refreshToken) {
       const error = new Error('Refresh not supported for this session');
       error.code = ERROR_CODES.REFRESH_NOT_SUPPORTED;
       error.response = { data: { code: ERROR_CODES.REFRESH_NOT_SUPPORTED } };
       throw error;
-    }
-    const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
     }
     
     const response = await api.post('/auth/refresh', {
