@@ -99,8 +99,8 @@ export const AuthProvider = ({ children }) => {
       const response = await authService.login(xID, password);
       
       if (response.success) {
-        const userData = response.data;
-        setAuthFromProfile(userData);
+        // Login successful - tokens are stored by authService
+        // Caller should call fetchProfile() to hydrate user data
         return response;
       }
 
