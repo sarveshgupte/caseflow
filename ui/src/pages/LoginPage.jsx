@@ -67,6 +67,7 @@ export const LoginPage = () => {
         showSuccess('Signed in successfully.');
         
         // Await profile hydration before redirecting
+        // Note: login() already sets tokens, fetchProfile() will hydrate the user profile
         const profileResult = await fetchProfile();
         
         if (!profileResult.success) {
@@ -75,8 +76,7 @@ export const LoginPage = () => {
         }
         
         const userData = profileResult.data;
-        const isSuperAdmin = response.isSuperAdmin === true
-          || userData?.isSuperAdmin === true
+        const isSuperAdmin = userData?.isSuperAdmin === true
           || userData?.role === USER_ROLES.SUPER_ADMIN;
         // Check if user is Superadmin - redirect to superadmin dashboard
         if (isSuperAdmin) {

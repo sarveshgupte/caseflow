@@ -26,7 +26,7 @@ export const FirmLoginPage = () => {
   const [firmLoading, setFirmLoading] = useState(true);
   const [firmData, setFirmData] = useState(null);
 
-  const { setAuthFromProfile, fetchProfile } = useAuth();
+  const { fetchProfile } = useAuth();
   const { showSuccess } = useToast();
   const navigate = useNavigate();
 
@@ -120,10 +120,8 @@ export const FirmLoginPage = () => {
           localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
         }
 
-        // Set user data in context
-        setAuthFromProfile(userData);
-        
         // Await profile hydration before redirecting
+        // Note: tokens are now set, fetchProfile() will hydrate the user profile
         const profileResult = await fetchProfile();
         
         if (!profileResult.success) {
