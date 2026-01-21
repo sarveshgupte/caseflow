@@ -205,11 +205,11 @@ export const caseService = {
   /**
    * View attachment inline
    * Opens attachment in new tab
+   * Note: Authentication is handled by the backend via the token in cookies/headers
    */
   viewAttachment: (caseId, attachmentId) => {
-    const xID = localStorage.getItem(STORAGE_KEYS.X_ID);
     const apiBaseUrl = window.location.origin;
-    const url = `${apiBaseUrl}/api/cases/${caseId}/attachments/${attachmentId}/view?xID=${encodeURIComponent(xID)}`;
+    const url = `${apiBaseUrl}/api/cases/${caseId}/attachments/${attachmentId}/view`;
     
     // Open in new tab
     window.open(url, '_blank');

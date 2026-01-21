@@ -69,11 +69,12 @@ export const USER_ROLES = {
 };
 
 export const STORAGE_KEYS = {
-  X_ID: 'xID',
-  USER: 'user',
-  FIRM_SLUG: 'firmSlug',
   ACCESS_TOKEN: 'accessToken',
   REFRESH_TOKEN: 'refreshToken',
+  FIRM_SLUG: 'firmSlug',
+  // Deprecated - no longer used
+  X_ID: 'xID',
+  USER: 'user',
 };
 
 export const SESSION_KEYS = {

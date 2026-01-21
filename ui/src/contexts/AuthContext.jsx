@@ -1,5 +1,16 @@
 /**
  * Authentication Context
+ * 
+ * New Auth Contract (as of this PR):
+ * ===================================
+ * localStorage contains ONLY:
+ *   - STORAGE_KEYS.ACCESS_TOKEN
+ *   - STORAGE_KEYS.REFRESH_TOKEN  
+ *   - STORAGE_KEYS.FIRM_SLUG (optional, routing hint only)
+ * 
+ * User data is NEVER stored in localStorage.
+ * All user state is hydrated from /api/auth/profile on app mount.
+ * The API is the single source of truth for user identity.
  */
 
 import React, { createContext, useState, useCallback } from 'react';
