@@ -40,6 +40,7 @@ async function shouldPreferPlaintextWhenProvided() {
   process.env.SUPERADMIN_PASSWORD = plaintextPassword;
   process.env.SUPERADMIN_XID = 'XHASH01';
   process.env.SUPERADMIN_EMAIL = 'sa@hash.test';
+  process.env.SUPERADMIN_OBJECT_ID = '000000000000000000000001';
   process.env.JWT_SECRET = 'test-secret-hash-path';
 
   let compareCalled = false;
@@ -85,6 +86,7 @@ async function shouldReturn401WhenHashMismatch() {
   process.env.SUPERADMIN_PASSWORD_HASH = await bcrypt.hash(correctPassword, 10);
   process.env.SUPERADMIN_XID = 'XPLAIN1';
   process.env.SUPERADMIN_EMAIL = 'sa@plain.test';
+  process.env.SUPERADMIN_OBJECT_ID = '000000000000000000000001';
   process.env.JWT_SECRET = 'test-secret-plain-path';
 
   const originalCompare = bcrypt.compare;
@@ -121,6 +123,7 @@ function shouldFailValidationWhenNoSuperadminPassword() {
   process.env.MONGODB_URI = 'mongodb://localhost:27017/test-db';
   process.env.SUPERADMIN_XID = 'X999999';
   process.env.SUPERADMIN_EMAIL = 'sa@missing.test';
+  process.env.SUPERADMIN_OBJECT_ID = '000000000000000000000001';
   process.env.DISABLE_GOOGLE_AUTH = 'true';
 
   const silentLogger = { error: () => {}, warn: () => {}, log: () => {} };
@@ -139,6 +142,7 @@ function shouldPassValidationWithPlaintextPassword() {
   process.env.MONGODB_URI = 'mongodb://localhost:27017/test-db';
   process.env.SUPERADMIN_XID = 'X111111';
   process.env.SUPERADMIN_EMAIL = 'sa@plaintext.test';
+  process.env.SUPERADMIN_OBJECT_ID = '000000000000000000000001';
   process.env.DISABLE_GOOGLE_AUTH = 'true';
 
   const silentLogger = { error: () => {}, warn: () => {}, log: () => {} };

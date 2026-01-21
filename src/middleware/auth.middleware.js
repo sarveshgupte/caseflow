@@ -83,9 +83,10 @@ const authenticate = async (req, res, next) => {
     // ============================================================
     // SUPERADMIN TOKEN HANDLING (NO DATABASE LOOKUP)
     // ============================================================
-    // SuperAdmin tokens have role: 'SuperAdmin' or 'SUPERADMIN' and userId: 'SUPERADMIN'
+    // SuperAdmin tokens have role: 'SuperAdmin' or 'SUPERADMIN' and userId: SUPERADMIN_OBJECT_ID
     // They never have firmId or defaultClientId
-    if (decoded.userId === 'SUPERADMIN' && isSuperAdminRole(decoded.role)) {
+    const superadminObjectId = process.env.SUPERADMIN_OBJECT_ID?.trim();
+    if (decoded.userId === superadminObjectId && isSuperAdminRole(decoded.role)) {
       console.log('[AUTH][superadmin] SuperAdmin token authenticated');
       
       const normalizedRole = 'SuperAdmin';
@@ -97,7 +98,7 @@ const authenticate = async (req, res, next) => {
         xID: superadminXID,
         email: superadminEmail,
         role: normalizedRole,
-        _id: 'SUPERADMIN', // Pseudo ID for consistency
+        _id: superadminObjectId, // Static ObjectId keeps SuperAdmin env-backed but ObjectId-safe
         isActive: true,
         firmId: null,
         defaultClientId: null,
@@ -105,16 +106,16 @@ const authenticate = async (req, res, next) => {
       
       // Attach decoded JWT data
       req.jwt = {
-        userId: 'SUPERADMIN',
+        userId: superadminObjectId,
         role: decoded.role || normalizedRole,
         firmId: null,
         firmSlug: null,
         defaultClientId: null,
         isSuperAdmin: true,
       };
-      req.userId = 'SUPERADMIN';
+      req.userId = superadminObjectId;
       req.identity = {
-        userId: 'SUPERADMIN',
+        userId: superadminObjectId,
         firmId: null,
         role: normalizedRole,
       };

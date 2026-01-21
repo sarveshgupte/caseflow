@@ -24,6 +24,7 @@ async function shouldReturnSuperAdminProfile() {
   process.env.SUPERADMIN_XID = 'SATEST';
   process.env.SUPERADMIN_EMAIL = 'sa@test.com';
   process.env.SUPERADMIN_PASSWORD_HASH = hash;
+  process.env.SUPERADMIN_OBJECT_ID = '000000000000000000000001';
   process.env.JWT_SECRET = 'test-secret';
 
   // Track DB access - should NOT happen for SuperAdmin
@@ -46,7 +47,7 @@ async function shouldReturnSuperAdminProfile() {
     xID: 'SATEST',
     email: 'sa@test.com',
     role: 'SuperAdmin',
-    _id: 'SUPERADMIN',
+    _id: '000000000000000000000001',
     isActive: true,
     firmId: null,
     defaultClientId: null,
@@ -71,7 +72,7 @@ async function shouldReturnSuperAdminProfile() {
   const req = {
     user: superadminUser,
     jwt: {
-      userId: 'SUPERADMIN',
+      userId: '000000000000000000000001',
       role: 'SuperAdmin',
       firmId: null,
       firmSlug: null,
@@ -96,7 +97,7 @@ async function shouldReturnSuperAdminProfile() {
   assert.strictEqual(res.statusCode, undefined, 'Should return 200 (no explicit status set)');
   
   const profile = resBody.data || {};
-  assert.strictEqual(profile.id, 'superadmin', 'Profile id must be "superadmin"');
+  assert.strictEqual(profile.id, '000000000000000000000001', 'Profile id must match SUPERADMIN_OBJECT_ID');
   assert.strictEqual(profile.xID, 'SATEST', 'Profile xID must match env');
   assert.strictEqual(profile.email, 'sa@test.com', 'Profile email must match env');
   assert.strictEqual(profile.role, 'SuperAdmin', 'Profile role must be SuperAdmin');
@@ -113,37 +114,38 @@ async function shouldReturnSuperAdminProfile() {
 async function shouldDetectSuperAdminFromMultipleSignals() {
   process.env.SUPERADMIN_XID = 'SATEST';
   process.env.SUPERADMIN_EMAIL = 'sa@test.com';
+  process.env.SUPERADMIN_OBJECT_ID = '000000000000000000000001';
   process.env.JWT_SECRET = 'test-secret';
 
   const testCases = [
     {
       name: 'SuperAdmin role in user',
-      user: { role: 'SuperAdmin', _id: 'SUPERADMIN', firmId: null },
+      user: { role: 'SuperAdmin', _id: '000000000000000000000001', firmId: null },
       jwt: {},
     },
     {
       name: 'SUPERADMIN role in user',
-      user: { role: 'SUPERADMIN', _id: 'SUPERADMIN', firmId: null },
+      user: { role: 'SUPERADMIN', _id: '000000000000000000000001', firmId: null },
       jwt: {},
     },
     {
       name: 'SUPER_ADMIN role in user',
-      user: { role: 'SUPER_ADMIN', _id: 'SUPERADMIN', firmId: null },
+      user: { role: 'SUPER_ADMIN', _id: '000000000000000000000001', firmId: null },
       jwt: {},
     },
     {
       name: 'isSuperAdmin flag in JWT',
-      user: { role: 'SuperAdmin', _id: 'SUPERADMIN' },
+      user: { role: 'SuperAdmin', _id: '000000000000000000000001' },
       jwt: { isSuperAdmin: true },
     },
     {
       name: 'SUPERADMIN role in JWT',
-      user: { _id: 'SUPERADMIN' },
+      user: { _id: '000000000000000000000001' },
       jwt: { role: 'SUPERADMIN', isSuperAdmin: true },
     },
     {
       name: 'firmId null with SuperAdmin role',
-      user: { role: 'SuperAdmin', _id: 'SUPERADMIN', firmId: null },
+      user: { role: 'SuperAdmin', _id: '000000000000000000000001', firmId: null },
       jwt: { firmId: null },
     },
   ];
@@ -189,13 +191,14 @@ async function shouldDetectSuperAdminFromMultipleSignals() {
 async function shouldNotUseTransaction() {
   process.env.SUPERADMIN_XID = 'SATEST';
   process.env.SUPERADMIN_EMAIL = 'sa@test.com';
+  process.env.SUPERADMIN_OBJECT_ID = '000000000000000000000001';
   process.env.JWT_SECRET = 'test-secret';
 
   const superadminUser = {
     xID: 'SATEST',
     email: 'sa@test.com',
     role: 'SuperAdmin',
-    _id: 'SUPERADMIN',
+    _id: '000000000000000000000001',
     isActive: true,
     firmId: null,
     defaultClientId: null,
@@ -214,7 +217,7 @@ async function shouldNotUseTransaction() {
   const req = {
     user: superadminUser,
     jwt: {
-      userId: 'SUPERADMIN',
+      userId: '000000000000000000000001',
       role: 'SuperAdmin',
       isSuperAdmin: true,
     },

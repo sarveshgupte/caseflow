@@ -28,6 +28,7 @@ async function fullSuperAdminLoginProfileFlow() {
   process.env.SUPERADMIN_XID = 'SATEST';
   process.env.SUPERADMIN_EMAIL = 'sa@test.com';
   process.env.SUPERADMIN_PASSWORD_HASH = hash;
+  process.env.SUPERADMIN_OBJECT_ID = '000000000000000000000001';
   process.env.JWT_SECRET = 'test-secret';
 
   // Track that no DB lookups happen
@@ -102,7 +103,7 @@ async function fullSuperAdminLoginProfileFlow() {
 
   // Decode the access token to extract user data
   const decoded = jwtService.verifyAccessToken(loginResBody.accessToken);
-  assert.strictEqual(decoded.userId, 'SUPERADMIN', 'Token userId must be SUPERADMIN');
+  assert.strictEqual(decoded.userId, '000000000000000000000001', 'Token userId must be SUPERADMIN_OBJECT_ID');
   assert.strictEqual(decoded.role, 'SUPERADMIN', 'Token role must be SUPERADMIN');
   assert.strictEqual(decoded.firmId, null, 'Token firmId must be null');
   assert.strictEqual(decoded.isSuperAdmin, true, 'Token must flag isSuperAdmin');
@@ -115,7 +116,7 @@ async function fullSuperAdminLoginProfileFlow() {
     xID: 'SATEST',
     email: 'sa@test.com',
     role: 'SuperAdmin',
-    _id: 'SUPERADMIN',
+    _id: '000000000000000000000001',
     isActive: true,
     firmId: null,
     defaultClientId: null,
@@ -170,7 +171,7 @@ async function fullSuperAdminLoginProfileFlow() {
   assert.strictEqual(profileRes.statusCode, undefined, 'Profile should return 200 (no explicit status)');
 
   const profile = profileResBody.data || {};
-  assert.strictEqual(profile.id, 'superadmin', 'Profile id must be "superadmin"');
+  assert.strictEqual(profile.id, '000000000000000000000001', 'Profile id must match SUPERADMIN_OBJECT_ID');
   assert.strictEqual(profile.xID, 'SATEST', 'Profile xID must match env');
   assert.strictEqual(profile.email, 'sa@test.com', 'Profile email must match env');
   assert.strictEqual(profile.role, 'SUPERADMIN', 'Profile role must be SUPERADMIN');

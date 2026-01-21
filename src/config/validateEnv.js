@@ -6,6 +6,7 @@ const SUPERADMIN_XID_REGEX = new RegExp(`^X\\d{${XID_DIGITS}}$`, 'i');
 const MIN_JWT_SECRET_LENGTH = 12;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BCRYPT_HASH_REGEX = /^\$2[abxy]?\$\d{2}\$.+/;
+const MONGODB_OBJECTID_REGEX = /^[a-f0-9]{24}$/i;
 
 const logError = (logFn, details) => {
   (logFn || console.error)({ severity: 'ERROR', scope: 'env', ...details });
@@ -37,6 +38,13 @@ const validateEnv = ({ exitOnError = true, logger = console } = {}) => {
   const superadminEmail = process.env.SUPERADMIN_EMAIL;
   if (!superadminEmail || !EMAIL_REGEX.test(superadminEmail)) {
     errors.push({ field: 'SUPERADMIN_EMAIL', reason: 'missing or invalid format' });
+  }
+
+  const superadminObjectId = process.env.SUPERADMIN_OBJECT_ID;
+  if (!superadminObjectId) {
+    errors.push({ field: 'SUPERADMIN_OBJECT_ID', reason: 'missing (required to normalize SuperAdmin identity)' });
+  } else if (!MONGODB_OBJECTID_REGEX.test(superadminObjectId.trim())) {
+    errors.push({ field: 'SUPERADMIN_OBJECT_ID', reason: 'invalid format (expected 24-character hex ObjectId)' });
   }
 
   if (!config.mongodbUri || !config.mongodbUri.startsWith('mongodb')) {

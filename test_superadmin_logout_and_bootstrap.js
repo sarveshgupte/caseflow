@@ -13,6 +13,7 @@ const Firm = require('./src/models/Firm.model');
 const bootstrapService = require('./src/services/bootstrap.service');
 
 async function testSuperadminLogoutBypassesDbWrites() {
+  process.env.SUPERADMIN_OBJECT_ID = process.env.SUPERADMIN_OBJECT_ID || '000000000000000000000001';
   let refreshCalled = false;
   let auditCalled = false;
 
@@ -36,7 +37,7 @@ async function testSuperadminLogoutBypassesDbWrites() {
   };
 
   const req = {
-    user: { _id: 'SUPERADMIN', role: 'SUPER_ADMIN', xID: 'SUPERADMIN' },
+    user: { _id: '000000000000000000000001', role: 'SUPER_ADMIN', xID: 'SUPERADMIN' },
     ip: '127.0.0.1',
     get: () => 'test-agent',
   };

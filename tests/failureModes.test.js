@@ -21,6 +21,7 @@ const setBaseEnv = async () => {
   }
   process.env.SUPERADMIN_XID = process.env.SUPERADMIN_XID || 'X123456';
   process.env.SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || 'superadmin@test.com';
+  process.env.SUPERADMIN_OBJECT_ID = process.env.SUPERADMIN_OBJECT_ID || '000000000000000000000001';
   process.env.DISABLE_GOOGLE_AUTH = process.env.DISABLE_GOOGLE_AUTH || 'true';
 };
 

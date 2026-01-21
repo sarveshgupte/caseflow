@@ -20,6 +20,7 @@ async function shouldShortCircuitSuperadminLogin() {
   process.env.SUPERADMIN_XID = 'SATEST';
   process.env.SUPERADMIN_EMAIL = 'sa@test.com';
   process.env.SUPERADMIN_PASSWORD_HASH = hash;
+  process.env.SUPERADMIN_OBJECT_ID = '000000000000000000000001';
   process.env.JWT_SECRET = 'test-secret';
 
   let userLookupCalled = false;

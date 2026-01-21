@@ -34,7 +34,7 @@ const DEFAULT_FIRM_ID = 'PLATFORM'; // Default firmId for SUPER_ADMIN and audit 
 const DEFAULT_XID = 'SUPERADMIN'; // Default xID for SUPER_ADMIN in audit logs
 const GOOGLE_SCOPES = ['openid', 'email'];
 const GOOGLE_STATE_TTL_SECONDS = 10 * 60; // 10 minutes
-const SUPERADMIN_USER_ID = 'SUPERADMIN';
+const SUPERADMIN_USER_ID = () => process.env.SUPERADMIN_OBJECT_ID;
 const SUPERADMIN_ROLE = 'SUPERADMIN';
 const ROLE_SUPER_ADMIN = 'SUPER_ADMIN';
 const ROLE_ADMIN = 'Admin';
@@ -263,7 +263,7 @@ const login = async (req, res) => {
       console.log('[AUTH][superadmin] SuperAdmin login successful');
       
       const accessToken = jwtService.generateAccessToken({
-        userId: SUPERADMIN_USER_ID, // Special identifier (not a MongoDB _id)
+        userId: SUPERADMIN_USER_ID(),
         role: SUPERADMIN_ROLE,
         firmId: null,
         firmSlug: null,
@@ -279,7 +279,7 @@ const login = async (req, res) => {
         isSuperAdmin: true,
         refreshEnabled: false,
         data: {
-          id: 'superadmin',
+          id: SUPERADMIN_USER_ID(),
           xID: superadminXIDRaw || 'SUPERADMIN',
           email: superadminEmail,
           role: SUPERADMIN_ROLE,
@@ -726,11 +726,10 @@ const logout = async (req, res) => {
     const user = req.user;
     const userId = user?._id;
     const isSuperAdmin = isSuperAdminRole(user?.role);
-    const isValidUserId = mongoose.Types.ObjectId.isValid(userId);
-    const shouldBypassUserDbUpdates = isSuperAdmin || !isValidUserId;
+    const shouldBypassUserDbUpdates = isSuperAdmin;
     
-    // SUPERADMIN and other non-ObjectId principals don't have User documents
-    // Skip any userId-based DB writes to avoid CastError on logout
+    // SUPERADMIN doesn't have a User document
+    // Skip any userId-based DB writes to avoid unnecessary persistence
     if (!shouldBypassUserDbUpdates) {
       // Revoke all refresh tokens for this user
       await RefreshToken.updateMany(
@@ -1035,7 +1034,7 @@ const getProfile = async (req, res) => {
       return res.json({
         success: true,
         data: {
-          id: 'superadmin',
+          id: SUPERADMIN_USER_ID(),
           xID: superadminXIDRaw || 'SUPERADMIN',
           name: 'SuperAdmin',
           email: superadminEmail,

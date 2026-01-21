@@ -19,7 +19,7 @@ const { isFirmCreationDisabled } = require('../services/featureFlags.service');
  * 
  * Supports both human-performed and system-triggered actions:
  * - For human actions: provide performedById as MongoDB ObjectId
- * - For system actions: performedById can be "SUPERADMIN" string or null, 
+ * - For system actions: performedById can be null,
  *   and performedBySystem will be set to true automatically
  */
 const logSuperadminAction = async ({ actionType, description, performedBy, performedById, targetEntityType, targetEntityId, metadata = {}, req }) => {
@@ -27,10 +27,8 @@ const logSuperadminAction = async ({ actionType, description, performedBy, perfo
     // Determine if this is a system-triggered action
     // System actions are identified by:
     // 1. performedById is null/undefined
-    // 2. performedById is the string "SUPERADMIN" (from auth middleware for SuperAdmin user)
-    // 3. performedById is not a valid MongoDB ObjectId
-    const isSystemAction = !performedById || 
-                          performedById === 'SUPERADMIN' || 
+    // 2. performedById is not a valid MongoDB ObjectId
+    const isSystemAction = !performedById ||
                           (typeof performedById === 'string' && !mongoose.Types.ObjectId.isValid(performedById));
     
     // Build audit log entry
