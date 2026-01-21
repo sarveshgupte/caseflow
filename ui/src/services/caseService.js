@@ -44,7 +44,7 @@ export const caseService = {
    */
   addComment: async (caseId, commentText, userEmail) => {
     if (!userEmail) {
-      throw new Error('User email is required. Please ensure you are authenticated.');
+      throw new Error('User email is required to create comments. This should be provided by the caller.');
     }
     
     const response = await api.post(`/cases/${caseId}/comments`, {
@@ -60,7 +60,7 @@ export const caseService = {
    */
   addAttachment: async (caseId, file, description, userEmail) => {
     if (!userEmail) {
-      throw new Error('User email is required. Please ensure you are authenticated.');
+      throw new Error('User email is required to create attachments. This should be provided by the caller.');
     }
     
     const formData = new FormData();
