@@ -77,6 +77,33 @@
   margin-bottom: var(--spacing-md);
 }
 
+.dashboard__empty {
+  text-align: center;
+  padding: var(--spacing-2xl) var(--spacing-lg);
+}
+
+.dashboard__empty-icon {
+  font-size: 64px;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.5;
+}
+
+.dashboard__empty-title {
+  color: var(--text-main);
+  font-size: var(--font-size-lg);
+  font-weight: 500;
+  margin-bottom: var(--spacing-sm);
+}
+
+.dashboard__empty-description {
+  font-size: var(--font-size-base);
+  margin-bottom: var(--spacing-md);
+}
+
+.dashboard__empty-cta {
+  margin-top: var(--spacing-md);
+}
+
 @media (max-width: 768px) {
   .dashboard__stats {
     grid-template-columns: 1fr;
