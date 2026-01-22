@@ -62,15 +62,28 @@ export const PlatformDashboard = () => {
     try {
       setLoading(true);
       const response = await superadminService.getPlatformStats();
-      if (response?.success) {
-        setStats(response.data);
-      } else if (response?.degraded) {
-        setStats(response?.data || emptyStats);
-      } else if (!hasShownErrorRef.current) {
-        toast.error('Failed to load platform statistics');
-        hasShownErrorRef.current = true;
+      
+      // HTTP 304 means cached data is still valid - keep current state
+      if (response?.status !== 304) {
+        if (response?.success) {
+          const data = response.data || emptyStats;
+          if (!response.data) {
+            console.warn('PlatformDashboard: API returned success but no data, using emptyStats');
+          }
+          setStats(data);
+        } else if (response?.degraded) {
+          const data = response?.data || emptyStats;
+          if (!response.data) {
+            console.warn('PlatformDashboard: API returned degraded but no data, using emptyStats');
+          }
+          setStats(data);
+        } else if (!hasShownErrorRef.current) {
+          toast.error('Failed to load platform statistics');
+          hasShownErrorRef.current = true;
+        }
       }
     } catch (error) {
+      // Don't reset stats on error - preserve existing data
       if (!hasShownErrorRef.current) {
         toast.error('Failed to load platform statistics');
         hasShownErrorRef.current = true;
@@ -107,7 +120,9 @@ export const PlatformDashboard = () => {
             <div className="platform-metric-card__value">{stats.totalFirms}</div>
             <div className="platform-metric-card__label">Total Firms</div>
             <div className="platform-metric-card__subtext">
-              {stats.activeFirms} Active • {stats.inactiveFirms} Inactive
+              {stats.totalFirms === 0 
+                ? 'No firms exist yet. This is expected.' 
+                : `${stats.activeFirms} Active • ${stats.inactiveFirms} Inactive`}
             </div>
           </Card>
 
@@ -116,7 +131,9 @@ export const PlatformDashboard = () => {
             <div className="platform-metric-card__value">{stats.totalClients}</div>
             <div className="platform-metric-card__label">Total Clients</div>
             <div className="platform-metric-card__subtext">
-              Across all firms
+              {stats.totalClients === 0 
+                ? 'No clients yet. Create a firm to begin.' 
+                : 'Across all firms'}
             </div>
           </Card>
 
@@ -125,7 +142,9 @@ export const PlatformDashboard = () => {
             <div className="platform-metric-card__value">{stats.totalUsers}</div>
             <div className="platform-metric-card__label">Total Users</div>
             <div className="platform-metric-card__subtext">
-              Across all firms
+              {stats.totalUsers === 0 
+                ? 'No users yet. Create a firm to begin.' 
+                : 'Across all firms'}
             </div>
           </Card>
         </div>

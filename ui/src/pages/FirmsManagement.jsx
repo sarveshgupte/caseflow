@@ -52,16 +52,19 @@ export const FirmsManagement = () => {
     try {
       setLoading(true);
       const response = await superadminService.listFirms();
-      if (response?.status === 304) {
-        // 304 keeps the cached firms list; loading resets in finally.
-        return;
-      }
-      if (response?.success) {
-        setFirms(Array.isArray(response.data) ? response.data : []);
-      } else {
-        toast.error('Failed to load firms');
+      
+      // HTTP 304 means cached data is still valid - keep current state
+      if (response?.status !== 304) {
+        if (response?.success) {
+          setFirms(Array.isArray(response.data) ? response.data : []);
+        } else {
+          // Ensure UI can render with safe defaults even on API failure
+          setFirms([]);
+          toast.error('Failed to load firms');
+        }
       }
     } catch (error) {
+      // Don't reset firms on error - preserve existing data
       toast.error('Failed to load firms');
       console.error('Error loading firms:', error);
     } finally {
@@ -198,8 +201,8 @@ export const FirmsManagement = () => {
         {firms.length === 0 ? (
           <Card className="empty-state">
             <div className="empty-state__icon">🏢</div>
-            <h2>No firms yet</h2>
-            <p>Create your first firm to begin using Docketra.</p>
+            <h2>No firms exist yet</h2>
+            <p>This is expected for a new platform. Create your first firm to begin.</p>
             <Button onClick={() => setShowCreateModal(true)}>
               + Create Firm
             </Button>

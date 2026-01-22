@@ -78,20 +78,20 @@ export const LoginPage = () => {
         const userData = profileResult.data;
         const isSuperAdmin = userData?.isSuperAdmin === true
           || userData?.role === USER_ROLES.SUPER_ADMIN;
-        // Check if user is Superadmin - redirect to superadmin dashboard
+        // Check if user is Superadmin - redirect to superadmin dashboard only
         if (isSuperAdmin) {
           navigate('/superadmin', { replace: true });
           return;
+        }
+        
+        // Regular users go to firm-scoped dashboard
+        const firmSlug = userData?.firmSlug;
+        if (firmSlug) {
+          localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlug);
+          navigate(`/f/${firmSlug}/dashboard`, { replace: true });
         } else {
-          // Regular users go to firm-scoped dashboard
-          const firmSlug = userData?.firmSlug;
-          if (firmSlug) {
-            localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlug);
-            navigate(`/f/${firmSlug}/dashboard`, { replace: true });
-          } else {
-            // Fallback if firmSlug not available
-            setError('Unable to resolve your firm. Please contact your administrator.');
-          }
+          // Fallback if firmSlug not available
+          setError('Unable to resolve your firm. Please contact your administrator.');
         }
       }
     } catch (err) {
