@@ -166,7 +166,6 @@ export const CasesPage = () => {
                   <tr 
                     key={caseItem._id || caseItem.caseId} 
                     onClick={() => handleCaseClick(caseItem.caseId)}
-                    className="cases-page__table-row"
                   >
                     <td>{caseItem.caseName}</td>
                     <td>{caseItem.category}</td>

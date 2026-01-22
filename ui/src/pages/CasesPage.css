@@ -57,15 +57,6 @@
   border-color: var(--primary-600);
 }
 
-.cases-page__table-row {
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.cases-page__table-row:hover {
-  background-color: var(--bg-hover);
-}
-
 .cases-page__empty {
   text-align: center;
   padding: var(--spacing-2xl) var(--spacing-lg);
