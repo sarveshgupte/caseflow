@@ -44,6 +44,11 @@ export const isAccessTokenOnlySession = () => {
  * - Can access all system data across firms
  * - Use a separate routing namespace (/superadmin)
  * 
+ * Dual-check rationale:
+ * - role check is the canonical source of truth from the backend
+ * - isSuperAdmin boolean check provides backward compatibility
+ *   with older data structures or API responses
+ * 
  * @param {Object} user - User object from AuthContext
  * @returns {boolean} True if user is a SuperAdmin
  */
