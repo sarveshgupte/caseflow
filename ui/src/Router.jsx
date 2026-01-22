@@ -5,6 +5,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { RootRedirect } from './components/auth/RootRedirect';
 import { FirmLayout } from './components/routing/FirmLayout';
 import { DefaultRoute } from './components/routing/DefaultRoute';
 import { LoginPage } from './pages/LoginPage';
@@ -170,7 +171,7 @@ export const Router = () => {
               }
             />
           </Route>
-          <Route path="/" element={<DefaultRoute />} />
+          <Route path="/" element={<RootRedirect />} />
           <Route path="/:firmSlug/*" element={<LegacyFirmRedirect />} />
           <Route path="*" element={<DefaultRoute />} />
         </Routes>
