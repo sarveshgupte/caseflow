@@ -1,0 +1,105 @@
+/**
+ * Cases Page Styles
+ * PR 177: Core Case Management - Firm Cases List
+ */
+
+.cases-page {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.cases-page__header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.cases-page__header h1 {
+  color: var(--text-main);
+  font-size: var(--font-size-xl);
+  margin-bottom: var(--spacing-sm);
+  font-weight: 600;
+}
+
+.cases-page__filters {
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background-color: var(--bg-secondary);
+  border-radius: var(--border-radius-md);
+}
+
+.cases-page__filter-group {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.cases-page__filter-label {
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.cases-page__filter-select {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  background-color: white;
+  color: var(--text-main);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.cases-page__filter-select:hover {
+  border-color: var(--border-strong);
+}
+
+.cases-page__filter-select:focus {
+  outline: none;
+  border-color: var(--primary-600);
+}
+
+.cases-page__table-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cases-page__table-row:hover {
+  background-color: var(--bg-hover);
+}
+
+.cases-page__empty {
+  text-align: center;
+  padding: var(--spacing-2xl) var(--spacing-lg);
+}
+
+.cases-page__empty-icon {
+  font-size: 64px;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.5;
+}
+
+.cases-page__empty-title {
+  color: var(--text-main);
+  font-size: var(--font-size-lg);
+  font-weight: 500;
+  margin-bottom: var(--spacing-sm);
+}
+
+.cases-page__empty-description {
+  font-size: var(--font-size-base);
+  margin-bottom: var(--spacing-md);
+}
+
+.cases-page__empty-cta {
+  margin-top: var(--spacing-md);
+}
+
+@media (max-width: 768px) {
+  .cases-page__filters {
+    padding: var(--spacing-sm);
+  }
+  
+  .cases-page__filter-group {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
