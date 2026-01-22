@@ -19,6 +19,9 @@ import { authService } from '../services/authService';
 import { STORAGE_KEYS } from '../utils/constants';
 import { isSuperAdmin } from '../utils/authUtils';
 
+// Public routes that should trigger post-login redirects
+const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password', '/change-password', '/set-password'];
+
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
@@ -41,8 +44,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     // Don't redirect if we're on a public route (login, password reset, etc)
-    const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/change-password', '/set-password'];
-    const isOnPublicRoute = publicRoutes.some(route => location.pathname.startsWith(route)) || 
+    const isOnPublicRoute = PUBLIC_ROUTES.some(route => location.pathname.startsWith(route)) || 
                            location.pathname.match(/^\/f\/[^/]+\/login$/);
     
     if (!isOnPublicRoute) {
