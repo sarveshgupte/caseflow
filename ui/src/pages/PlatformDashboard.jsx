@@ -63,9 +63,9 @@ export const PlatformDashboard = () => {
       setLoading(true);
       const response = await superadminService.getPlatformStats();
       // HTTP 304 means cached data is still valid - keep current state
-      if (response?.status === 304) {
-        // Do nothing - keep existing stats
-      } else if (response?.success) {
+      if (response?.status === 304) return;
+      
+      if (response?.success) {
         setStats(response.data || emptyStats);
       } else if (response?.degraded) {
         setStats(response?.data || emptyStats);
