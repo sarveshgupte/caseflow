@@ -19,7 +19,7 @@ const setAccessToast = (message) => {
 };
 
 export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadmin = false }) => {
-  const { isAuthenticated, loading, user } = useAuth();
+  const { isAuthenticated, loading, user, isHydrating } = useAuth();
   const { isAdmin, isSuperadmin } = usePermissions();
   const { firmSlug } = useParams();
   const storedFirmSlug = localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
@@ -34,7 +34,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadm
     console.warn(`[TENANCY] Attempted cross-firm access blocked in UI. User firm="${user.firmSlug}", requested firm="${firmSlug}"`);
   }
 
-  if (loading) {
+  if (loading || isHydrating) {
     return <Loading message="Checking access..." />;
   }
 

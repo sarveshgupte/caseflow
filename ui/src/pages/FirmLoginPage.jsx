@@ -26,7 +26,7 @@ export const FirmLoginPage = () => {
   const [firmLoading, setFirmLoading] = useState(true);
   const [firmData, setFirmData] = useState(null);
 
-  const { setAuthFromProfile } = useAuth();
+  const { fetchProfile } = useAuth();
   const { showSuccess } = useToast();
   const navigate = useNavigate();
 
@@ -120,20 +120,29 @@ export const FirmLoginPage = () => {
           localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
         }
 
+        // Await profile hydration before redirecting
+        // Note: tokens are now set, fetchProfile() will hydrate the user profile
+        const profileResult = await fetchProfile();
+        
+        if (!profileResult.success) {
+          setError('Login succeeded but profile hydration failed. Please try again.');
+          return;
+        }
+
+        const hydratedUserData = profileResult.data;
+
         // Check if user is Superadmin (shouldn't happen via firm login, but check anyway)
-        if (userData.role === USER_ROLES.SUPER_ADMIN) {
+        if (hydratedUserData.role === USER_ROLES.SUPER_ADMIN) {
           localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
-          setAuthFromProfile(userData);
           showSuccess('Signed in successfully.');
           navigate('/superadmin');
         } else {
           // Regular users go to firm-scoped dashboard
           // Use firmSlug from backend response if available, fallback to URL firmSlug
-          const userFirmSlug = userData.firmSlug || firmSlug;
+          const userFirmSlug = hydratedUserData.firmSlug || firmSlug;
           if (userFirmSlug) {
             localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, userFirmSlug);
           }
-          setAuthFromProfile(userData);
           showSuccess('Signed in successfully.');
           
           // Immediately navigate - do NOT poll profile or retry

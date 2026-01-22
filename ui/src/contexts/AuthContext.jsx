@@ -23,6 +23,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(false);
   const clearAuthStorage = useCallback((firmSlugToPreserve = null) => {
     localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
@@ -63,6 +64,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
+    setIsHydrating(true);
     try {
       const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
       if (!accessToken) {
@@ -88,6 +90,7 @@ export const AuthProvider = ({ children }) => {
       return { success: false, data: null, error: err };
     } finally {
       setLoading(false);
+      setIsHydrating(false);
     }
   }, [resetAuthState, setAuthFromProfile]);
 
@@ -96,8 +99,8 @@ export const AuthProvider = ({ children }) => {
       const response = await authService.login(xID, password);
       
       if (response.success) {
-        const userData = response.data;
-        setAuthFromProfile(userData);
+        // Login successful - tokens are stored by authService
+        // Caller should call fetchProfile() to hydrate user data
         return response;
       }
 
@@ -147,6 +150,7 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     isAuthenticated,
+    isHydrating,
     login,
     logout,
     fetchProfile,

@@ -20,7 +20,7 @@ export const LoginPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { login, user, isAuthenticated } = useAuth();
+  const { login, user, isAuthenticated, fetchProfile } = useAuth();
   const { isSuperadmin } = usePermissions();
   const { showSuccess } = useToast();
   const navigate = useNavigate();
@@ -65,9 +65,18 @@ export const LoginPage = () => {
 
       if (response.success) {
         showSuccess('Signed in successfully.');
-        const userData = response.data;
-        const isSuperAdmin = response.isSuperAdmin === true
-          || userData?.isSuperAdmin === true
+        
+        // Await profile hydration before redirecting
+        // Note: login() already sets tokens, fetchProfile() will hydrate the user profile
+        const profileResult = await fetchProfile();
+        
+        if (!profileResult.success) {
+          setError('Login succeeded but profile hydration failed. Please try again.');
+          return;
+        }
+        
+        const userData = profileResult.data;
+        const isSuperAdmin = userData?.isSuperAdmin === true
           || userData?.role === USER_ROLES.SUPER_ADMIN;
         // Check if user is Superadmin - redirect to superadmin dashboard
         if (isSuperAdmin) {
