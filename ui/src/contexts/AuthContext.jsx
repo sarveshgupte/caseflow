@@ -72,6 +72,24 @@ export const AuthProvider = ({ children }) => {
     }
   }, [isAuthenticated, user, isHydrating, navigate, location.pathname]);
 
+  /**
+   * Boot-time hydration effect.
+   * Runs once on mount to auto-hydrate auth state when a valid token exists.
+   * This ensures isHydrating always eventually becomes false.
+   */
+  useEffect(() => {
+    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+    // If token exists and user is not loaded, trigger hydration
+    if (token && !user) {
+      fetchProfile();
+      return;
+    }
+
+    // No token → mark hydration complete immediately
+    setIsHydrating(false);
+  }, []); // Run once on mount, eslint-disable-next-line react-hooks/exhaustive-deps
+
   const clearAuthStorage = useCallback((firmSlugToPreserve = null) => {
     localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
