@@ -57,6 +57,20 @@
   border-color: var(--primary-600);
 }
 
+.cases-page__error {
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: var(--border-radius-sm);
+  color: #856404;
+}
+
+.cases-page__error p {
+  margin: 0;
+  font-size: var(--font-size-base);
+}
+
 .cases-page__empty {
   text-align: center;
   padding: var(--spacing-2xl) var(--spacing-lg);

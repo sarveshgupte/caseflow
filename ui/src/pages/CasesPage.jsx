@@ -34,9 +34,18 @@ export const CasesPage = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [error, setError] = useState(null);
 
+  // Helper to normalize case identifiers
+  const normalizeCases = (cases = []) =>
+    cases.map(c => ({
+      ...c,
+      caseId: c.caseId || c._id
+    }));
+
   useEffect(() => {
-    loadCases();
-  }, []);
+    if (user) {
+      loadCases();
+    }
+  }, [user, isAdmin]);
 
   useEffect(() => {
     // Apply client-side filtering
@@ -67,7 +76,7 @@ export const CasesPage = () => {
         }
       }
       
-      setCases(casesData);
+      setCases(normalizeCases(casesData));
     } catch (err) {
       console.error('Failed to load cases:', err);
       setError(err);
@@ -115,11 +124,17 @@ export const CasesPage = () => {
             >
               <option value="ALL">All</option>
               <option value={CASE_STATUS.OPEN}>OPEN</option>
-              {isAdmin && <option value={CASE_STATUS.UNASSIGNED}>UNASSIGNED</option>}
               <option value={CASE_STATUS.RESOLVED}>RESOLVED</option>
             </select>
           </div>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="cases-page__error" role="alert">
+            <p>⚠️ Failed to load cases. Please try refreshing the page.</p>
+          </div>
+        )}
 
         {/* Cases Table */}
         <Card>
@@ -164,8 +179,12 @@ export const CasesPage = () => {
               <tbody>
                 {filteredCases.map((caseItem) => (
                   <tr 
-                    key={caseItem._id || caseItem.caseId} 
+                    key={caseItem.caseId} 
                     onClick={() => handleCaseClick(caseItem.caseId)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCaseClick(caseItem.caseId);
+                    }}
+                    tabIndex={0}
                   >
                     <td>{caseItem.caseName}</td>
                     <td>{caseItem.category}</td>
