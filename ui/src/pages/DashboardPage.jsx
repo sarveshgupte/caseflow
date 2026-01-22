@@ -75,22 +75,52 @@ export const DashboardPage = () => {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
+      // Fetch cases based on user role
+      // - Admins: Get recent firm cases (all statuses)
+      // - Regular users: Get their assigned cases from worklist
+      let casesToDisplay = [];
+      
+      if (isAdmin) {
+        // Admin view: Fetch recent firm cases (limit 5 for dashboard)
+        try {
+          const casesResponse = await caseService.getCases({});
+          if (casesResponse.success) {
+            casesToDisplay = (casesResponse.data || []).slice(0, 5);
+          }
+        } catch (error) {
+          console.error('Failed to load firm cases:', error);
+          // Continue with empty list
+        }
+      } else {
+        // Regular user view: Get assigned cases from worklist
+        try {
+          const worklistResponse = await worklistService.getEmployeeWorklist();
+          if (worklistResponse.success) {
+            casesToDisplay = (worklistResponse.data || []).slice(0, 5);
+          }
+        } catch (error) {
+          console.error('Failed to load worklist:', error);
+          // Continue with empty list
+        }
+      }
+      
+      setRecentCases(casesToDisplay);
+      
       // Get My Open Cases count - CANONICAL QUERY (matches My Worklist exactly)
       // Query: assignedToXID = userXID AND status = OPEN
       // PR: Hard Cutover to xID - Removed email parameter, uses auth token
-      const worklistResponse = await worklistService.getEmployeeWorklist();
-      
-      if (worklistResponse.success) {
-        const openCases = worklistResponse.data || [];
-        
-        // My Open Cases = all cases from worklist (which only shows OPEN cases)
-        setStats((prev) => ({
-          ...prev,
-          myOpenCases: openCases.length,
-        }));
-        
-        // Set recent cases (first 5 from worklist)
-        setRecentCases(openCases.slice(0, 5));
+      try {
+        const worklistResponse = await worklistService.getEmployeeWorklist();
+        if (worklistResponse.success) {
+          const openCases = worklistResponse.data || [];
+          setStats((prev) => ({
+            ...prev,
+            myOpenCases: openCases.length,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load open cases count:', error);
+        // Non-critical, continue
       }
       
       // Get My Pending Cases count
@@ -317,10 +347,30 @@ export const DashboardPage = () => {
           )}
         </div>
 
-        {recentCases.length > 0 && (
-          <div className="dashboard__section">
-            <h2 className="dashboard__section-title">Recently Accessed Cases</h2>
-            <Card>
+        {/* Cases List Section */}
+        <div className="dashboard__section">
+          <h2 className="dashboard__section-title">
+            {isAdmin ? 'Recent Firm Cases' : 'Your Recent Cases'}
+          </h2>
+          <Card>
+            {recentCases.length === 0 ? (
+              <div className="dashboard__empty">
+                <div className="dashboard__empty-icon">📋</div>
+                <h3 className="dashboard__empty-title">No cases yet</h3>
+                <p className="dashboard__empty-description text-secondary">
+                  {isAdmin 
+                    ? 'Your firm has no cases yet. Create the first one to get started.' 
+                    : 'You have no assigned cases yet. Check the global worklist or create a new case.'}
+                </p>
+                <button 
+                  className="neo-btn neo-btn--primary"
+                  onClick={() => navigate(`/f/${firmSlug}/cases/create`)}
+                  style={{ marginTop: '1rem' }}
+                >
+                  {isAdmin ? 'Create Your First Case' : 'Create a Case'}
+                </button>
+              </div>
+            ) : (
               <table className="neo-table">
                 <thead>
                   <tr>
@@ -343,9 +393,9 @@ export const DashboardPage = () => {
                   ))}
                 </tbody>
               </table>
-            </Card>
-          </div>
-        )}
+            )}
+          </Card>
+        </div>
       </div>
 
       {/* Bookmark Prompt Modal */}
