@@ -42,7 +42,8 @@ export const AuthProvider = ({ children }) => {
 
     // Don't redirect if we're on a public route (login, password reset, etc)
     const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/change-password', '/set-password'];
-    const isOnPublicRoute = publicRoutes.some(route => location.pathname.startsWith(route));
+    const isOnPublicRoute = publicRoutes.some(route => location.pathname.startsWith(route)) || 
+                           location.pathname.match(/^\/f\/[^/]+\/login$/);
     
     if (!isOnPublicRoute) {
       // Not on a public route, so we don't need to redirect

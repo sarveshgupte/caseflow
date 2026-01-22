@@ -11,7 +11,7 @@ import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { validateXID, validatePassword } from '../utils/validators';
-import { API_BASE_URL, USER_ROLES, ERROR_CODES, STORAGE_KEYS } from '../utils/constants';
+import { API_BASE_URL, ERROR_CODES, STORAGE_KEYS } from '../utils/constants';
 import { isAccessTokenOnlyUser } from '../utils/authUtils';
 import api from '../services/api';
 import { useToast } from '../hooks/useToast';
@@ -120,34 +120,13 @@ export const FirmLoginPage = () => {
           localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
         }
 
-        // Await profile hydration before redirecting
-        // Note: tokens are now set, fetchProfile() will hydrate the user profile
-        const profileResult = await fetchProfile();
+        // Trigger profile hydration - AuthContext will handle post-login routing
+        // after hydration completes
+        await fetchProfile();
         
-        if (!profileResult.success) {
-          setError('Login succeeded but profile hydration failed. Please try again.');
-          return;
-        }
-
-        const hydratedUserData = profileResult.data;
-
-        // Check if user is Superadmin (shouldn't happen via firm login, but check anyway)
-        if (hydratedUserData.role === USER_ROLES.SUPER_ADMIN) {
-          localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
-          showSuccess('Signed in successfully.');
-          navigate('/superadmin');
-        } else {
-          // Regular users go to firm-scoped dashboard
-          // Use firmSlug from backend response if available, fallback to URL firmSlug
-          const userFirmSlug = hydratedUserData.firmSlug || firmSlug;
-          if (userFirmSlug) {
-            localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, userFirmSlug);
-          }
-          showSuccess('Signed in successfully.');
-          
-          // Immediately navigate - do NOT poll profile or retry
-          navigate(`/f/${userFirmSlug}/dashboard`);
-        }
+        showSuccess('Signed in successfully.');
+        
+        // Do not navigate here - let AuthContext handle routing after hydration
       }
     } catch (err) {
       const errorData = err.response?.data;
