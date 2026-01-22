@@ -2,16 +2,13 @@
  * Login Page
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Card } from '../components/common/Card';
 import { validateXID, validatePassword } from '../utils/validators';
-import { STORAGE_KEYS, USER_ROLES } from '../utils/constants';
-import { isSuperAdmin } from '../utils/authUtils';
-import { usePermissions } from '../hooks/usePermissions';
 import { useToast } from '../hooks/useToast';
 import './LoginPage.css';
 
@@ -21,8 +18,7 @@ export const LoginPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { login, user, isAuthenticated, fetchProfile } = useAuth();
-  const { isSuperadmin } = usePermissions();
+  const { login, fetchProfile } = useAuth();
   const { showSuccess } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -30,19 +26,6 @@ export const LoginPage = () => {
   // Get success message from location state if present
   const successMessage = location.state?.message;
   const messageType = location.state?.messageType;
-
-  useEffect(() => {
-    const storedFirmSlug = localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
-
-    if (isAuthenticated && !isSuperadmin) {
-      const targetFirmSlug = user?.firmSlug || storedFirmSlug;
-      if (targetFirmSlug) {
-        navigate(`/f/${targetFirmSlug}/dashboard`, { replace: true });
-      }
-    } else if (!isSuperadmin && storedFirmSlug) {
-      navigate(`/f/${storedFirmSlug}/login`, { replace: true });
-    }
-  }, [isAuthenticated, isSuperadmin, navigate, user]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -67,35 +50,11 @@ export const LoginPage = () => {
       if (response.success) {
         showSuccess('Signed in successfully.');
         
-        // Await profile hydration before redirecting
-        // Note: login() already sets tokens, fetchProfile() will hydrate the user profile
-        const profileResult = await fetchProfile();
+        // Trigger profile hydration - AuthContext will handle post-login routing
+        // after hydration completes
+        await fetchProfile();
         
-        if (!profileResult.success) {
-          setError('Login succeeded but profile hydration failed. Please try again.');
-          return;
-        }
-        
-        const userData = profileResult.data;
-        const isSuperAdminUser = isSuperAdmin(userData);
-        
-        // Route user to appropriate dashboard based on role
-        if (isSuperAdminUser) {
-          // SuperAdmin users access system-wide data
-          navigate('/superadmin', { replace: true });
-          return;
-        }
-        
-        // Firm users go to firm-scoped dashboard
-        const firmSlug = userData?.firmSlug;
-        if (firmSlug) {
-          localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlug);
-          navigate(`/f/${firmSlug}/dashboard`, { replace: true });
-        } else {
-          // Safe fallback: Redirect to login if role is unrecognized or missing firm context
-          setError('Unable to resolve your firm. Please contact your administrator.');
-          navigate('/login', { replace: true });
-        }
+        // Do not navigate here - let AuthContext handle routing after hydration
       }
     } catch (err) {
       const errorData = err.response?.data;

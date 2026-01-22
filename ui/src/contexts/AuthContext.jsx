@@ -13,9 +13,14 @@
  * The API is the single source of truth for user identity.
  */
 
-import React, { createContext, useState, useCallback } from 'react';
+import React, { createContext, useState, useCallback, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { STORAGE_KEYS } from '../utils/constants';
+import { isSuperAdmin } from '../utils/authUtils';
+
+// Public routes that should trigger post-login redirects
+const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password', '/change-password', '/set-password'];
 
 export const AuthContext = createContext(null);
 
@@ -24,6 +29,49 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isHydrating, setIsHydrating] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  /**
+   * Post-login redirect logic - runs only after auth hydration completes.
+   * This is the SINGLE place that handles routing after successful login.
+   * LoginPage does NOT control routing.
+   */
+  useEffect(() => {
+    // Only redirect after hydration completes and user is authenticated
+    if (isHydrating || !isAuthenticated || !user) {
+      return;
+    }
+
+    // Don't redirect if we're on a public route (login, password reset, etc)
+    const isOnPublicRoute = PUBLIC_ROUTES.some(route => location.pathname.startsWith(route)) || 
+                           location.pathname.match(/^\/f\/[^/]+\/login$/);
+    
+    if (!isOnPublicRoute) {
+      // Not on a public route, so we don't need to redirect
+      return;
+    }
+
+    // Determine target route based on user role
+    if (isSuperAdmin(user)) {
+      // Prevent redirect loop
+      if (location.pathname !== '/superadmin') {
+        navigate('/superadmin', { replace: true });
+      }
+      return;
+    }
+
+    // Firm users - redirect to their firm dashboard
+    if (user.firmSlug) {
+      const targetPath = `/f/${user.firmSlug}/dashboard`;
+      // Prevent redirect loop
+      if (location.pathname !== targetPath) {
+        navigate(targetPath, { replace: true });
+      }
+      return;
+    }
+  }, [isAuthenticated, user, isHydrating, navigate, location.pathname]);
+
   const clearAuthStorage = useCallback((firmSlugToPreserve = null) => {
     localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
