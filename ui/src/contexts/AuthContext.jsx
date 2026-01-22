@@ -13,7 +13,7 @@
  * The API is the single source of truth for user identity.
  */
 
-import React, { createContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { STORAGE_KEYS } from '../utils/constants';
@@ -28,9 +28,10 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isHydrating, setIsHydrating] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(true); // Start true, boot effect will resolve it
   const navigate = useNavigate();
   const location = useLocation();
+  const bootHydrationAttemptedRef = useRef(false); // Guard against unintended re-runs
 
   /**
    * Post-login redirect logic - runs only after auth hydration completes.
@@ -71,6 +72,38 @@ export const AuthProvider = ({ children }) => {
       return;
     }
   }, [isAuthenticated, user, isHydrating, navigate, location.pathname]);
+
+  /**
+   * Boot-time hydration effect.
+   * Runs ONCE on mount to auto-hydrate auth state when a valid token exists.
+   * This ensures isHydrating always eventually becomes false.
+   * 
+   * Uses both empty dependency array AND ref guard for maximum clarity:
+   * - Empty deps ensures React doesn't re-run on state changes
+   * - Ref guard provides additional safety against unintended re-runs
+   * - `user` is always `null` on initial mount (checked in condition)
+   * - `fetchProfile` is stable (useCallback) and doesn't need to trigger re-runs
+   * - We specifically want boot-time hydration only, not reactive hydration
+   */
+  useEffect(() => {
+    // Guard: only run once on initial mount
+    if (bootHydrationAttemptedRef.current) {
+      return;
+    }
+    bootHydrationAttemptedRef.current = true;
+
+    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+    // If token exists and user is not loaded, trigger hydration
+    if (token && !user) {
+      fetchProfile();
+      return;
+    }
+
+    // No token → mark hydration complete immediately
+    setIsHydrating(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const clearAuthStorage = useCallback((firmSlugToPreserve = null) => {
     localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
