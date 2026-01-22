@@ -78,8 +78,16 @@ export const LoginPage = () => {
         const userData = profileResult.data;
         const isSuperAdmin = userData?.isSuperAdmin === true
           || userData?.role === USER_ROLES.SUPER_ADMIN;
+        
+        console.log('[LoginPage] Post-login redirect decision:', {
+          role: userData?.role,
+          isSuperAdmin,
+          firmSlug: userData?.firmSlug
+        });
+        
         // Check if user is Superadmin - redirect to superadmin dashboard only
         if (isSuperAdmin) {
+          console.log('[LoginPage] Redirecting SuperAdmin to /superadmin');
           navigate('/superadmin', { replace: true });
           return;
         }
@@ -87,6 +95,7 @@ export const LoginPage = () => {
         // Regular users go to firm-scoped dashboard
         const firmSlug = userData?.firmSlug;
         if (firmSlug) {
+          console.log(`[LoginPage] Redirecting to firm dashboard: /f/${firmSlug}/dashboard`);
           localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlug);
           navigate(`/f/${firmSlug}/dashboard`, { replace: true });
         } else {

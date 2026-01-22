@@ -59,7 +59,15 @@ export const AuthProvider = ({ children }) => {
 
     // Set user state from API data only (never from localStorage)
     setUser(userData);
-    setIsAuthenticated(userData?.isSuperAdmin === true || !!userData?.firmSlug);
+    // SuperAdmin users don't have firmSlug, so check for user existence and role
+    const isAuth = !!userData && !!userData.role;
+    console.log('[AuthContext] setAuthFromProfile:', {
+      role: userData?.role,
+      isSuperAdmin: userData?.isSuperAdmin,
+      firmSlug: userData?.firmSlug,
+      isAuthenticated: isAuth
+    });
+    setIsAuthenticated(isAuth);
   }, []);
 
   const fetchProfile = useCallback(async () => {
@@ -141,7 +149,15 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, mergedUser.firmSlug);
       }
 
-      setIsAuthenticated(mergedUser?.isSuperAdmin === true || !!mergedUser?.firmSlug);
+      // SuperAdmin users don't have firmSlug, so check for user existence and role
+      const isAuth = !!mergedUser && !!mergedUser.role;
+      console.log('[AuthContext] updateUser:', {
+        role: mergedUser?.role,
+        isSuperAdmin: mergedUser?.isSuperAdmin,
+        firmSlug: mergedUser?.firmSlug,
+        isAuthenticated: isAuth
+      });
+      setIsAuthenticated(isAuth);
       return mergedUser;
     });
   };

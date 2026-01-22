@@ -38,7 +38,17 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadm
     return <Loading message="Checking access..." />;
   }
 
+  console.log('[ProtectedRoute] Auth check:', {
+    isAuthenticated,
+    role: user?.role,
+    isSuperAdmin: isSuperAdminUser,
+    firmSlug: effectiveFirmSlug,
+    requireSuperadmin,
+    requireAdmin
+  });
+
   if (!isAuthenticated) {
+    console.log('[ProtectedRoute] Not authenticated - redirecting to login');
     const hadSession = !!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     if (hadSession) {
       sessionStorage.setItem(SESSION_KEYS.GLOBAL_TOAST, JSON.stringify({
@@ -51,6 +61,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadm
 
   // Authenticated users must have firm context unless they are SuperAdmin.
   if (!effectiveFirmSlug && !isSuperAdminUser) {
+    console.log('[ProtectedRoute] No firm context and not SuperAdmin - redirecting to login');
     return <Navigate to="/login" replace />;
   }
 
