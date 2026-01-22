@@ -52,8 +52,10 @@ export const FirmsManagement = () => {
     try {
       setLoading(true);
       const response = await superadminService.listFirms();
-      // Treat HTTP 304 as success (cached data)
-      if (response?.success || response?.status === 304) {
+      // HTTP 304 means cached data is still valid - keep current state
+      if (response?.status === 304) {
+        // Do nothing - keep existing firms
+      } else if (response?.success) {
         setFirms(Array.isArray(response.data) ? response.data : []);
       } else {
         // Never block navigation - use empty array
