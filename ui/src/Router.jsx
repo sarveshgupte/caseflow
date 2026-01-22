@@ -26,6 +26,7 @@ import { FirmsManagement } from './pages/FirmsManagement';
 import { ReportsDashboard } from './pages/reports/ReportsDashboard';
 import { DetailedReports } from './pages/reports/DetailedReports';
 import { FilteredCasesPage } from './pages/FilteredCasesPage';
+import { CasesPage } from './pages/CasesPage';
 import { GoogleCallbackPage } from './pages/GoogleCallbackPage';
 
 const LegacyFirmRedirect = () => {
@@ -118,8 +119,8 @@ export const Router = () => {
             <Route
               path="cases"
               element={
-                <ProtectedRoute requireAdmin>
-                  <FilteredCasesPage />
+                <ProtectedRoute>
+                  <CasesPage />
                 </ProtectedRoute>
               }
             />
