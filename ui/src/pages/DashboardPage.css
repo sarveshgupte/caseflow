@@ -100,6 +100,10 @@
   margin-bottom: var(--spacing-md);
 }
 
+.dashboard__empty-cta {
+  margin-top: var(--spacing-md);
+}
+
 @media (max-width: 768px) {
   .dashboard__stats {
     grid-template-columns: 1fr;

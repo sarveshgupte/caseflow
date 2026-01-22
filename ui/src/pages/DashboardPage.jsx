@@ -83,7 +83,7 @@ export const DashboardPage = () => {
       if (isAdmin) {
         // Admin view: Fetch recent firm cases (limit 5 for dashboard)
         try {
-          const casesResponse = await caseService.getCases({});
+          const casesResponse = await caseService.getCases({ limit: 5 });
           if (casesResponse.success) {
             casesToDisplay = (casesResponse.data || []).slice(0, 5);
           }
@@ -355,7 +355,9 @@ export const DashboardPage = () => {
           <Card>
             {recentCases.length === 0 ? (
               <div className="dashboard__empty">
-                <div className="dashboard__empty-icon">📋</div>
+                <div className="dashboard__empty-icon" role="img" aria-label="Document icon">
+                  📋
+                </div>
                 <h3 className="dashboard__empty-title">No cases yet</h3>
                 <p className="dashboard__empty-description text-secondary">
                   {isAdmin 
@@ -363,9 +365,8 @@ export const DashboardPage = () => {
                     : 'You have no assigned cases yet. Check the global worklist or create a new case.'}
                 </p>
                 <button 
-                  className="neo-btn neo-btn--primary"
+                  className="neo-btn neo-btn--primary dashboard__empty-cta"
                   onClick={() => navigate(`/f/${firmSlug}/cases/create`)}
-                  style={{ marginTop: '1rem' }}
                 >
                   {isAdmin ? 'Create Your First Case' : 'Create a Case'}
                 </button>
