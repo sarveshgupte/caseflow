@@ -16,7 +16,7 @@ This UI implements a professional, enterprise-grade neomorphic design system:
 ### Prerequisites
 
 - Node.js 14+ and npm/yarn
-- Docketra backend running on http://localhost:3000
+- Docketra backend running on http://localhost:5000
 
 ### Installation
 
@@ -37,7 +37,7 @@ This UI implements a professional, enterprise-grade neomorphic design system:
    
    Edit `.env` if your backend runs on a different URL:
    ```
-   VITE_API_BASE_URL=http://localhost:3000/api
+   VITE_API_URL=http://localhost:5000/api
    ```
 
 4. **Start the development server**
@@ -149,7 +149,7 @@ The UI strictly follows neomorphic design principles:
 ## 🔒 Backend Integration
 
 ### API Base URL
-Configurable via `VITE_API_BASE_URL` environment variable (default: `http://localhost:3000/api`)
+Configurable via `VITE_API_URL` environment variable. If not set, defaults to `/api` (relative path), which works in production when backend serves the frontend.
 
 ### Authentication
 - xID stored in localStorage
@@ -171,7 +171,7 @@ Configurable via `VITE_API_BASE_URL` environment variable (default: `http://loca
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `VITE_API_BASE_URL` | Backend API base URL | `http://localhost:3000/api` |
+| `VITE_API_URL` | Backend API base URL (optional) | `/api` (relative path) |
 
 ## 🚫 Non-Negotiable Rules (Backend Compliance)
 

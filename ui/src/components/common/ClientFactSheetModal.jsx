@@ -10,6 +10,7 @@
 
 import React from 'react';
 import { Modal } from './Modal';
+import { API_BASE_URL } from '../../utils/constants';
 import './ClientFactSheetModal.css';
 
 export const ClientFactSheetModal = ({ isOpen, onClose, factSheet, caseId }) => {
@@ -17,8 +18,8 @@ export const ClientFactSheetModal = ({ isOpen, onClose, factSheet, caseId }) => 
 
   const handleViewFile = (fileId) => {
     // Open file in new tab for viewing (no download)
-    const apiUrl = import.meta.env.VITE_API_URL || '';
-    const viewUrl = `${apiUrl}/api/cases/${caseId}/client-fact-sheet/files/${fileId}/view`;
+    // Use centralized API_BASE_URL from constants
+    const viewUrl = `${API_BASE_URL}/cases/${caseId}/client-fact-sheet/files/${fileId}/view`;
     window.open(viewUrl, '_blank');
   };
 

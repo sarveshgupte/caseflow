@@ -4,15 +4,12 @@
 
 export const APP_NAME = 'Docketra';
 
-const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
-const isAbsoluteUrl = /^https?:\/\//i.test(rawApiBaseUrl);
-const origin = typeof window !== 'undefined' && window.location?.origin
-  ? window.location.origin
-  : '';
+// Use VITE_API_URL if defined, otherwise fall back to relative path '/api'
+// In production (deployed), this ensures requests go to the correct relative URL
+// In development, vite.config.js proxy will forward /api to localhost:5000
+const rawApiBaseUrl = import.meta.env.VITE_API_URL || '/api';
 
-export const API_BASE_URL = isAbsoluteUrl
-  ? rawApiBaseUrl
-  : `${origin}${rawApiBaseUrl}`;
+export const API_BASE_URL = rawApiBaseUrl;
 
 export const CASE_STATUS = {
   // Canonical lifecycle states (NEW - use these)
