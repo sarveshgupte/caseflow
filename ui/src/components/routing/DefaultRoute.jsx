@@ -11,11 +11,11 @@ import { Loading } from '../common/Loading';
 import { STORAGE_KEYS } from '../../utils/constants';
 
 export const DefaultRoute = () => {
-  const { isAuthenticated, loading, user } = useAuth();
+  const { isAuthenticated, loading, user, isHydrating } = useAuth();
   const { isSuperadmin } = usePermissions();
   const storedFirmSlug = localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
 
-  if (loading) {
+  if (loading || isHydrating) {
     return <Loading message="Loading..." />;
   }
 

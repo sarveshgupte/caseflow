@@ -1,13 +1,14 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { isSuperAdmin } from '../../utils/authUtils';
+import { Loading } from '../common/Loading';
 
 export const RootRedirect = () => {
   const { isAuthenticated, user, isHydrating } = useAuth();
 
   // Wait until auth hydration completes
   if (isHydrating) {
-    return null;
+    return <Loading message="Loading application..." />;
   }
 
   // Unauthenticated users go to login

@@ -165,6 +165,8 @@ export const AuthProvider = ({ children }) => {
         return { success: true, data: response.data };
       }
 
+      // Profile fetch returned unsuccessful response - clear auth state
+      resetAuthState();
       return { success: false, data: null };
     } catch (err) {
       // Fail fast on auth errors (401/403) to avoid hidden polling loops
@@ -172,8 +174,12 @@ export const AuthProvider = ({ children }) => {
       if (status === 401 || status === 403) {
         resetAuthState();
       }
+      // For network errors or other failures, still allow the app to continue
+      // The app will render login page since user state is null
       return { success: false, data: null, error: err };
     } finally {
+      // CRITICAL: Always set loading and hydrating to false
+      // This ensures the app can render the login page even if API is down
       setLoading(false);
       setIsHydrating(false);
     }
