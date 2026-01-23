@@ -4,10 +4,43 @@
 
 export const APP_NAME = 'Docketra';
 
-// Use VITE_API_URL if defined, otherwise fall back to relative path '/api'
-// In production (deployed), this ensures requests go to the correct relative URL
-// In development, vite.config.js proxy will forward /api to localhost:5000
-const rawApiBaseUrl = import.meta.env.VITE_API_URL || '/api';
+/**
+ * API Base URL Configuration with Runtime Validation
+ * 
+ * This app requires VITE_API_BASE_URL to be set in production deployments.
+ * 
+ * ⚠️ DEPLOYMENT REQUIREMENT:
+ * Set VITE_API_BASE_URL environment variable in your deployment platform (e.g., Render)
+ * 
+ * In development:
+ * - Can be set in .env file (optional)
+ * - If not set, falls back to '/api' which is proxied by vite.config.js to localhost:5000
+ * 
+ * In production:
+ * - MUST be explicitly set to your backend API URL
+ * - No silent fallbacks - will fail fast with clear error message
+ */
+const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+// Runtime validation: Fail fast if API base URL is missing in production
+if (!rawApiBaseUrl) {
+  const errorMessage = 
+    '❌ DEPLOYMENT ERROR: VITE_API_BASE_URL environment variable is not defined.\n\n' +
+    'This is a deployment misconfiguration.\n\n' +
+    'ACTION REQUIRED:\n' +
+    '1. Set VITE_API_BASE_URL in your deployment platform (e.g., Render)\n' +
+    '2. Rebuild and redeploy the application\n\n' +
+    'Example: VITE_API_BASE_URL=https://api.example.com/api';
+  
+  // Log to console for debugging
+  console.error(errorMessage);
+  
+  // Throw error to prevent silent failures
+  throw new Error('VITE_API_BASE_URL is not defined. Check console for details.');
+}
+
+// Log the resolved API base URL for verification (helpful for debugging deployments)
+console.info(`✓ Using API base URL: ${rawApiBaseUrl}`);
 
 export const API_BASE_URL = rawApiBaseUrl;
 
