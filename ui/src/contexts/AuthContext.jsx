@@ -183,7 +183,12 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setIsHydrating(true);
     try {
-      const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+      let accessToken = null;
+      try {
+        accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+      } catch (error) {
+        console.warn('[AUTH] Unable to access storage while fetching profile.', error);
+      }
       if (!accessToken) {
         resetAuthState();
         return { success: false, data: null };
@@ -236,9 +241,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async ({ preserveFirmSlug = false } = {}) => {
-    const firmSlugToPreserve = preserveFirmSlug
-      ? user?.firmSlug || localStorage.getItem(STORAGE_KEYS.FIRM_SLUG)
-      : null;
+    let firmSlugToPreserve = null;
+    if (preserveFirmSlug) {
+      try {
+        firmSlugToPreserve = user?.firmSlug || localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
+      } catch (error) {
+        console.warn('[AUTH] Unable to access storage during logout.', error);
+      }
+    }
 
     try {
       // Call backend logout endpoint
@@ -260,8 +270,12 @@ export const AuthProvider = ({ children }) => {
       const mergedUser = { ...prev, ...userData };
 
       // Only update firmSlug in localStorage as a routing hint
-      if (mergedUser.firmSlug) {
-        localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, mergedUser.firmSlug);
+      try {
+        if (mergedUser.firmSlug) {
+          localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, mergedUser.firmSlug);
+        }
+      } catch (error) {
+        console.warn('[AUTH] Unable to update storage while updating user.', error);
       }
 
       // Authentication = valid user identity + role
