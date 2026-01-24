@@ -17,7 +17,7 @@ export const adminService = {
    * Create new user (Admin only)
    */
   createUser: async (userData) => {
-    const response = await api.post('/auth/admin/users', userData);
+    const response = await api.post('/api/auth/admin/users', userData);
     return response.data;
   },
 
@@ -26,7 +26,7 @@ export const adminService = {
    */
   getUsers: async (params = {}) => {
     const queryParams = new URLSearchParams(params).toString();
-    const response = await api.get(`/auth/admin/users${queryParams ? '?' + queryParams : ''}`);
+    const response = await api.get(`/api/auth/admin/users${queryParams ? '?' + queryParams : ''}`);
     return response.data;
   },
 
@@ -42,7 +42,7 @@ export const adminService = {
    * Activate user (Admin only)
    */
   activateUser: async (xID) => {
-    const response = await api.put(`/auth/admin/users/${xID}/activate`);
+    const response = await api.put(`/api/auth/admin/users/${xID}/activate`);
     return response.data;
   },
 
@@ -50,7 +50,7 @@ export const adminService = {
    * Deactivate user (Admin only)
    */
   deactivateUser: async (xID) => {
-    const response = await api.put(`/auth/admin/users/${xID}/deactivate`);
+    const response = await api.put(`/api/auth/admin/users/${xID}/deactivate`);
     return response.data;
   },
 
@@ -58,7 +58,7 @@ export const adminService = {
    * Reset user password (Admin only)
    */
   resetPassword: async (xID) => {
-    const response = await api.post('/auth/reset-password', { xID });
+    const response = await api.post('/api/auth/reset-password', { xID });
     return response.data;
   },
 
@@ -75,7 +75,7 @@ export const adminService = {
    * Unlock user account (Admin only)
    */
   unlockAccount: async (xID) => {
-    const response = await api.post('/auth/unlock-account', { xID });
+    const response = await api.post('/api/auth/unlock-account', { xID });
     return response.data;
   },
 
