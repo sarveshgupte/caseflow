@@ -111,7 +111,11 @@ export const AuthProvider = ({ children }) => {
 
     // If token exists and user is not loaded, trigger hydration
     if (!user) {
-      fetchProfile();
+      fetchProfile().catch((error) => {
+        console.error('[AUTH] Profile hydration failed.', error);
+        setLoading(false);
+        setIsHydrating(false);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
