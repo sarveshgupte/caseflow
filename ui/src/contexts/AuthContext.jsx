@@ -92,7 +92,15 @@ export const AuthProvider = ({ children }) => {
     }
     bootHydrationAttemptedRef.current = true;
 
-    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    let token = null;
+    try {
+      token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    } catch (error) {
+      console.warn('[AUTH] Unable to access storage during hydration.', error);
+      setLoading(false);
+      setIsHydrating(false);
+      return;
+    }
 
     // If token exists and user is not loaded, trigger hydration
     if (token && !user) {
@@ -101,17 +109,22 @@ export const AuthProvider = ({ children }) => {
     }
 
     // No token → mark hydration complete immediately
+    setLoading(false);
     setIsHydrating(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const clearAuthStorage = useCallback((firmSlugToPreserve = null) => {
-    localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
-    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-    if (firmSlugToPreserve) {
-      localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlugToPreserve);
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+      if (firmSlugToPreserve) {
+        localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlugToPreserve);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
+      }
+    } catch (error) {
+      console.warn('[AUTH] Unable to update storage while clearing auth state.', error);
     }
   }, []);
 

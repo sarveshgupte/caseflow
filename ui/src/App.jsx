@@ -3,6 +3,7 @@
  */
 
 import React, { useEffect } from 'react';
+import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { Router } from './Router';
@@ -30,9 +31,11 @@ const AppBootstrap = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppBootstrap />
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <AppBootstrap />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 

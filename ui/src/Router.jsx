@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { RootRedirect } from './components/auth/RootRedirect';
 import { FirmLayout } from './components/routing/FirmLayout';
@@ -40,7 +40,6 @@ const LegacyFirmRedirect = () => {
 
 export const Router = () => {
   return (
-    <BrowserRouter>
       <Routes>
           {/* Public Login Routes */}
           <Route path="/login" element={<LoginPage />} />
@@ -175,6 +174,5 @@ export const Router = () => {
           <Route path="/:firmSlug/*" element={<LegacyFirmRedirect />} />
           <Route path="*" element={<DefaultRoute />} />
         </Routes>
-    </BrowserRouter>
   );
 };
