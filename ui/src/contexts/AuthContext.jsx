@@ -145,10 +145,14 @@ export const AuthProvider = ({ children }) => {
     const { firmSlug } = userData;
 
     // Only store firmSlug as a routing hint (optional)
-    if (firmSlug) {
-      localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlug);
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
+    try {
+      if (firmSlug) {
+        localStorage.setItem(STORAGE_KEYS.FIRM_SLUG, firmSlug);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.FIRM_SLUG);
+      }
+    } catch (error) {
+      console.warn('[AUTH] Unable to update storage while setting profile.', error);
     }
 
     // Set user state from API data only (never from localStorage)
