@@ -99,7 +99,7 @@ export const SetPasswordPage = () => {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = `${API_BASE_URL}/api/auth/google?flow=activation`;
+    window.location.href = `${API_BASE_URL}/auth/google?flow=activation`;
   };
 
   if (success) {

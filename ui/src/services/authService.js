@@ -18,7 +18,7 @@ export const authService = {
       password: password || ''
     };
     
-    const response = await api.post('/api/auth/login', payload);
+    const response = await api.post('/auth/login', payload);
     
     if (response.data.success) {
       const {
@@ -66,7 +66,7 @@ export const authService = {
       : null;
 
     try {
-      await api.post('/api/auth/logout');
+      await api.post('/auth/logout');
     } finally {
       localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
       localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
@@ -83,7 +83,7 @@ export const authService = {
    * Change password
    */
   changePassword: async (currentPassword, newPassword) => {
-    const response = await api.post('/api/auth/change-password', {
+    const response = await api.post('/auth/change-password', {
       currentPassword,
       newPassword,
     });
@@ -94,7 +94,7 @@ export const authService = {
    * Change password with xID (for users with mustChangePassword flag)
    */
   changePasswordWithXID: async (xID, currentPassword, newPassword) => {
-    const response = await api.post('/api/auth/change-password', {
+    const response = await api.post('/auth/change-password', {
       xID,
       currentPassword,
       newPassword,
@@ -106,7 +106,7 @@ export const authService = {
    * Set password using token from email
    */
   setPassword: async (token, password) => {
-    const response = await api.post('/api/auth/set-password', {
+    const response = await api.post('/auth/set-password', {
       token,
       password,
     });
@@ -117,7 +117,7 @@ export const authService = {
    * Forgot password - Request password reset email
    */
   forgotPassword: async (email) => {
-    const response = await api.post('/api/auth/forgot-password', {
+    const response = await api.post('/auth/forgot-password', {
       email,
     });
     return response.data;
@@ -127,7 +127,7 @@ export const authService = {
    * Reset password with token (for forgot password flow)
    */
   resetPasswordWithToken: async (token, password) => {
-    const response = await api.post('/api/auth/reset-password-with-token', {
+    const response = await api.post('/auth/reset-password-with-token', {
       token,
       password,
     });
@@ -138,7 +138,7 @@ export const authService = {
    * Get user profile
    */
   getProfile: async () => {
-    const response = await api.get('/api/auth/profile');
+    const response = await api.get('/auth/profile');
     return response.data;
   },
 
@@ -146,7 +146,7 @@ export const authService = {
    * Update user profile
    */
   updateProfile: async (profileData) => {
-    const response = await api.put('/api/auth/profile', profileData);
+    const response = await api.put('/auth/profile', profileData);
     // User data is managed by AuthContext, not localStorage
     return response.data;
   },
@@ -188,7 +188,7 @@ export const authService = {
       throw error;
     }
     
-    const response = await api.post('/api/auth/refresh', {
+    const response = await api.post('/auth/refresh', {
       refreshToken,
     });
     

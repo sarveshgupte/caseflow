@@ -89,7 +89,7 @@ export const FirmLoginPage = () => {
 
     try {
       // Login with firm context via API (not authService to include firmSlug)
-      const response = await api.post('/api/auth/login', {
+      const response = await api.post('/auth/login', {
         xID: identifier,
         password: password,
         firmSlug: firmSlug, // Include firm context
@@ -149,7 +149,7 @@ export const FirmLoginPage = () => {
   };
 
   const handleGoogleLogin = () => {
-    const url = `${API_BASE_URL}/api/auth/google${firmSlug ? `?firmSlug=${encodeURIComponent(firmSlug)}` : ''}`;
+    const url = `${API_BASE_URL}/auth/google${firmSlug ? `?firmSlug=${encodeURIComponent(firmSlug)}` : ''}`;
     window.location.href = url;
   };
 

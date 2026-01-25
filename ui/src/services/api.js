@@ -127,7 +127,7 @@ api.interceptors.response.use(
         }
         
         // Use the configured api instance for consistency
-        const response = await api.post('/api/auth/refresh', {
+        const response = await api.post('/auth/refresh', {
           refreshToken,
         });
         
