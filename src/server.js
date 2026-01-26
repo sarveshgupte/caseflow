@@ -274,6 +274,7 @@ app.get('/api', (req, res) => {
       search: '/api/search',
       worklists: '/api/worklists',
       auth: '/api/auth',
+      authPublic: '/auth',
       clientApproval: '/api/client-approval',
       clients: '/api/clients',
       reports: '/api/reports',
