@@ -274,6 +274,7 @@ app.get('/api', (req, res) => {
       search: '/api/search',
       worklists: '/api/worklists',
       auth: '/api/auth',
+      authPublic: '/auth',
       clientApproval: '/api/client-approval',
       clients: '/api/clients',
       reports: '/api/reports',
@@ -287,8 +288,12 @@ app.get('/api', (req, res) => {
 });
 
 // Authentication routes (public - login skips firm/transaction guards before write chain)
-app.post('/api/auth/login', noFirmNoTransaction);
-app.use('/api/auth', writeGuardChain, authRoutes);
+// Keep legacy /api/auth first for backward compatibility
+const authBasePaths = ['/api/auth', '/auth'];
+authBasePaths.forEach((basePath) => {
+  app.post(`${basePath}/login`, noFirmNoTransaction);
+  app.use(basePath, writeGuardChain, authRoutes);
+});
 
 // Public routes (no authentication required)
 app.use('/api/public', writeGuardChain, publicRoutes);
