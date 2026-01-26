@@ -288,7 +288,8 @@ app.get('/api', (req, res) => {
 });
 
 // Authentication routes (public - login skips firm/transaction guards before write chain)
-['/api/auth', '/auth'].forEach((basePath) => {
+const authBasePaths = ['/api/auth', '/auth'];
+authBasePaths.forEach((basePath) => {
   app.post(`${basePath}/login`, noFirmNoTransaction);
   app.use(basePath, writeGuardChain, authRoutes);
 });
