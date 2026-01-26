@@ -288,6 +288,7 @@ app.get('/api', (req, res) => {
 });
 
 // Authentication routes (public - login skips firm/transaction guards before write chain)
+// Keep legacy /api/auth first for backward compatibility
 const authBasePaths = ['/api/auth', '/auth'];
 authBasePaths.forEach((basePath) => {
   app.post(`${basePath}/login`, noFirmNoTransaction);
