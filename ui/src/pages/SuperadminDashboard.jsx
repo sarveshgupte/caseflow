@@ -11,7 +11,6 @@ import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { useToast } from '../hooks/useToast';
-import { STORAGE_KEYS, USER_ROLES } from '../utils/constants';
 import { formatDate, getFirmStatusInfo } from '../utils/formatters';
 import './SuperadminDashboard.css';
 
@@ -31,17 +30,6 @@ export const SuperadminDashboard = () => {
     email: '',
     xID: '',
   });
-
-  // Verify user is Superadmin
-  useEffect(() => {
-    if (!user) {
-      return;
-    }
-    if (user.role !== USER_ROLES.SUPER_ADMIN) {
-      const fallbackSlug = user.firmSlug || localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
-      navigate(fallbackSlug ? `/f/${fallbackSlug}/dashboard` : '/login', { replace: true });
-    }
-  }, [user, navigate]);
 
   // Load firms
   useEffect(() => {

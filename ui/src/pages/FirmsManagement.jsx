@@ -4,8 +4,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
 import { superadminService } from '../services/superadminService';
 import { SuperAdminLayout } from '../components/common/SuperAdminLayout';
 import { Card } from '../components/common/Card';
@@ -13,13 +11,10 @@ import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { Loading } from '../components/common/Loading';
 import { useToast } from '../hooks/useToast';
-import { STORAGE_KEYS, USER_ROLES } from '../utils/constants';
 import { formatDate, getFirmStatusInfo } from '../utils/formatters';
 import './FirmsManagement.css';
 
 export const FirmsManagement = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
   const toast = useToast();
   
   const [loading, setLoading] = useState(true);
@@ -31,17 +26,6 @@ export const FirmsManagement = () => {
     adminName: '',
     adminEmail: '',
   });
-
-  // Verify user is Superadmin
-  useEffect(() => {
-    if (!user) {
-      return;
-    }
-    if (user.role !== USER_ROLES.SUPER_ADMIN) {
-      const fallbackSlug = user.firmSlug || localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
-      navigate(fallbackSlug ? `/f/${fallbackSlug}/dashboard` : '/login', { replace: true });
-    }
-  }, [user, navigate]);
 
   // Load firms
   useEffect(() => {

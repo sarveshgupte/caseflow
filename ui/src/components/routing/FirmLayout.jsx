@@ -5,21 +5,16 @@
  */
 
 import React from 'react';
-import { Outlet, useParams, Navigate, useNavigate } from 'react-router-dom';
+import { Outlet, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Loading } from '../common/Loading';
 
 export const FirmLayout = () => {
   const { firmSlug } = useParams();
-  const navigate = useNavigate();
   const { user, loading, isAuthenticated } = useAuth();
 
   if (loading) {
     return <Loading message="Checking firm access..." />;
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to={`/f/${firmSlug}/login`} replace />;
   }
 
   // Validate that user's firmSlug matches URL firmSlug
@@ -32,9 +27,6 @@ export const FirmLayout = () => {
         <p style={{ marginTop: '0.5rem', color: '#4b5563' }}>
           Switch back to your firm dashboard to continue safely.
         </p>
-        <button onClick={() => navigate(`/f/${user.firmSlug}/dashboard`, { replace: true })}>
-          Go to your dashboard
-        </button>
       </div>
     );
   }

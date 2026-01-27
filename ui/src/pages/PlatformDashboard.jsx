@@ -5,17 +5,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
 import { superadminService } from '../services/superadminService';
 import { SuperAdminLayout } from '../components/common/SuperAdminLayout';
 import { Card } from '../components/common/Card';
 import { Loading } from '../components/common/Loading';
 import { useToast } from '../hooks/useToast';
-import { STORAGE_KEYS, USER_ROLES } from '../utils/constants';
 import './PlatformDashboard.css';
 
 export const PlatformDashboard = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   
@@ -32,27 +29,12 @@ export const PlatformDashboard = () => {
   const hasLoadedRef = useRef(false);
   const hasShownErrorRef = useRef(false);
 
-  // Verify user is Superadmin
-  useEffect(() => {
-    if (!user) {
-      return;
-    }
-    if (user.role !== USER_ROLES.SUPER_ADMIN) {
-      const fallbackSlug = user.firmSlug || localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
-      navigate(fallbackSlug ? `/f/${fallbackSlug}/dashboard` : '/login', { replace: true });
-    }
-  }, [user, navigate]);
-
   // Load platform stats once per dashboard load
   useEffect(() => {
-    if (user?.role === USER_ROLES.SUPER_ADMIN && !hasLoadedRef.current && !isFetchingRef.current) {
+    if (!hasLoadedRef.current && !isFetchingRef.current) {
       loadStats();
     }
-    if (user && user.role !== USER_ROLES.SUPER_ADMIN) {
-      // Release the loading state on non-superadmin redirects so guarded stats fetching can't block the UI.
-      setLoading(false);
-    }
-  }, [user?.role]);
+  }, []);
 
   const loadStats = async () => {
     if (isFetchingRef.current) {
