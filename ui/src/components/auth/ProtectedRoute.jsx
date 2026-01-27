@@ -20,7 +20,7 @@ const setAccessToast = (message) => {
 };
 
 export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadmin = false }) => {
-  const { isAuthenticated, loading, user, isHydrating } = useAuth();
+  const { isAuthenticated, isAuthResolved, user } = useAuth();
   const { isAdmin } = usePermissions();
   const { firmSlug } = useParams();
   const storedFirmSlug = localStorage.getItem(STORAGE_KEYS.FIRM_SLUG);
@@ -37,7 +37,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireSuperadm
   }
 
   // Wait for auth hydration to complete
-  if (loading || isHydrating) {
+  if (!isAuthResolved) {
     return <Loading message="Checking access..." />;
   }
 
