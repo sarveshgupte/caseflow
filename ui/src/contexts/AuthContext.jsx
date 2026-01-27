@@ -32,6 +32,7 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const bootHydrationAttemptedRef = useRef(false); // Guard against unintended re-runs
+  const profileFetchAttemptedRef = useRef(null); // Token-based guard for profile hydration
 
   /**
    * Post-login redirect logic - runs only after auth hydration completes.
@@ -147,6 +148,7 @@ export const AuthProvider = ({ children }) => {
     clearAuthStorage();
     setUser(null);
     setIsAuthenticated(false);
+    profileFetchAttemptedRef.current = null;
   }, [clearAuthStorage]);
 
   /**
@@ -180,20 +182,26 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const fetchProfile = useCallback(async () => {
+    let accessToken = null;
+    try {
+      accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    } catch (error) {
+      console.warn('[AUTH] Unable to access storage while fetching profile.', error);
+    }
+    if (!accessToken) {
+      resetAuthState();
+      return { success: false, data: null };
+    }
+
+    if (profileFetchAttemptedRef.current === accessToken) {
+      return { success: false, data: null };
+    }
+    profileFetchAttemptedRef.current = accessToken;
+
     setLoading(true);
     setIsHydrating(true);
-    try {
-      let accessToken = null;
-      try {
-        accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-      } catch (error) {
-        console.warn('[AUTH] Unable to access storage while fetching profile.', error);
-      }
-      if (!accessToken) {
-        resetAuthState();
-        return { success: false, data: null };
-      }
 
+    try {
       // Always fetch from API - no cached user fallback
       const response = await authService.getProfile();
 
@@ -208,8 +216,15 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       // Fail fast on auth errors (401/403) to avoid hidden polling loops
       const status = err?.response?.status;
+      if (status === 429) {
+        profileFetchAttemptedRef.current = null;
+        console.warn('[AUTH] Profile rate-limited; skipping retry.');
+        return { success: false, data: null, error: err };
+      }
       if (status === 401 || status === 403) {
         resetAuthState();
+      } else if (!status || status >= 500) {
+        profileFetchAttemptedRef.current = null;
       }
       // For network errors or other failures, still allow the app to continue
       // The app will render login page since user state is null
