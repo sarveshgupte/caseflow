@@ -306,6 +306,7 @@ app.use('/api/categories', writeGuardChain, categoryRoutes);
 app.use('/api/admin', authenticate, firmContext, invariantGuard({ requireFirm: true, forbidSuperAdmin: true }), writeGuardChain, requireAdmin, adminAuditTrail('admin'), adminRoutes);
 
 // Superadmin routes - platform scope only (no firm context)
+// Include legacy /superadmin to prevent SPA fallback when UI calls API without /api prefix.
 ['/api/sa', '/api/superadmin', '/superadmin'].forEach((basePath) => {
   app.use(basePath, authenticate, writeGuardChain, requireSuperadmin, adminAuditTrail('superadmin'), superadminRoutes);
 });
