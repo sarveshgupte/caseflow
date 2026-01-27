@@ -158,12 +158,17 @@ const sendTransactionalEmail = async ({ to, subject, html, text }) => {
  * Production: Use Brevo Transactional Email API
  * Development: Log to console only
  * @param {Object} mailOptions - Email options (to, subject, html, text)
+ * @param {Object} context - Request context for side-effect queueing (optional):
+ *   - _pendingSideEffects: Array to store pending effects
+ *   - transactionActive: boolean
+ *   - transactionCommitted: boolean
+ *   - requestId: string (for logging)
  * @returns {Promise<Object>} Result object with success status and messageId
  */
 const { enqueueAfterCommit } = require('./sideEffectQueue.service');
 const { allow, recordFailure, recordSuccess } = require('./circuitBreaker.service');
 
-const sendEmail = async (mailOptions, req = null) => {
+const sendEmail = async (mailOptions, context = null) => {
   const maskedEmail = maskEmail(mailOptions.to);
 
   const execute = async () => {
@@ -203,7 +208,7 @@ const sendEmail = async (mailOptions, req = null) => {
     }
   };
 
-  enqueueAfterCommit(req, {
+  enqueueAfterCommit(context, {
     type: 'SEND_EMAIL',
     payload: { to: maskedEmail, subject: mailOptions.subject },
     execute,
@@ -239,6 +244,7 @@ const hashToken = (token) => {
  * @param {string} options.xID - User's xID (for reference)
  * @param {string} [options.firmSlug] - Firm slug for firm-specific URL (optional)
  * @param {string} [options.frontendUrl] - Base URL of frontend application
+ * @param {Object} [options.context] - Request context for side-effect queueing
  * @returns {Promise<Object>} Result object with success status
  */
 const sendPasswordSetupEmail = async ({ 
@@ -248,7 +254,7 @@ const sendPasswordSetupEmail = async ({
   xID, 
   firmSlug = null, 
   frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000',
-  req = null,
+  context = null,
 }) => {
   const setupLink = `${frontendUrl}/set-password?token=${token}`;
   
@@ -322,7 +328,7 @@ Docketra Team
     subject,
     html: htmlContent,
     text: textContent,
-  }, req);
+  }, context);
 };
 
 /**
@@ -585,7 +591,7 @@ const sendOnce = async (key, fn) => {
  * @param {Object} data - Firm creation data
  * @returns {Promise<Object>} Result object
  */
-const sendFirmCreatedEmail = async (superadminEmail, data, req = null) => {
+const sendFirmCreatedEmail = async (superadminEmail, data, context = null) => {
   const key = `firm-created-${data.firmId}`;
   return await sendOnce(key, async () => {
     const subject = `Firm Created: ${data.firmName}`;
@@ -639,7 +645,7 @@ Docketra Platform
       subject,
       html: htmlContent,
       text: textContent,
-    }, req);
+    }, context);
   });
 };
 

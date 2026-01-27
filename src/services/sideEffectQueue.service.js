@@ -59,32 +59,50 @@ const enqueue = (effect) => {
   return normalized.id;
 };
 
-const attachRecorder = (req) => {
-  if (!req) return;
-  if (!req._pendingSideEffects) {
-    req._pendingSideEffects = [];
+/**
+ * Attach side-effect recorder to request context or Express req object
+ * @param {Object} reqOrContext - Express req or request context with _pendingSideEffects array
+ */
+const attachRecorder = (reqOrContext) => {
+  if (!reqOrContext) return;
+  if (!reqOrContext._pendingSideEffects) {
+    reqOrContext._pendingSideEffects = [];
   }
 };
 
-const enqueueAfterCommit = (req, effect) => {
-  if (!req) {
+/**
+ * Enqueue side effect to run after transaction commit
+ * @param {Object} reqOrContext - Express req or plain request context object with:
+ *   - _pendingSideEffects: Array to store pending effects
+ *   - transactionActive: boolean (optional)
+ *   - transactionCommitted: boolean (optional)
+ *   - requestId: string (optional, for logging)
+ * @param {Object} effect - Effect to enqueue
+ * @returns {string} Effect ID
+ */
+const enqueueAfterCommit = (reqOrContext, effect) => {
+  if (!reqOrContext) {
     return enqueue(effect);
   }
-  attachRecorder(req);
+  attachRecorder(reqOrContext);
   const normalized = normalizeEffect(effect);
-  req._pendingSideEffects.push(normalized);
+  reqOrContext._pendingSideEffects.push(normalized);
   return normalized.id;
 };
 
-const flushRequestEffects = (req) => {
-  if (!req?._pendingSideEffects?.length) return;
-  const shouldRun = !req.transactionActive || req.transactionCommitted;
+/**
+ * Flush pending side effects for a request context
+ * @param {Object} reqOrContext - Express req or request context
+ */
+const flushRequestEffects = (reqOrContext) => {
+  if (!reqOrContext?._pendingSideEffects?.length) return;
+  const shouldRun = !reqOrContext.transactionActive || reqOrContext.transactionCommitted;
   if (!shouldRun) {
-    log.warn('SIDE_EFFECT_SKIPPED_ROLLBACK', { requestId: req.requestId, count: req._pendingSideEffects.length });
-    req._pendingSideEffects = [];
+    log.warn('SIDE_EFFECT_SKIPPED_ROLLBACK', { requestId: reqOrContext.requestId, count: reqOrContext._pendingSideEffects.length });
+    reqOrContext._pendingSideEffects = [];
     return;
   }
-  const effects = req._pendingSideEffects.splice(0, req._pendingSideEffects.length);
+  const effects = reqOrContext._pendingSideEffects.splice(0, reqOrContext._pendingSideEffects.length);
   effects.forEach(enqueue);
 };
 

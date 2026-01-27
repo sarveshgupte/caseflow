@@ -88,12 +88,30 @@ const createFirm = async (req, res) => {
       });
     }
 
+    // Create a plain request context (no Express API leakage)
+    // This context is safe to pass to services and background jobs
+    const requestContext = {
+      requestId,
+      actorXID: req.user?.xID,
+      actorEmail: req.user?.email,
+      actorId: req.user?._id,
+      ip: req.ip,
+      // Side-effect queue properties (transferred from req)
+      _pendingSideEffects: req._pendingSideEffects || [],
+      transactionActive: req.transactionActive,
+      transactionCommitted: req.transactionCommitted,
+    };
+
     const result = await createFirmHierarchy({
       payload: req.body,
       performedBy: req.user,
       requestId,
-      req, // Pass req for email queueing
+      context: requestContext, // Pass context instead of req
     });
+
+    // Transfer side effects back to req for proper lifecycle management
+    req._pendingSideEffects = requestContext._pendingSideEffects;
+    req.transactionCommitted = true; // Mark as committed for email flush
 
     await logSuperadminAction({
       actionType: 'FirmCreated',
@@ -111,6 +129,10 @@ const createFirm = async (req, res) => {
       req,
     });
 
+    // Return 201 Created (SUCCESS case)
+    // Note: This endpoint must NEVER return 401 after successful authentication
+    // 401 is reserved for authentication failures only (missing/invalid token)
+    // Business logic errors use 400 (validation), 403 (authorization), 422 (semantic), or 500 (server error)
     return res.status(201).json({
       success: true,
       message: 'Firm created successfully with default client and admin. Admin credentials sent by email.',
@@ -144,6 +166,10 @@ const createFirm = async (req, res) => {
       requestId,
     });
   } catch (error) {
+    // Error handling: Never return 401 here - authentication already succeeded
+    // 401 is only for auth failures (handled by authenticate middleware)
+    // Business errors use: 400 (validation), 403 (forbidden), 409 (conflict), 422 (semantic), 500 (server)
+    
     if (error instanceof FirmBootstrapError && error.statusCode === 200 && error.meta?.idempotent) {
       const firm = error.meta.firm;
       return res.status(200).json({
@@ -167,6 +193,7 @@ const createFirm = async (req, res) => {
     }
 
     if (error instanceof FirmBootstrapError) {
+      // Use appropriate status code from error (400, 403, 409, 422, 500, 503)
       return res.status(error.statusCode || 500).json({
         success: false,
         message: error.message,
