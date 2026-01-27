@@ -13,14 +13,10 @@
  * The API is the single source of truth for user identity.
  */
 
-import React, { createContext, useState, useCallback, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { createContext, useState, useCallback, useRef } from 'react';
 import { authService } from '../services/authService';
 import { STORAGE_KEYS } from '../utils/constants';
 import { isSuperAdmin } from '../utils/authUtils';
-
-// Public routes that should trigger post-login redirects
-const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password', '/change-password', '/set-password'];
 
 export const AuthContext = createContext(null);
 
@@ -29,106 +25,8 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isHydrating, setIsHydrating] = useState(true); // Start true, boot effect will resolve it
-  const navigate = useNavigate();
-  const location = useLocation();
-  const bootHydrationAttemptedRef = useRef(false); // Guard against unintended re-runs
   const profileFetchAttemptedRef = useRef(null); // Token-based guard for profile hydration
-
-  /**
-   * Post-login redirect logic - runs only after auth hydration completes.
-   * This is the SINGLE place that handles routing after successful login.
-   * LoginPage does NOT control routing.
-   */
-  useEffect(() => {
-    // Only redirect after hydration completes and user is authenticated
-    if (isHydrating || !isAuthenticated || !user) {
-      return;
-    }
-
-    // Don't redirect if we're on a public route (login, password reset, etc)
-    const isOnPublicRoute = PUBLIC_ROUTES.some(route => location.pathname.startsWith(route)) || 
-                           location.pathname.match(/^\/f\/[^/]+\/login$/);
-    
-    if (!isOnPublicRoute) {
-      // Not on a public route, so we don't need to redirect
-      return;
-    }
-
-    // Determine target route based on user role
-    if (isSuperAdmin(user)) {
-      // Prevent redirect loop
-      if (location.pathname !== '/superadmin') {
-        navigate('/superadmin', { replace: true });
-      }
-      return;
-    }
-
-    // Firm users - redirect to their firm dashboard
-    if (user.firmSlug) {
-      const targetPath = `/f/${user.firmSlug}/dashboard`;
-      // Prevent redirect loop
-      if (location.pathname !== targetPath) {
-        navigate(targetPath, { replace: true });
-      }
-      return;
-    }
-  }, [isAuthenticated, user, isHydrating, navigate, location.pathname]);
-
-  /**
-   * Boot-time hydration effect.
-   * Runs ONCE on mount to auto-hydrate auth state when a valid token exists.
-   * This ensures isHydrating always eventually becomes false.
-   * 
-   * Uses both empty dependency array AND ref guard for maximum clarity:
-   * - Empty deps ensures React doesn't re-run on state changes
-   * - Ref guard provides additional safety against unintended re-runs
-   * - `user` is always `null` on initial mount (checked in condition)
-   * - `fetchProfile` is stable (useCallback) and doesn't need to trigger re-runs
-   * - We specifically want boot-time hydration only, not reactive hydration
-   */
-  useEffect(() => {
-    // Guard: only run once on initial mount
-    if (bootHydrationAttemptedRef.current) {
-      return;
-    }
-    bootHydrationAttemptedRef.current = true;
-
-    let token = null;
-    try {
-      token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-    } catch (error) {
-      console.warn('[AUTH] Unable to access storage during hydration.', error);
-      setLoading(false);
-      setIsHydrating(false);
-      return;
-    }
-
-    if (!token) {
-      // No token → mark hydration complete immediately
-      setLoading(false);
-      setIsHydrating(false);
-      return;
-    }
-
-    if (user) {
-      setLoading(false);
-      setIsHydrating(false);
-      return;
-    }
-
-    // If token exists and user is not loaded, trigger hydration
-    fetchProfile()
-      .catch((error) => {
-        console.error('[AUTH] Profile hydration failed.', error);
-        setUser(null);
-        setIsAuthenticated(false);
-      })
-      .finally(() => {
-        setLoading(false);
-        setIsHydrating(false);
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const authTokenRef = useRef(null); // Ensure auth is set once per access token
 
   const clearAuthStorage = useCallback((firmSlugToPreserve = null) => {
     try {
@@ -149,6 +47,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setIsAuthenticated(false);
     profileFetchAttemptedRef.current = null;
+    authTokenRef.current = null;
   }, [clearAuthStorage]);
 
   /**
@@ -178,7 +77,16 @@ export const AuthProvider = ({ children }) => {
     // Authentication = valid user identity + role
     // SuperAdmin users don't have firmSlug, so role is the source of truth
     const isAuth = !!userData && !!userData.role;
-    setIsAuthenticated(isAuth);
+    let accessToken = null;
+    try {
+      accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    } catch (error) {
+      console.warn('[AUTH] Unable to access storage while setting auth state.', error);
+    }
+    if (accessToken && authTokenRef.current !== accessToken) {
+      authTokenRef.current = accessToken;
+      setIsAuthenticated(isAuth);
+    }
   }, []);
 
   const fetchProfile = useCallback(async () => {
@@ -190,6 +98,8 @@ export const AuthProvider = ({ children }) => {
     }
     if (!accessToken) {
       resetAuthState();
+      setLoading(false);
+      setIsHydrating(false);
       return { success: false, data: null };
     }
 
@@ -216,15 +126,8 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       // Fail fast on auth errors (401/403) to avoid hidden polling loops
       const status = err?.response?.status;
-      if (status === 429) {
-        profileFetchAttemptedRef.current = null;
-        console.warn('[AUTH] Profile rate-limited; skipping retry.');
-        return { success: false, data: null, error: err };
-      }
       if (status === 401 || status === 403) {
         resetAuthState();
-      } else if (!status || status >= 500) {
-        profileFetchAttemptedRef.current = null;
       }
       // For network errors or other failures, still allow the app to continue
       // The app will render login page since user state is null
@@ -293,19 +196,18 @@ export const AuthProvider = ({ children }) => {
         console.warn('[AUTH] Unable to update storage while updating user.', error);
       }
 
-      // Authentication = valid user identity + role
-      // SuperAdmin users don't have firmSlug, so role is the source of truth
-      const isAuth = !!mergedUser && !!mergedUser.role;
-      setIsAuthenticated(isAuth);
       return mergedUser;
     });
   };
+
+  const isAuthResolved = !loading && !isHydrating;
 
   const value = {
     user,
     loading,
     isAuthenticated,
     isHydrating,
+    isAuthResolved,
     login,
     logout,
     fetchProfile,
