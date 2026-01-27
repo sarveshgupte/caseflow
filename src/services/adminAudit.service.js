@@ -31,8 +31,11 @@ const recordAdminAudit = async ({
   ipAddress,
   userAgent,
 }) => {
-  if (!actor || !firmId) {
-    throw new Error('[ADMIN_AUDIT] actor and firmId are required to record audit');
+  if (!actor) {
+    throw new Error('[ADMIN_AUDIT] actor is required to record audit');
+  }
+  if (!firmId) {
+    throw new Error('[ADMIN_AUDIT] firmId is required to record audit');
   }
   const entry = {
     actor,

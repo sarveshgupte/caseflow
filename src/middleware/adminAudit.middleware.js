@@ -19,11 +19,19 @@ const adminAuditTrail = (scope = 'admin') => (req, res, next) => {
   const target = resolveTarget(req);
   let finalized = false;
 
-  if (!req.user?.xID || !(req.firm?.id || req.user?.firmId)) {
+  if (!req.user?.xID) {
     return res.status(401).json({
       success: false,
       code: 'AUDIT_ACTOR_REQUIRED',
       message: 'Authenticated admin identity is required for audit logging.',
+      action: 'contact_admin',
+    });
+  }
+  if (!(req.firm?.id || req.user?.firmId)) {
+    return res.status(403).json({
+      success: false,
+      code: 'AUDIT_FIRM_CONTEXT_REQUIRED',
+      message: 'Firm context is required for audit logging.',
       action: 'contact_admin',
     });
   }

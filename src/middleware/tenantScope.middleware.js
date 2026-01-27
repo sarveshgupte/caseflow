@@ -14,10 +14,16 @@
  */
 const addTenantContext = (req, res, next) => {
   // Ensure user is authenticated
-  if (!req.user || !req.user.firmId) {
+  if (!req.user) {
     return res.status(401).json({
       success: false,
       message: 'Authentication required for tenant-scoped operations',
+    });
+  }
+  if (!req.user.firmId) {
+    return res.status(403).json({
+      success: false,
+      message: 'Firm context required for tenant-scoped operations',
     });
   }
   
