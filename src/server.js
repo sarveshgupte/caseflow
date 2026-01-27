@@ -4,6 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const connectDB = require('./config/database');
 const config = require('./config/config');
@@ -80,6 +81,13 @@ const inboundRoutes = require('./routes/inbound.routes');  // Inbound email rout
 const publicRoutes = require('./routes/public.routes');  // Public routes (firm lookup)
 const healthRoutes = require('./routes/health.routes');  // Health endpoints
 const mutatingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const superadminRouteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.xID || req.user?._id || req.ip || 'unknown',
+});
 const forceTransactionPaths = ['/google/callback', '/my-pending'];
 const writeGuardChain = (req, res, next) => {
   const shouldForceTransaction = forceTransactionPaths.some((path) => req.path && req.path.startsWith(path));
@@ -308,7 +316,7 @@ app.use('/api/admin', authenticate, firmContext, invariantGuard({ requireFirm: t
 // Superadmin routes - platform scope only (no firm context)
 // Include legacy /superadmin to prevent SPA fallback when UI calls API without /api prefix.
 ['/api/sa', '/api/superadmin', '/superadmin'].forEach((basePath) => {
-  app.use(basePath, authenticate, writeGuardChain, requireSuperadmin, adminAuditTrail('superadmin'), superadminRoutes);
+  app.use(basePath, authenticate, superadminRouteLimiter, writeGuardChain, adminAuditTrail('superadmin'), superadminRoutes);
 });
 
 // Debug routes (PR #43) - require authentication and admin role
