@@ -13,7 +13,7 @@
  * The API is the single source of truth for user identity.
  */
 
-import React, { createContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useState, useCallback, useEffect, useRef } from 'react';
 import { authService } from '../services/authService';
 import { STORAGE_KEYS } from '../utils/constants';
 import { isSuperAdmin } from '../utils/authUtils';
@@ -27,6 +27,33 @@ export const AuthProvider = ({ children }) => {
   const [isHydrating, setIsHydrating] = useState(true); // Start true, boot effect will resolve it
   const profileFetchAttemptedRef = useRef(null); // Token-based guard for profile hydration
   const authTokenRef = useRef(null); // Ensure auth is set once per access token
+
+  useEffect(() => {
+    let token = null;
+    try {
+      token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    } catch (error) {
+      console.warn('[AUTH] Unable to access storage during hydration.', error);
+      setLoading(false);
+      setIsHydrating(false);
+      return;
+    }
+
+    if (!token) {
+      setLoading(false);
+      setIsHydrating(false);
+      return;
+    }
+
+    fetchProfile()
+      .catch((error) => {
+        console.error('[AUTH] Profile hydration failed.', error);
+      })
+      .finally(() => {
+        setLoading(false);
+        setIsHydrating(false);
+      });
+  }, [fetchProfile]);
 
   const clearAuthStorage = useCallback((firmSlugToPreserve = null) => {
     try {
@@ -98,8 +125,6 @@ export const AuthProvider = ({ children }) => {
     }
     if (!accessToken) {
       resetAuthState();
-      setLoading(false);
-      setIsHydrating(false);
       return { success: false, data: null };
     }
 
@@ -107,9 +132,6 @@ export const AuthProvider = ({ children }) => {
       return { success: false, data: null };
     }
     profileFetchAttemptedRef.current = accessToken;
-
-    setLoading(true);
-    setIsHydrating(true);
 
     try {
       // Always fetch from API - no cached user fallback
@@ -133,10 +155,7 @@ export const AuthProvider = ({ children }) => {
       // The app will render login page since user state is null
       return { success: false, data: null, error: err };
     } finally {
-      // CRITICAL: Always set loading and hydrating to false
-      // This ensures the app can render the login page even if API is down
-      setLoading(false);
-      setIsHydrating(false);
+      // Hydration completion is handled by the boot-time effect.
     }
   }, [resetAuthState, setAuthFromProfile]);
 
