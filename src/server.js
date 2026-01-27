@@ -62,6 +62,7 @@ const metricsService = require('./services/metrics.service');
 const { adminAuditTrail } = require('./middleware/adminAudit.middleware');
 const requestLifecycle = require('./middleware/requestLifecycle.middleware');
 const { noFirmNoTransaction } = require('./middleware/noFirmNoTransaction.middleware');
+const optionsPreflight = require('./middleware/optionsPreflight.middleware');
 
 // Routes
 const userRoutes = require('./routes/users');
@@ -215,6 +216,9 @@ app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false
 }));
+
+// Handle CORS preflight requests before auth/transaction middleware
+app.use(optionsPreflight);
 
 // CORS Configuration
 const corsOptions = {

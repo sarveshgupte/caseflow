@@ -41,6 +41,9 @@ const getTokenFromCookies = (cookieHeader, name) => {
  */
 const authenticate = async (req, res, next) => {
   try {
+    if (req.method === 'OPTIONS') {
+      return next();
+    }
     const noteAuthFailure = () => metricsService.recordAuthFailure(req.originalUrl || req.url);
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;

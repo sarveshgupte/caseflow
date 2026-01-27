@@ -5,21 +5,27 @@ const { enqueueAfterCommit, attachRecorder, flushRequestEffects } = require('../
 
 const requestLifecycle = (req, res, next) => {
   const startTime = Date.now();
+  const rawPath = (req.originalUrl || req.url || '').split('?')[0];
+  const skipSideEffects = req.method === 'OPTIONS' || rawPath === '/auth/login' || rawPath === '/api/auth/login';
   if (!req.requestId) {
     req.requestId = randomUUID();
   }
   res.setHeader('X-Request-ID', req.requestId);
-  attachRecorder(req);
+  if (!skipSideEffects) {
+    attachRecorder(req);
+  }
 
   const finalize = (reason) => {
     if (res._lifecycleLogged) return;
     res._lifecycleLogged = true;
     const durationMs = Date.now() - startTime;
-    enqueueAfterCommit(req, {
-      type: 'METRICS_LATENCY',
-      payload: { route: req.originalUrl || req.url, durationMs },
-      execute: async () => metricsService.recordLatency(durationMs),
-    });
+    if (!skipSideEffects) {
+      enqueueAfterCommit(req, {
+        type: 'METRICS_LATENCY',
+        payload: { route: req.originalUrl || req.url, durationMs },
+        execute: async () => metricsService.recordLatency(durationMs),
+      });
+    }
     log.info('REQUEST_LIFECYCLE', {
       req,
       method: req.method,
@@ -33,7 +39,9 @@ const requestLifecycle = (req, res, next) => {
       lifecycleEnd: reason,
       transactionCommitted: !!req.transactionCommitted,
     });
-    setImmediate(() => flushRequestEffects(req));
+    if (!skipSideEffects) {
+      setImmediate(() => flushRequestEffects(req));
+    }
   };
 
   res.once('finish', () => finalize('finish'));

@@ -43,9 +43,35 @@ async function testLifecycleLogsOnce() {
   assert.strictEqual(lifecycleLogs[0].meta.transactionCommitted, false);
 }
 
+async function testLoginSkipsSideEffects() {
+  resetQueue();
+  const req = {
+    method: 'POST',
+    originalUrl: '/auth/login',
+    user: null,
+    firmId: null,
+  };
+  const logs = [];
+  const originalInfo = log.info;
+  log.info = (event, meta) => logs.push({ event, meta });
+  const res = new MockResponse();
+
+  lifecycle(req, res, () => {});
+  res.emit('finish');
+  res.emit('close');
+
+  log.info = originalInfo;
+
+  assert.strictEqual(req._pendingSideEffects, undefined, 'Login should not attach side effects');
+  const lifecycleLogs = logs.filter((l) => l.event === 'REQUEST_LIFECYCLE');
+  assert.strictEqual(lifecycleLogs.length, 1, 'Lifecycle log should still be recorded');
+  assert.strictEqual(lifecycleLogs[0].meta.transactionCommitted, false);
+}
+
 async function run() {
   try {
     await testLifecycleLogsOnce();
+    await testLoginSkipsSideEffects();
     console.log('Request lifecycle tests passed.');
   } catch (err) {
     console.error('Request lifecycle tests failed:', err);
