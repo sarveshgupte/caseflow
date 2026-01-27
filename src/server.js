@@ -281,6 +281,7 @@ app.get('/api', (req, res) => {
       categories: '/api/categories',
       admin: '/api/admin',
       superadmin: '/api/superadmin',
+      superadminLegacy: '/superadmin',
       debug: '/api/debug',
       inbound: '/api/inbound',
     },
