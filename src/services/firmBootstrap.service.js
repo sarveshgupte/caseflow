@@ -198,8 +198,8 @@ const createFirmHierarchy = async ({ payload, performedBy, requestId, req = null
       });
       console.log('[FIRM_BOOTSTRAP] Password setup email queued successfully');
     } catch (emailError) {
-      console.error('[FIRM_BOOTSTRAP] CRITICAL: Failed to send admin invite email:', emailError.message);
-      // Log but don't fail firm creation - email issues shouldn't block business logic
+      console.error('[FIRM_BOOTSTRAP] Failed to send admin invite email:', emailError.message);
+      // Email issues are logged but don't block firm creation - admin can be invited manually if needed
     }
 
     return {
